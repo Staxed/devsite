@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Staxed.dev</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="shell">
+    <div class="glow" aria-hidden="true"></div>
+    <div class="content">
+      <section>
+        <div class="tag">
+          <span class="tag-dot"></span>
+          Staxed · Developer · Crypto · AI Aficionado
+        </div>
+
+        <h1>
+          <span>dragons, dev, and experiments in one</span>
+        </h1>
+
+        <p class="subtitle">
+        I am a Creator blending AI, blockchain, and art to build tools, dragons, and digital worlds 🐉 | Focused on automation, design, imagination ... and whatever
+          else I’m breaking this week. A fuller site is coming soon; for now, start here.
+        </p>
+
+        <div class="links">
+          <a class="btn btn-primary" href="https://github.com/Staxed" target="_blank" rel="noopener noreferrer">
+            Projects & Repos
+          </a>
+          <a class="btn btn-x" href="https://x.com/StaxedAF" target="_blank" rel="noopener noreferrer">
+            Connect on X
+          </a>
+        </div>
+
+        <div class="footer-text">
+          <span class="accent">© <span id="year"></span> Staxed. All rights reserved.</span>
+        </div>
+      </section>
+
+      <aside class="avatar-wrap" aria-label="Staxed avatar">
+        <div class="avatar-blob" aria-hidden="true"></div>
+        <div class="avatar-orbit" aria-hidden="true"></div>
+        <div class="avatar">
+          <img src="assets/StaxedDragonAvatar.jpg" alt="Staxed dragon avatar" />
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+  </script>
+</body>
+</html>
