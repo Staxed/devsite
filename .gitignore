@@ -1,2 +1,20 @@
 
 .devcontainer/
+
+# dependencies
+node_modules/
+
+# next.js
+.next/
+next-env.d.ts
+*.tsbuildinfo
+
+# open-next / cloudflare
+.open-next/
+
+# environment
+.dev.vars
+.env.local
+
+# omc
+.omc/
