@@ -35,7 +35,7 @@ export const metadata: Metadata = {
     description:
       "Staxed - Developer, Crypto enthusiast, and AI Aficionado. Building tools, dragons, and digital worlds.",
     images: ["/assets/StaxedDragonAvatar.jpg"],
-    creator: "@StaxedAF",
+    creator: "@Staxed",
   },
   icons: {
     icon: "/assets/StaxedDragonAvatar.jpg",
@@ -71,7 +71,7 @@ export default function RootLayout({
               image: `${BASE_URL}/assets/StaxedDragonAvatar.jpg`,
               sameAs: [
                 "https://github.com/Staxed",
-                "https://x.com/StaxedAF",
+                "https://x.com/Staxed",
               ],
               jobTitle: "Developer",
               description:
