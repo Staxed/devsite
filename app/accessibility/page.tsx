@@ -81,7 +81,7 @@ export default function AccessibilityPage() {
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  Create a Github Issue
+                  Create a GitHub Issue
                   <span className="sr-only"> (opens in new tab)</span>
                 </a>
               </li>

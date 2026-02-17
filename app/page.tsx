@@ -43,8 +43,9 @@ export default function Home() {
             </a>
           </div>
 
-          <Footer />
         </section>
+
+        <Footer />
       </main>
 
       <Avatar />

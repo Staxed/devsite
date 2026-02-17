@@ -31,16 +31,19 @@ export default function PrivacyPage() {
 
             <h2>Information We Collect</h2>
             <p>
-              <strong>We do not collect any personal information.</strong> This
-              website is a static site that does not use:
+              <strong>We do not currently collect any personal information.</strong>{" "}
+              This website does not use:
             </p>
             <ul>
-              <li>Cookies or tracking technologies</li>
               <li>Analytics services</li>
               <li>Contact forms</li>
               <li>User accounts or registration</li>
               <li>Third-party data collection services</li>
             </ul>
+            <p>
+              As we add dynamic features, session cookies may be used for
+              authentication purposes. This policy will be updated accordingly.
+            </p>
 
             <h2>Server Logs</h2>
             <p>
