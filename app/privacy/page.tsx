@@ -5,6 +5,9 @@ import Shell from "@/components/shell";
 export const metadata: Metadata = {
   title: "Privacy Policy",
   description: "Privacy Policy for Staxed.dev",
+  alternates: {
+    canonical: "/privacy",
+  },
 };
 
 export default function PrivacyPage() {

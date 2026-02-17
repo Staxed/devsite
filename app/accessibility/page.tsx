@@ -5,6 +5,9 @@ import Shell from "@/components/shell";
 export const metadata: Metadata = {
   title: "Accessibility Statement",
   description: "Accessibility Statement for Staxed.dev",
+  alternates: {
+    canonical: "/accessibility",
+  },
 };
 
 export default function AccessibilityPage() {

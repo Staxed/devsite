@@ -10,6 +10,9 @@ export const metadata: Metadata = {
   description:
     "Staxed - Developer, Crypto enthusiast, and AI Aficionado. Building tools, dragons, and digital worlds.",
   metadataBase: new URL("https://staxed.dev"),
+  alternates: {
+    canonical: "/",
+  },
   openGraph: {
     type: "website",
     url: "https://staxed.dev/",
@@ -19,11 +22,14 @@ export const metadata: Metadata = {
     images: [
       {
         url: "/assets/StaxedDragonAvatar.jpg",
+        width: 260,
+        height: 260,
+        alt: "Staxed dragon avatar",
       },
     ],
   },
   twitter: {
-    card: "summary_large_image",
+    card: "summary",
     title: "Staxed.dev - Developer, Crypto, AI Aficionado",
     description:
       "Staxed - Developer, Crypto enthusiast, and AI Aficionado. Building tools, dragons, and digital worlds.",
@@ -36,6 +42,7 @@ export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
+    title: "Staxed",
     statusBarStyle: "black-translucent",
   },
 };
@@ -52,8 +59,6 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <link rel="preconnect" href="https://github.com" />
-        <link rel="preconnect" href="https://x.com" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
