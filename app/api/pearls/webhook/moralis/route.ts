@@ -1,0 +1,166 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient as createAnonClient } from '@supabase/supabase-js';
+import { SELLER_WALLETS, PAYOUT_WALLETS } from '@/lib/pearls/config';
+import { getTokenPrice } from '@/lib/pearls/coingecko';
+
+function getServiceClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) throw new Error('Missing Supabase service role config');
+  return createAnonClient(url, key);
+}
+
+const sellerAddresses = new Set(SELLER_WALLETS.map((w) => w.address.toLowerCase()));
+const payoutAddresses = new Set(PAYOUT_WALLETS.map((w) => w.address.toLowerCase()));
+
+async function verifySignature(body: string, signature: string): Promise<boolean> {
+  const secret = process.env.MORALIS_STREAM_SECRET;
+  if (!secret) return false;
+
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(body));
+  const computed = Array.from(new Uint8Array(sig))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+
+  return computed === signature.toLowerCase();
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const rawBody = await request.text();
+    const signature = request.headers.get('x-signature') ?? '';
+
+    const valid = await verifySignature(rawBody, signature);
+    if (!valid) {
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
+    }
+
+    const body = JSON.parse(rawBody);
+
+    // Skip unconfirmed transactions
+    if (!body.confirmed) {
+      return NextResponse.json({ status: 'skipped', reason: 'unconfirmed' });
+    }
+
+    const supabase = getServiceClient();
+    const chainId = body.chainId;
+    const chain = chainId === '0x89' ? 'polygon' : chainId === '0x2105' ? 'base' : null;
+
+    if (!chain) {
+      return NextResponse.json({ status: 'skipped', reason: 'unsupported chain' });
+    }
+
+    const nativeCurrency = chain === 'polygon' ? 'POL' : 'ETH';
+
+    // Process ERC1155 transfers
+    if (body.erc1155Transfers?.length) {
+      for (const transfer of body.erc1155Transfers) {
+        const fromAddr = transfer.from_address?.toLowerCase() ?? transfer.from?.toLowerCase();
+        const toAddr = transfer.to_address?.toLowerCase() ?? transfer.to?.toLowerCase();
+        const contractAddr = (transfer.contract_address ?? transfer.contract)?.toLowerCase();
+
+        // Find matching contract
+        const { data: contract } = await supabase
+          .from('contracts')
+          .select('id')
+          .eq('address', contractAddr)
+          .eq('chain', chain)
+          .single();
+
+        if (!contract) continue;
+
+        const isPurchase = sellerAddresses.has(fromAddr);
+        let nativeValue: number | null = null;
+        let usdValue: number | null = null;
+
+        if (isPurchase && transfer.value) {
+          // value is in wei
+          nativeValue = Number(transfer.value) / 1e18;
+          try {
+            const blockDate = new Date(body.block.timestamp * 1000);
+            const price = await getTokenPrice(nativeCurrency, blockDate);
+            usdValue = nativeValue * price;
+          } catch {
+            // Price lookup failed, leave null
+          }
+        }
+
+        await supabase.from('nft_transfers').upsert(
+          {
+            contract_id: contract.id,
+            tx_hash: transfer.transaction_hash ?? transfer.transactionHash,
+            log_index: Number(transfer.log_index ?? transfer.logIndex ?? 0),
+            block_number: Number(body.block.number),
+            from_address: fromAddr,
+            to_address: toAddr,
+            token_id: transfer.token_id ?? transfer.tokenId ?? '0',
+            quantity: Number(transfer.amount ?? transfer.value ?? 1),
+            is_purchase: isPurchase,
+            native_value: nativeValue,
+            native_currency: isPurchase ? nativeCurrency : null,
+            usd_value: usdValue,
+            timestamp: new Date(body.block.timestamp * 1000).toISOString(),
+          },
+          { onConflict: 'tx_hash,log_index' }
+        );
+      }
+    }
+
+    // Process native transfers (for payouts)
+    if (body.nativeTransfers?.length) {
+      for (const transfer of body.nativeTransfers) {
+        const fromAddr = transfer.from_address?.toLowerCase() ?? transfer.from?.toLowerCase();
+        const toAddr = transfer.to_address?.toLowerCase() ?? transfer.to?.toLowerCase();
+
+        if (!payoutAddresses.has(fromAddr)) continue;
+
+        // Find matching payout wallet
+        const { data: payoutWallet } = await supabase
+          .from('payout_wallets')
+          .select('id')
+          .eq('address', fromAddr)
+          .single();
+
+        if (!payoutWallet) continue;
+
+        const amount = Number(transfer.value) / 1e18;
+        let usdValue: number | null = null;
+
+        try {
+          const blockDate = new Date(body.block.timestamp * 1000);
+          const price = await getTokenPrice(nativeCurrency, blockDate);
+          usdValue = amount * price;
+        } catch {
+          // Price lookup failed
+        }
+
+        await supabase.from('payout_transfers').upsert(
+          {
+            payout_wallet_id: payoutWallet.id,
+            to_address: toAddr,
+            amount,
+            native_currency: nativeCurrency,
+            usd_value: usdValue,
+            tx_hash: transfer.transaction_hash ?? transfer.hash,
+            block_number: Number(body.block.number),
+            timestamp: new Date(body.block.timestamp * 1000).toISOString(),
+          },
+          { onConflict: 'tx_hash' }
+        );
+      }
+    }
+
+    return NextResponse.json({ status: 'ok' });
+  } catch (err) {
+    console.error('Webhook error:', err);
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+  }
+}
