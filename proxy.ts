@@ -44,7 +44,7 @@ export async function proxy(request: NextRequest) {
   try {
     await supabase.auth.getUser();
   } catch {
-    // Prevent auth failures from crashing middleware
+    // Prevent auth failures from crashing proxy
   }
 
   return supabaseResponse;
