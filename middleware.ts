@@ -1,7 +1,7 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-export async function proxy(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -44,7 +44,7 @@ export async function proxy(request: NextRequest) {
   try {
     await supabase.auth.getUser();
   } catch {
-    // Prevent auth failures from crashing proxy
+    // Prevent auth failures from crashing middleware
   }
 
   return supabaseResponse;
