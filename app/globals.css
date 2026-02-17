@@ -606,6 +606,15 @@ main ul a:focus-visible {
   margin-bottom: 0.75rem;
 }
 
+.pearls-section h3 {
+  font-size: 1.05rem;
+  margin-bottom: 0.5rem;
+}
+
+.pearls-section {
+  margin-top: 0.5rem;
+}
+
 /* Currency Selector */
 .pearls-currency-select {
   background: rgba(15, 23, 42, 0.9);
@@ -763,6 +772,11 @@ main ul a:focus-visible {
 .pearls-stat-value {
   font-size: 1.25rem;
   font-weight: 600;
+}
+
+.pearls-stat-sub {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
 }
 
 /* Break-even meter */
