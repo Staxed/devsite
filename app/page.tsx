@@ -6,7 +6,7 @@ import Footer from "@/components/footer";
 export default function Home() {
   return (
     <Shell>
-      <main id="main-content">
+      <main id="main-content" tabIndex={-1}>
         <section>
           <Tag />
 
@@ -30,6 +30,7 @@ export default function Home() {
               rel="noopener noreferrer"
             >
               Projects &amp; Repos
+              <span className="sr-only"> (opens in new tab)</span>
             </a>
             <a
               className="btn btn-x"
@@ -38,6 +39,7 @@ export default function Home() {
               rel="noopener noreferrer"
             >
               Connect on X
+              <span className="sr-only"> (opens in new tab)</span>
             </a>
           </div>
 

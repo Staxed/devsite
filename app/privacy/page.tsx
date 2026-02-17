@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 export default function PrivacyPage() {
   return (
     <Shell>
-      <main id="main-content">
+      <main id="main-content" tabIndex={-1}>
         <section>
           <h1>Privacy Policy</h1>
 

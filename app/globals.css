@@ -43,7 +43,7 @@ body {
   padding: 0;
   margin: -1px;
   overflow: hidden;
-  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
   white-space: nowrap;
   border: 0;
 }
@@ -115,10 +115,6 @@ body {
 .content section {
   display: flex;
   flex-direction: column;
-}
-
-.content *:focus-visible {
-  position: relative;
 }
 
 /* When main is the only child (legal pages), span full width */
@@ -199,8 +195,10 @@ h1 {
 section ul a,
 main ul a {
   color: var(--color-accent-sky);
-  text-decoration: none;
-  transition: color 0.2s ease, text-decoration 0.2s ease;
+  text-decoration: underline;
+  text-decoration-color: rgba(34, 211, 238, 0.4);
+  text-underline-offset: 2px;
+  transition: color 0.2s ease, text-decoration-color 0.2s ease;
 }
 
 section ul a:hover,
@@ -349,6 +347,10 @@ main ul a:focus-visible {
   color: var(--color-text-muted);
   text-decoration: none;
   transition: color 0.2s ease;
+  padding: 4px 0;
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
 }
 
 .footer-links a:hover,
@@ -522,6 +524,26 @@ main ul a:focus-visible {
    Print Styles
    ============================================ */
 @media print {
+  html {
+    background: #fff;
+  }
+
+  body,
+  h1,
+  p,
+  .subtitle,
+  .tag,
+  .footer-text {
+    color: #000;
+  }
+
+  .gradient-text {
+    background: none;
+    -webkit-background-clip: initial;
+    background-clip: initial;
+    color: #000;
+  }
+
   .shell-glow,
   .avatar-blob-bg,
   .avatar-orbit {
@@ -531,6 +553,7 @@ main ul a:focus-visible {
   .shell {
     box-shadow: none;
     border: 1px solid #000;
+    background: #fff;
   }
 
   .btn {

@@ -1,10 +1,8 @@
-"use client";
-
 import Link from "next/link";
 
 export default function Footer() {
   return (
-    <div className="footer-text">
+    <footer className="footer-text">
       <span className="text-footer-accent">
         &copy; {new Date().getFullYear()} Staxed. All rights reserved.
       </span>
@@ -13,6 +11,6 @@ export default function Footer() {
         <span aria-hidden="true">&middot;</span>
         <Link href="/accessibility">Accessibility</Link>
       </nav>
-    </div>
+    </footer>
   );
 }

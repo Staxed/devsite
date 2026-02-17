@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 export default function AccessibilityPage() {
   return (
     <Shell>
-      <main id="main-content">
+      <main id="main-content" tabIndex={-1}>
         <section>
           <h1>Accessibility Statement</h1>
 
@@ -79,6 +79,7 @@ export default function AccessibilityPage() {
                   rel="noopener noreferrer"
                 >
                   Create a Github Issue
+                  <span className="sr-only"> (opens in new tab)</span>
                 </a>
               </li>
               <li>
@@ -89,6 +90,7 @@ export default function AccessibilityPage() {
                   rel="noopener noreferrer"
                 >
                   @StaxedAF
+                  <span className="sr-only"> (opens in new tab)</span>
                 </a>
               </li>
               <li>
