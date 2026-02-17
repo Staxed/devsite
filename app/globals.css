@@ -817,20 +817,33 @@ main ul a:focus-visible {
 }
 
 /* Homepage Pearls link */
+.home-wrapper {
+  width: 100%;
+  max-width: 880px;
+}
+
 .pearls-link-wrap {
   text-align: right;
-  padding-top: 0.75rem;
+  padding-top: 4px;
+  padding-right: 3rem;
+  position: relative;
+  z-index: 1;
 }
 
 .pearls-link {
-  color: var(--color-text-muted);
-  font-size: 0.8rem;
+  font-size: 0.875rem;
   text-decoration: none;
-  transition: color 0.2s;
+  background: linear-gradient(135deg, #4dd0e1, #67e8f9);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .pearls-link:hover {
-  color: var(--color-accent-gold);
+  background: linear-gradient(135deg, var(--color-accent-gold), var(--color-accent-orange));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 /* Dashboard styles */
