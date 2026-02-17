@@ -9,9 +9,10 @@ export default function Avatar() {
         <Image
           src="/assets/StaxedDragonAvatar.jpg"
           alt="Staxed dragon avatar"
-          width={260}
-          height={260}
-          priority={false}
+          fill
+          priority
+          sizes="(max-width: 480px) 200px, (max-width: 780px) 220px, 260px"
+          style={{ objectFit: "cover" }}
         />
       </div>
     </aside>

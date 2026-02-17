@@ -1,4 +1,6 @@
-export default function Shell({ children }: { children: React.ReactNode }) {
+import type { ReactNode } from "react";
+
+export default function Shell({ children }: { children: ReactNode }) {
   return (
     <div className="shell">
       <div className="shell-glow" aria-hidden="true" />
