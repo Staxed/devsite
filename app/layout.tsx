@@ -23,8 +23,8 @@ export const metadata: Metadata = {
     images: [
       {
         url: "/assets/StaxedDragonAvatar.jpg",
-        width: 260,
-        height: 260,
+        width: 1024,
+        height: 1024,
         alt: "Staxed dragon avatar",
       },
     ],
