@@ -1,0 +1,540 @@
+@import "tailwindcss";
+
+@theme {
+  --color-accent-gold: #fbbf24;
+  --color-accent-orange: #f97316;
+  --color-accent-sky: #22d3ee;
+  --color-accent-pink: #fb7185;
+  --color-text-main: #e5e7eb;
+  --color-text-muted: #b8c5d1;
+  --color-border-soft: rgba(148, 163, 184, 0.45);
+  --color-bg-dark: #020617;
+  --color-footer-accent: #4dd0e1;
+
+  --breakpoint-sm: 481px;
+  --breakpoint-md: 781px;
+  --breakpoint-lg: 1024px;
+}
+
+/* ============================================
+   Base Styles
+   ============================================ */
+html {
+  height: 100%;
+  background: #000;
+  background: radial-gradient(circle at top, #1e293b 0, #020617 50%, #000000 100%);
+  background-attachment: fixed;
+}
+
+body {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ============================================
+   Skip Link (Accessibility)
+   ============================================ */
+.skip-link {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-link:focus {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: auto;
+  height: auto;
+  padding: 8px 16px;
+  margin: 0;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+  background: #000;
+  color: #fff;
+  min-height: 24px;
+  text-decoration: none;
+  z-index: 1000;
+  border: 2px solid var(--color-accent-sky);
+  outline: 2px solid #22d3ee;
+  outline-offset: 2px;
+}
+
+/* ============================================
+   Shell Container
+   ============================================ */
+.shell {
+  width: 100%;
+  max-width: 880px;
+  background: rgba(15, 23, 42, 0.98);
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.98), rgba(2, 6, 23, 0.98));
+  border-radius: 1.75rem;
+  border: 1px solid var(--color-border-soft);
+  box-shadow: 0 28px 60px rgba(0, 0, 0, 0.9), 0 0 40px rgba(34, 211, 238, 0.2);
+  position: relative;
+  overflow: hidden;
+  margin: 0 auto;
+  margin-top: auto;
+  margin-bottom: auto;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.shell-glow {
+  position: absolute;
+  inset: -40%;
+  background: radial-gradient(circle at 10% 0%, rgba(248, 250, 252, 0.15), transparent 55%),
+    radial-gradient(circle at 80% 10%, rgba(34, 211, 238, 0.2), transparent 55%),
+    radial-gradient(circle at 90% 80%, rgba(249, 115, 22, 0.35), transparent 60%);
+  opacity: 0.75;
+  pointer-events: none;
+}
+
+/* ============================================
+   Content Layout
+   ============================================ */
+.content {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+  padding: 1.5rem 1.25rem;
+  align-items: center;
+}
+
+.content section {
+  display: flex;
+  flex-direction: column;
+}
+
+.content *:focus-visible {
+  position: relative;
+}
+
+/* When main is the only child (legal pages), span full width */
+.content > main:only-child {
+  grid-column: 1 / -1;
+}
+
+/* ============================================
+   Tag Component
+   ============================================ */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.7);
+  background-color: rgba(15, 23, 42, 0.9);
+  font-size: 0.75rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  margin-bottom: 1rem;
+}
+
+.tag-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #22c55e;
+  background: radial-gradient(circle, #22c55e 0, #15803d 45%, #052e16 100%);
+}
+
+.tag-dot-glow {
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.9);
+}
+
+/* ============================================
+   Typography
+   ============================================ */
+h1 {
+  font-size: clamp(1.75rem, 5vw, 2.5rem);
+  line-height: 1.1;
+  margin-bottom: 0.75rem;
+}
+
+.gradient-text {
+  background: linear-gradient(
+    to right,
+    var(--color-accent-gold),
+    var(--color-accent-orange),
+    var(--color-accent-pink)
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 0 0 rgba(251, 191, 36, 0.3);
+}
+
+@supports not (background-clip: text) {
+  .gradient-text {
+    color: var(--color-accent-gold);
+    background: none;
+  }
+}
+
+.subtitle {
+  font-size: 0.95rem;
+  color: var(--color-text-muted);
+  line-height: 1.65;
+  max-width: 100%;
+  margin-bottom: 1.25rem;
+}
+
+/* ============================================
+   Links & Buttons
+   ============================================ */
+section ul a,
+main ul a {
+  color: var(--color-accent-sky);
+  text-decoration: none;
+  transition: color 0.2s ease, text-decoration 0.2s ease;
+}
+
+section ul a:hover,
+main ul a:hover,
+section ul a:focus,
+main ul a:focus {
+  color: var(--color-accent-gold);
+  text-decoration: underline;
+  text-decoration-color: var(--color-accent-gold);
+}
+
+section ul a:focus-visible,
+main ul a:focus-visible {
+  outline: 2px solid var(--color-accent-sky);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1.6rem;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1.25rem;
+  min-height: 24px;
+  min-width: 24px;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  text-decoration: none;
+  border: 1px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease,
+    border-color 0.12s ease;
+  position: relative;
+  z-index: 10;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--color-accent-sky);
+  outline-offset: 2px;
+  z-index: 100;
+}
+
+.btn-primary-gradient {
+  background: #fbbf24;
+  background: linear-gradient(135deg, var(--color-accent-gold), var(--color-accent-orange));
+  color: #0b1120;
+  font-weight: 600;
+  box-shadow: 0 14px 35px rgba(0, 0, 0, 0.85), 0 0 30px rgba(249, 115, 22, 0.7);
+}
+
+.btn-primary-gradient:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.9), 0 0 40px rgba(249, 115, 22, 0.8);
+}
+
+.btn-primary-gradient:focus-visible {
+  outline: 2px solid var(--color-accent-sky);
+  outline-offset: 2px;
+  z-index: 100;
+  box-shadow: 0 14px 35px rgba(0, 0, 0, 0.85), 0 0 30px rgba(249, 115, 22, 0.7),
+    0 0 0 2px rgba(34, 211, 238, 0.5);
+}
+
+.btn-x {
+  background-color: #000000;
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.2);
+  font-weight: 500;
+}
+
+.btn-x:hover {
+  background-color: #16181c;
+  transform: translateY(-1px);
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 12px 25px rgba(0, 0, 0, 0.5);
+}
+
+.btn-x:focus-visible {
+  outline: 2px solid var(--color-accent-sky);
+  outline-offset: 2px;
+  z-index: 100;
+  border-color: rgba(34, 211, 238, 0.8);
+  box-shadow: 0 12px 25px rgba(0, 0, 0, 0.5), 0 0 0 2px rgba(34, 211, 238, 0.5);
+}
+
+/* ============================================
+   Legal Pages Content
+   ============================================ */
+.legal-content {
+  max-width: 800px;
+  line-height: 1.8;
+}
+
+.legal-content h2 {
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+  font-size: 1.5rem;
+}
+
+.legal-content ul {
+  margin-left: 2rem;
+  margin-top: 0.5rem;
+}
+
+.legal-content .back-link-container {
+  margin-top: 3rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--color-border-soft);
+}
+
+/* ============================================
+   Footer
+   ============================================ */
+.footer-text {
+  font-size: 0.8rem;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 0;
+  margin-bottom: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  border: none;
+}
+
+.footer-links {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+}
+
+.footer-links a {
+  color: var(--color-text-muted);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.footer-links a:hover,
+.footer-links a:focus {
+  color: var(--color-accent-sky);
+  text-decoration: underline;
+}
+
+.footer-links a:focus-visible {
+  outline: 2px solid var(--color-accent-sky);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* ============================================
+   Avatar Section
+   ============================================ */
+.avatar-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  order: -1;
+  margin-bottom: 1rem;
+}
+
+.avatar-orbit {
+  position: absolute;
+  inset: 8%;
+  border-radius: 999px;
+  border: 1px dashed rgba(148, 163, 184, 0.5);
+  border-top-color: rgba(56, 189, 248, 0.9);
+  border-right-color: rgba(249, 115, 22, 0.9);
+  transform: rotate(-8deg);
+  opacity: 0.8;
+}
+
+.avatar-blob-bg {
+  position: absolute;
+  width: 70%;
+  height: 70%;
+  border-radius: 999px;
+  background: rgba(251, 191, 36, 0.35);
+  background: radial-gradient(circle at 20% 0%, rgba(251, 191, 36, 0.35), transparent 60%),
+    radial-gradient(circle at 80% 90%, rgba(56, 189, 248, 0.3), transparent 65%);
+  filter: blur(2px);
+  opacity: 0.9;
+}
+
+.avatar-gradient-bg {
+  position: relative;
+  width: 100%;
+  max-width: 200px;
+  aspect-ratio: 1 / 1;
+  border-radius: 999px;
+  overflow: hidden;
+  border: 3px solid rgba(248, 250, 252, 0.9);
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.9), 0 0 40px rgba(249, 115, 22, 0.8),
+    0 0 60px rgba(56, 189, 248, 0.7);
+  background: #0f172a;
+  background: radial-gradient(circle at 50% 0%, #f97316, #0f172a);
+}
+
+.avatar-gradient-bg img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* ============================================
+   Tablet Styles (481px+)
+   ============================================ */
+@media screen and (min-width: 481px) {
+  .content {
+    padding: 1.75rem 1.5rem;
+    gap: 1.75rem;
+  }
+
+  .subtitle {
+    font-size: 0.98rem;
+  }
+
+  .links {
+    gap: 0.9rem;
+  }
+
+  .btn {
+    padding: 0.75rem 1.4rem;
+  }
+
+  .avatar-gradient-bg {
+    max-width: 220px;
+  }
+}
+
+/* ============================================
+   Desktop Styles (781px+)
+   ============================================ */
+@media screen and (min-width: 781px) {
+  .content {
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.2fr);
+    gap: 2.2rem;
+    padding: 2.3rem 2.4rem 2.4rem;
+    align-items: center;
+  }
+
+  .avatar-wrap {
+    order: 0;
+    margin-bottom: 0;
+  }
+
+  .avatar-gradient-bg {
+    max-width: 260px;
+  }
+
+  .subtitle {
+    max-width: 34rem;
+    margin-bottom: 1.6rem;
+  }
+
+  .tag {
+    margin-bottom: 1.2rem;
+  }
+
+  h1 {
+    margin-bottom: 0.9rem;
+  }
+
+  .links {
+    gap: 0.9rem;
+    margin-bottom: 1.6rem;
+  }
+}
+
+/* ============================================
+   Large Desktop (1024px+)
+   ============================================ */
+@media screen and (min-width: 1024px) {
+  .shell {
+    box-shadow: 0 28px 60px rgba(0, 0, 0, 0.9), 0 0 40px rgba(34, 211, 238, 0.2);
+  }
+}
+
+/* ============================================
+   Retina Display
+   ============================================ */
+@media screen and (-webkit-min-device-pixel-ratio: 2), screen and (min-resolution: 192dpi) {
+  .avatar-gradient-bg img {
+    image-rendering: crisp-edges;
+  }
+}
+
+/* ============================================
+   Reduced Motion (Accessibility)
+   ============================================ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ============================================
+   Print Styles
+   ============================================ */
+@media print {
+  .shell-glow,
+  .avatar-blob-bg,
+  .avatar-orbit {
+    display: none;
+  }
+
+  .shell {
+    box-shadow: none;
+    border: 1px solid #000;
+  }
+
+  .btn {
+    border: 1px solid #000;
+    color: #000;
+  }
+}
