@@ -18,10 +18,15 @@ export default function manifest(): MetadataRoute.Manifest {
         purpose: "any",
       },
       {
-        src: "/assets/StaxedDragonAvatar.jpg",
+        src: "/assets/StaxedDragonAvatar512.jpg",
         sizes: "512x512",
         type: "image/jpeg",
         purpose: "maskable",
+      },
+      {
+        src: "/assets/StaxedDragonAvatar192.jpg",
+        sizes: "192x192",
+        type: "image/jpeg",
       },
     ],
   };
