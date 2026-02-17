@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createAnonClient } from '@supabase/supabase-js';
-import { SELLER_WALLETS, PAYOUT_WALLETS } from '@/lib/pearls/config';
 import { getTokenPrice } from '@/lib/pearls/coingecko';
 
 function getServiceClient() {
@@ -10,8 +9,15 @@ function getServiceClient() {
   return createAnonClient(url, key);
 }
 
-const sellerAddresses = new Set(SELLER_WALLETS.map((w) => w.address.toLowerCase()));
-const payoutAddresses = new Set(PAYOUT_WALLETS.map((w) => w.address.toLowerCase()));
+async function loadSellerAddresses(supabase: ReturnType<typeof getServiceClient>): Promise<Set<string>> {
+  const { data } = await supabase.from('seller_wallets').select('address');
+  return new Set((data ?? []).map((w) => w.address.toLowerCase()));
+}
+
+async function loadPayoutAddresses(supabase: ReturnType<typeof getServiceClient>): Promise<Set<string>> {
+  const { data } = await supabase.from('payout_wallets').select('address');
+  return new Set((data ?? []).map((w) => w.address.toLowerCase()));
+}
 
 async function verifySignature(body: string, signature: string): Promise<boolean> {
   const secret = process.env.MORALIS_STREAM_SECRET;
@@ -59,6 +65,12 @@ export async function POST(request: NextRequest) {
     }
 
     const nativeCurrency = chain === 'polygon' ? 'POL' : 'ETH';
+
+    // Load seller/payout addresses from DB
+    const [sellerAddresses, payoutAddresses] = await Promise.all([
+      loadSellerAddresses(supabase),
+      loadPayoutAddresses(supabase),
+    ]);
 
     // Process ERC1155 transfers
     if (body.erc1155Transfers?.length) {
