@@ -41,7 +41,11 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  await supabase.auth.getUser();
+  try {
+    await supabase.auth.getUser();
+  } catch {
+    // Prevent auth failures from crashing middleware
+  }
 
   return supabaseResponse;
 }
