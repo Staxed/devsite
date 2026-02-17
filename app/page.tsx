@@ -18,8 +18,7 @@ export default function Home() {
           <p className="subtitle">
             I am a Creator blending AI, blockchain, and art to build tools,
             dragons, and digital worlds 🐉 | Focused on automation, design,
-            imagination ... and whatever else I&apos;m breaking this week. A
-            fuller site is coming soon; for now, start here.
+            imagination ... and whatever else I&apos;m breaking this week.
           </p>
 
           <div className="links">
@@ -34,7 +33,7 @@ export default function Home() {
             </a>
             <a
               className="btn btn-x"
-              href="https://x.com/StaxedAF"
+              href="https://x.com/Staxed"
               target="_blank"
               rel="noopener noreferrer"
             >
