@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import SkipLink from "@/components/skip-link";
+import { BASE_URL } from "@/lib/constants";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -9,13 +10,13 @@ export const metadata: Metadata = {
   },
   description:
     "Staxed - Developer, Crypto enthusiast, and AI Aficionado. Building tools, dragons, and digital worlds.",
-  metadataBase: new URL("https://staxed.dev"),
+  metadataBase: new URL(BASE_URL),
   alternates: {
     canonical: "/",
   },
   openGraph: {
     type: "website",
-    url: "https://staxed.dev/",
+    url: `${BASE_URL}/`,
     title: "Staxed.dev - Developer, Crypto, AI Aficionado",
     description:
       "Staxed - Developer, Crypto enthusiast, and AI Aficionado. Building tools, dragons, and digital worlds.",
@@ -66,8 +67,8 @@ export default function RootLayout({
               "@context": "https://schema.org",
               "@type": "Person",
               name: "Staxed",
-              url: "https://staxed.dev",
-              image: "https://staxed.dev/assets/StaxedDragonAvatar.jpg",
+              url: BASE_URL,
+              image: `${BASE_URL}/assets/StaxedDragonAvatar.jpg`,
               sameAs: [
                 "https://github.com/Staxed",
                 "https://x.com/StaxedAF",
