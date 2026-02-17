@@ -45,6 +45,11 @@ export default function Home() {
         </section>
 
         <Footer />
+        <div className="pearls-link-wrap">
+          <a href="/pearls" className="pearls-link">
+            Pearls Tracker
+          </a>
+        </div>
       </main>
 
       <Avatar />
