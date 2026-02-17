@@ -88,11 +88,11 @@ export default function AccessibilityPage() {
               <li>
                 X (Twitter):{" "}
                 <a
-                  href="https://x.com/StaxedAF"
+                  href="https://x.com/Staxed"
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  @StaxedAF
+                  @Staxed
                   <span className="sr-only"> (opens in new tab)</span>
                 </a>
               </li>
