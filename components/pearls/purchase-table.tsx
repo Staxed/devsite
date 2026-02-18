@@ -1,27 +1,43 @@
-import type { NftTransfer, TokenMetadata } from '@/lib/pearls/types';
+'use client';
+
+import { useTransition } from 'react';
+import type { NftTransfer } from '@/lib/pearls/types';
+import type { TokenNameMap } from '@/lib/pearls/token-names';
 import { formatNative } from '@/lib/pearls/currencies';
-
-/** Lookup key: "contract_id:token_id" → name */
-export type TokenNameMap = Record<string, string>;
-
-export function buildTokenNameMap(metadata: TokenMetadata[]): TokenNameMap {
-  const map: TokenNameMap = {};
-  for (const tm of metadata) {
-    map[`${tm.contract_id}:${tm.token_id}`] = tm.name;
-  }
-  return map;
-}
 
 interface PurchaseTableProps {
   purchases: NftTransfer[];
   tokenNames: TokenNameMap;
+  isOwner?: boolean;
+  onCompoundToggle?: (transferId: string) => void;
 }
 
 function getPearlName(purchase: NftTransfer, tokenNames: TokenNameMap): string {
   return tokenNames[`${purchase.contract_id}:${purchase.token_id}`] ?? `#${purchase.token_id}`;
 }
 
-export default function PurchaseTable({ purchases, tokenNames }: PurchaseTableProps) {
+export default function PurchaseTable({ purchases, tokenNames, isOwner = false, onCompoundToggle }: PurchaseTableProps) {
+  const [isPending, startTransition] = useTransition();
+
+  async function toggleCompound(transferId: string, currentValue: boolean) {
+    startTransition(async () => {
+      try {
+        const res = await fetch('/api/pearls/compound', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ transfer_id: transferId, is_compounded: !currentValue }),
+        });
+
+        if (res.ok) {
+          onCompoundToggle?.(transferId);
+        }
+      } catch {
+        // Toggle failed silently
+      }
+    });
+  }
+
   if (purchases.length === 0) {
     return (
       <div className="pearls-empty">
@@ -53,7 +69,22 @@ export default function PurchaseTable({ purchases, tokenNames }: PurchaseTablePr
                   ? formatNative(p.native_value, p.native_currency)
                   : '\u2014'}
               </td>
-              <td>{p.is_compounded ? 'Yes' : 'No'}</td>
+              <td>
+                {isOwner ? (
+                  <button
+                    type="button"
+                    className={`pearls-compound-toggle ${p.is_compounded ? 'active' : ''}`}
+                    onClick={() => toggleCompound(p.id, p.is_compounded)}
+                    disabled={isPending}
+                    aria-pressed={p.is_compounded}
+                    aria-label={`Mark purchase as ${p.is_compounded ? 'not compounded' : 'compounded'}`}
+                  >
+                    {p.is_compounded ? 'Yes' : 'No'}
+                  </button>
+                ) : (
+                  p.is_compounded ? 'Yes' : 'No'
+                )}
+              </td>
             </tr>
           ))}
         </tbody>

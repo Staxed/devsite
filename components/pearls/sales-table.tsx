@@ -1,5 +1,5 @@
 import type { NftTransfer } from '@/lib/pearls/types';
-import type { TokenNameMap } from './purchase-table';
+import type { TokenNameMap } from '@/lib/pearls/token-names';
 import { formatNative } from '@/lib/pearls/currencies';
 
 interface SalesTableProps {

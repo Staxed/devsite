@@ -39,9 +39,11 @@ function groupPayoutsByDate(payouts: PayoutTransfer[]): GroupedPayout[] {
 }
 
 function TxLink({ payout }: { payout: PayoutTransfer }) {
+  // tx_hash may include _<address> suffix for uniqueness — strip it for the URL
+  const rawHash = payout.tx_hash.split('_')[0];
   const url = payout.native_currency === 'POL'
-    ? `https://polygonscan.com/tx/${payout.tx_hash}`
-    : `https://basescan.org/tx/${payout.tx_hash}`;
+    ? `https://polygonscan.com/tx/${rawHash}`
+    : `https://basescan.org/tx/${rawHash}`;
 
   return (
     <a href={url} target="_blank" rel="noopener noreferrer" className="pearls-tx-link">

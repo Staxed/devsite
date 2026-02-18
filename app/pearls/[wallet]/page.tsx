@@ -1,9 +1,11 @@
+import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
-import { getFiatRates, getTodayPrice } from '@/lib/pearls/coingecko';
+import { getFiatRates, getCurrentPrice } from '@/lib/pearls/coingecko';
+import { verifySession } from '@/lib/pearls/auth';
 import type { WalletStats, NftTransfer, PayoutTransfer, CurrencyRates, TokenMetadata, Contract } from '@/lib/pearls/types';
 import ConnectButton from '@/components/pearls/connect-button';
 import WalletDetailView from '@/components/pearls/wallet-detail-view';
-import { buildTokenNameMap } from '@/components/pearls/purchase-table';
+import { buildTokenNameMap } from '@/lib/pearls/token-names';
 import { buildInventory } from '@/components/pearls/inventory-table';
 
 interface Props {
@@ -13,6 +15,17 @@ interface Props {
 export default async function WalletPage({ params }: Props) {
   const { wallet } = await params;
   const address = wallet.toLowerCase();
+
+  const cookieStore = await cookies();
+  const token = cookieStore.get('pearls-session')?.value;
+  let isOwner = false;
+  if (token) {
+    const session = await verifySession(token);
+    if (session && session.address.toLowerCase() === address) {
+      isOwner = true;
+    }
+  }
+
   const supabase = await createClient();
 
   const [statsResult, purchasesResult, salesResult, payoutsResult, tokenMetaResult, contractsResult, receivedResult, sentResult] = await Promise.all([
@@ -74,8 +87,8 @@ export default async function WalletPage({ params }: Props) {
   try {
     const [fetchedRates, pol, eth] = await Promise.all([
       getFiatRates(),
-      getTodayPrice('POL'),
-      getTodayPrice('ETH'),
+      getCurrentPrice('POL'),
+      getCurrentPrice('ETH'),
     ]);
     rates = fetchedRates;
     polPrice = pol;
@@ -120,6 +133,7 @@ export default async function WalletPage({ params }: Props) {
         polPrice={polPrice}
         ethPrice={ethPrice}
         tokenNames={tokenNames}
+        isOwner={isOwner}
       />
     </div>
   );
