@@ -992,6 +992,13 @@ a.pearls-wallet-link.pearls-named {
   gap: 0.25rem;
 }
 
+.pearls-be-mode-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: auto;
+}
+
 .pearls-est-tab {
   background: transparent;
   border: 1px solid var(--color-border-soft);

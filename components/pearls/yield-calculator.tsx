@@ -5,9 +5,14 @@ import {
   calculateAPR,
   calculateMonthsToBreakEven,
   calculateCompoundMonthsToBreakEven,
+  calculateCompoundMonthsToBreakEvenNative,
   calculateMonthlyPayout,
   findOptimalBoosters,
+  findOptimalBoostersNative,
 } from '@/lib/pearls/calculations';
+import { MIN_PEARL_PRICES } from '@/lib/pearls/config';
+
+type BreakEvenMode = 'fiat' | 'pol' | 'eth';
 
 interface YieldCalculatorProps {
   currentBoosters: number;
@@ -17,6 +22,13 @@ interface YieldCalculatorProps {
   totalEarnedUsd: number;
   polPrice: number;
   ethPrice: number;
+  breakEvenMode: BreakEvenMode;
+  holdingsNativePol: number;
+  totalSpentNativePol: number;
+  totalEarnedNativePol: number;
+  holdingsNativeEth: number;
+  totalSpentNativeEth: number;
+  totalEarnedNativeEth: number;
 }
 
 function formatMonths(months: number | null): string {
@@ -37,6 +49,13 @@ export default function YieldCalculator({
   totalEarnedUsd,
   polPrice,
   ethPrice,
+  breakEvenMode,
+  holdingsNativePol,
+  totalSpentNativePol,
+  totalEarnedNativePol,
+  holdingsNativeEth,
+  totalSpentNativeEth,
+  totalEarnedNativeEth,
 }: YieldCalculatorProps) {
   const [expanded, setExpanded] = useState(false);
   const [boosterCount, setBoosterCount] = useState(currentBoosters);
@@ -48,6 +67,72 @@ export default function YieldCalculator({
   const results = useMemo(() => {
     const tm = targetMultiplier;
     const newApr = calculateAPR(boosterCount);
+
+    if (breakEvenMode === 'pol') {
+      const ethToPol = polPrice > 0 ? ethPrice / polPrice : 0;
+      const additionalNative = additionalPol + (additionalEth * ethToPol);
+      const boosterCostNative = Math.max(0, boosterCount - currentBoosters) * boosterCostPol;
+      const effectiveHoldings = holdingsNativePol + additionalNative;
+      const effectiveSpent = totalSpentNativePol + additionalNative;
+      const adjustedSpent = effectiveSpent * tm + boosterCostNative;
+      const minPearlCostPol = Math.min(MIN_PEARL_PRICES.polygon.amount, MIN_PEARL_PRICES.base.amount * ethToPol);
+
+      const monthlyPayout = (effectiveHoldings * (newApr / 100)) / 12;
+      const linearMonths = calculateMonthsToBreakEven(adjustedSpent, totalEarnedNativePol, monthlyPayout);
+      const compoundMonths = calculateCompoundMonthsToBreakEvenNative(
+        adjustedSpent, totalEarnedNativePol, effectiveHoldings, newApr, minPearlCostPol
+      );
+
+      const { optimal } = findOptimalBoostersNative(
+        effectiveSpent, totalEarnedNativePol, effectiveHoldings,
+        minPearlCostPol, currentBoosters, boosterCostPol, tm
+      );
+
+      const totalAdditionalCostPol = boosterCostNative + additionalNative;
+      const currentPct = adjustedSpent > 0 ? Math.min((totalEarnedNativePol / adjustedSpent) * 100, 100) : 100;
+      let compoundPct = currentPct;
+      if (linearMonths != null && compoundMonths != null && compoundMonths > 0 && linearMonths > 0) {
+        compoundPct = Math.min(100, currentPct * (linearMonths / compoundMonths));
+      } else if (compoundMonths === 0) {
+        compoundPct = 100;
+      }
+
+      return { newApr, boosterCost: boosterCostNative, additionalInvestmentUsd: additionalNative, totalAdditionalCost: totalAdditionalCostPol, linearMonths, compoundMonths, optimal, currentPct, compoundPct };
+    }
+
+    if (breakEvenMode === 'eth') {
+      const polToEth = ethPrice > 0 ? polPrice / ethPrice : 0;
+      const additionalNative = additionalEth + (additionalPol * polToEth);
+      const boosterCostNative = Math.max(0, boosterCount - currentBoosters) * boosterCostPol * polToEth;
+      const effectiveHoldings = holdingsNativeEth + additionalNative;
+      const effectiveSpent = totalSpentNativeEth + additionalNative;
+      const adjustedSpent = effectiveSpent * tm + boosterCostNative;
+      const minPearlCostEth = Math.min(MIN_PEARL_PRICES.base.amount, MIN_PEARL_PRICES.polygon.amount * polToEth);
+
+      const monthlyPayout = (effectiveHoldings * (newApr / 100)) / 12;
+      const linearMonths = calculateMonthsToBreakEven(adjustedSpent, totalEarnedNativeEth, monthlyPayout);
+      const compoundMonths = calculateCompoundMonthsToBreakEvenNative(
+        adjustedSpent, totalEarnedNativeEth, effectiveHoldings, newApr, minPearlCostEth
+      );
+
+      const { optimal } = findOptimalBoostersNative(
+        effectiveSpent, totalEarnedNativeEth, effectiveHoldings,
+        minPearlCostEth, currentBoosters, boosterCostPol * polToEth, tm
+      );
+
+      const totalAdditionalCostEth = boosterCostNative + additionalNative;
+      const currentPct = adjustedSpent > 0 ? Math.min((totalEarnedNativeEth / adjustedSpent) * 100, 100) : 100;
+      let compoundPct = currentPct;
+      if (linearMonths != null && compoundMonths != null && compoundMonths > 0 && linearMonths > 0) {
+        compoundPct = Math.min(100, currentPct * (linearMonths / compoundMonths));
+      } else if (compoundMonths === 0) {
+        compoundPct = 100;
+      }
+
+      return { newApr, boosterCost: boosterCostNative, additionalInvestmentUsd: additionalNative, totalAdditionalCost: totalAdditionalCostEth, linearMonths, compoundMonths, optimal, currentPct, compoundPct };
+    }
+
+    // Fiat (USD) — existing logic
     const boosterCost = Math.max(0, boosterCount - currentBoosters) * boosterCostPol * polPrice;
     const additionalPolUsd = additionalPol * polPrice;
     const additionalEthUsd = additionalEth * ethPrice;
@@ -59,28 +144,15 @@ export default function YieldCalculator({
     const newMonthlyPayout = calculateMonthlyPayout(effectiveHoldings, newApr);
     const linearMonths = calculateMonthsToBreakEven(adjustedSpent, totalEarnedUsd, newMonthlyPayout);
     const compoundMonths = calculateCompoundMonthsToBreakEven(
-      adjustedSpent,
-      totalEarnedUsd,
-      effectiveHoldings,
-      newApr,
-      polPrice,
-      ethPrice,
+      adjustedSpent, totalEarnedUsd, effectiveHoldings, newApr, polPrice, ethPrice
     );
 
-    const { optimal, minRange, maxRange } = findOptimalBoosters(
-      effectiveSpent,
-      totalEarnedUsd,
-      effectiveHoldings,
-      polPrice,
-      ethPrice,
-      currentBoosters,
-      boosterCostPol,
-      tm,
+    const { optimal } = findOptimalBoosters(
+      effectiveSpent, totalEarnedUsd, effectiveHoldings, polPrice, ethPrice,
+      currentBoosters, boosterCostPol, tm
     );
 
     const totalAdditionalCost = boosterCost + additionalInvestmentUsd;
-
-    // Projected break-even percentages
     const currentPct = adjustedSpent > 0 ? Math.min((totalEarnedUsd / adjustedSpent) * 100, 100) : 100;
     let compoundPct = currentPct;
     if (linearMonths != null && compoundMonths != null && compoundMonths > 0 && linearMonths > 0) {
@@ -90,7 +162,7 @@ export default function YieldCalculator({
     }
 
     return { newApr, boosterCost, additionalInvestmentUsd, totalAdditionalCost, linearMonths, compoundMonths, optimal, currentPct, compoundPct };
-  }, [boosterCount, boosterCostPol, targetMultiplier, additionalPol, additionalEth, currentBoosters, holdingsUsd, totalSpentUsd, totalEarnedUsd, polPrice, ethPrice]);
+  }, [boosterCount, boosterCostPol, targetMultiplier, additionalPol, additionalEth, currentBoosters, holdingsUsd, totalSpentUsd, totalEarnedUsd, polPrice, ethPrice, breakEvenMode, holdingsNativePol, totalSpentNativePol, totalEarnedNativePol, holdingsNativeEth, totalSpentNativeEth, totalEarnedNativeEth]);
 
   const { newApr, boosterCost, additionalInvestmentUsd, totalAdditionalCost, linearMonths, compoundMonths, optimal, currentPct, compoundPct } = results;
   const aprChanged = newApr !== effectiveApr;
@@ -210,7 +282,13 @@ export default function YieldCalculator({
             <div className="pearls-calc-stat">
               <span className="pearls-calc-stat-label">Additional Cost</span>
               <span className="pearls-calc-stat-value">
-                {totalAdditionalCost > 0 ? `${Math.round(totalAdditionalCost / polPrice).toLocaleString()} POL` : '—'}
+                {totalAdditionalCost > 0
+                  ? breakEvenMode === 'eth'
+                    ? `${totalAdditionalCost.toFixed(6)} ETH`
+                    : breakEvenMode === 'pol'
+                      ? `${Math.round(totalAdditionalCost).toLocaleString()} POL`
+                      : `${Math.round(totalAdditionalCost / polPrice).toLocaleString()} POL`
+                  : '—'}
               </span>
               {totalAdditionalCost > 0 && (
                 <span className="pearls-calc-stat-sub">
@@ -243,6 +321,7 @@ export default function YieldCalculator({
           </div>
           <p className="pearls-compound-disclaimer">Boosters mint has completed. Boosters are only available on the secondary market. Adjust the cost per Booster to reflect current market prices.</p>
           <p className="pearls-compound-disclaimer"><strong>Linear</strong> assumes steady monthly payouts with no reinvestment. <strong>Compound</strong> assumes all payouts are reinvested into new Pearls each month, increasing holdings and future yield.</p>
+          <p className="pearls-compound-disclaimer"><strong>POL EQ</strong> = All ETH converted to equivalent POL value at current rates, combined into a single POL-denominated pool. <strong>ETH EQ</strong> = All POL converted to equivalent ETH value at current rates, combined into a single ETH-denominated pool.</p>
         </div>
       )}
     </div>

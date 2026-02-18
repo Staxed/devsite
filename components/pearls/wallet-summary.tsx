@@ -4,15 +4,18 @@ import { useState } from 'react';
 import YieldCalculator from './yield-calculator';
 import type { WalletStats, CurrencyRates } from '@/lib/pearls/types';
 import type { SupportedCurrency } from '@/lib/pearls/config';
+import { MIN_PEARL_PRICES } from '@/lib/pearls/config';
 import { convertUsdTo, formatCurrency, formatPol, formatEth } from '@/lib/pearls/currencies';
 import {
   calculateBreakEven,
   calculateMonthlyPayout,
   calculateMonthsToBreakEven,
   calculateCompoundMonthsToBreakEven,
+  calculateCompoundMonthsToBreakEvenNative,
   calculateYearlyNoCompound,
   calculateYearlyMaxCompound,
   calculateYearlyMaxCompoundNative,
+  findOptimalBoostersNative,
 } from '@/lib/pearls/calculations';
 
 interface WalletSummaryProps {
@@ -27,9 +30,11 @@ interface WalletSummaryProps {
 }
 
 type EstimateTab = 'monthly' | 'yearly' | 'compound' | 'compound2' | 'compound3' | 'compound4' | 'compound5' | 'compound10' | 'compound20';
+type BreakEvenMode = 'fiat' | 'pol' | 'eth';
 
 export default function WalletSummary({ stats, rates, polPrice, ethPrice, currency, compoundedPol = 0, compoundedEth = 0, compoundedUsd = 0 }: WalletSummaryProps) {
   const [estTab, setEstTab] = useState<EstimateTab>('monthly');
+  const [breakEvenMode, setBreakEvenMode] = useState<BreakEvenMode>('fiat');
 
   // Derive "excluding compounded" values from live state (updates instantly on toggle)
   const spentExclCompUsd = stats.total_spent_usd - compoundedUsd;
@@ -39,30 +44,55 @@ export default function WalletSummary({ stats, rates, polPrice, ethPrice, curren
   const netPol = stats.total_earned_pol - spentExclCompPol;
   const netEth = stats.total_earned_eth - spentExclCompEth;
 
-  const breakEven = calculateBreakEven(
-    spentExclCompUsd,
-    stats.total_earned_usd
-  );
-
   // Holdings intrinsic value in USD (for payout calculations)
   const holdingsPolUsd = stats.holdings_pol_value * polPrice;
   const holdingsEthUsd = stats.holdings_eth_value * ethPrice;
   const holdingsUsd = holdingsPolUsd + holdingsEthUsd;
 
   const monthlyPayoutUsd = calculateMonthlyPayout(holdingsUsd, stats.effective_apr);
-  const monthsAsIs = calculateMonthsToBreakEven(
-    spentExclCompUsd,
-    stats.total_earned_usd,
-    monthlyPayoutUsd
-  );
-  const monthsCompound = calculateCompoundMonthsToBreakEven(
-    spentExclCompUsd,
-    stats.total_earned_usd,
-    holdingsUsd,
-    stats.effective_apr,
-    polPrice,
-    ethPrice
-  );
+
+  // Native token equivalents for break-even modes
+  const ethToPol = polPrice > 0 ? ethPrice / polPrice : 0;
+  const polToEth = ethPrice > 0 ? polPrice / ethPrice : 0;
+
+  // POL EQ
+  const combinedSpentPol = spentExclCompPol + (spentExclCompEth * ethToPol);
+  const combinedEarnedPol = stats.total_earned_pol + (stats.total_earned_eth * ethToPol);
+  const combinedHoldingsPol = stats.holdings_pol_value + (stats.holdings_eth_value * ethToPol);
+  const minPearlCostPol = Math.min(MIN_PEARL_PRICES.polygon.amount, MIN_PEARL_PRICES.base.amount * ethToPol);
+
+  // ETH EQ
+  const combinedSpentEth = spentExclCompEth + (spentExclCompPol * polToEth);
+  const combinedEarnedEth = stats.total_earned_eth + (stats.total_earned_pol * polToEth);
+  const combinedHoldingsEth = stats.holdings_eth_value + (stats.holdings_pol_value * polToEth);
+  const minPearlCostEth = Math.min(MIN_PEARL_PRICES.base.amount, MIN_PEARL_PRICES.polygon.amount * polToEth);
+
+  // Break-even calculations (mode-dependent)
+  let breakEven: number;
+  let monthsAsIs: number | null;
+  let monthsCompound: number | null;
+
+  if (breakEvenMode === 'pol') {
+    breakEven = calculateBreakEven(combinedSpentPol, combinedEarnedPol);
+    const monthlyPayoutPol = (combinedHoldingsPol * (stats.effective_apr / 100)) / 12;
+    monthsAsIs = calculateMonthsToBreakEven(combinedSpentPol, combinedEarnedPol, monthlyPayoutPol);
+    monthsCompound = calculateCompoundMonthsToBreakEvenNative(
+      combinedSpentPol, combinedEarnedPol, combinedHoldingsPol, stats.effective_apr, minPearlCostPol
+    );
+  } else if (breakEvenMode === 'eth') {
+    breakEven = calculateBreakEven(combinedSpentEth, combinedEarnedEth);
+    const monthlyPayoutEth = (combinedHoldingsEth * (stats.effective_apr / 100)) / 12;
+    monthsAsIs = calculateMonthsToBreakEven(combinedSpentEth, combinedEarnedEth, monthlyPayoutEth);
+    monthsCompound = calculateCompoundMonthsToBreakEvenNative(
+      combinedSpentEth, combinedEarnedEth, combinedHoldingsEth, stats.effective_apr, minPearlCostEth
+    );
+  } else {
+    breakEven = calculateBreakEven(spentExclCompUsd, stats.total_earned_usd);
+    monthsAsIs = calculateMonthsToBreakEven(spentExclCompUsd, stats.total_earned_usd, monthlyPayoutUsd);
+    monthsCompound = calculateCompoundMonthsToBreakEven(
+      spentExclCompUsd, stats.total_earned_usd, holdingsUsd, stats.effective_apr, polPrice, ethPrice
+    );
+  }
 
   let compoundBreakEven = breakEven;
   if (monthsAsIs != null && monthsCompound != null && monthsCompound > 0 && monthsAsIs > 0) {
@@ -163,7 +193,6 @@ export default function WalletSummary({ stats, rates, polPrice, ethPrice, curren
 
   const isCompound = estTab.startsWith('compound');
 
-  const projectedEarnedUsd = stats.total_earned_usd + getEstUsd();
   const projectedNetUsd = netUsd + getEstUsd();
   const projectedNetPol = netPol + getEstPolNative();
   const projectedNetEth = netEth + getEstEthNative();
@@ -234,7 +263,7 @@ export default function WalletSummary({ stats, rates, polPrice, ethPrice, curren
         </div>
         <div className="pearls-hero-stat">
           <span className="pearls-hero-label">Earned</span>
-          <span className="pearls-hero-value pearls-positive">{fmt(projectedEarnedUsd)}</span>
+          <span className="pearls-hero-value pearls-positive">{fmt(stats.total_earned_usd)}</span>
         </div>
         <div className="pearls-hero-stat">
           <span className="pearls-hero-label">Effective APR</span>
@@ -296,7 +325,7 @@ export default function WalletSummary({ stats, rates, polPrice, ethPrice, curren
                 <td>{fmt(holdingsPolUsd)}</td>
                 <td>{formatPol(spentExclCompPol)}</td>
                 <td>{formatPol(compoundedPol)}</td>
-                <td className="pearls-positive">+{formatPol(stats.total_earned_pol + getEstPolNative())}</td>
+                <td className="pearls-positive">+{formatPol(stats.total_earned_pol)}</td>
                 <td className={projectedNetPol >= 0 ? 'pearls-positive' : 'pearls-negative'}>
                   {formatPol(projectedNetPol)}
                 </td>
@@ -309,7 +338,7 @@ export default function WalletSummary({ stats, rates, polPrice, ethPrice, curren
                 <td>{fmt(holdingsEthUsd)}</td>
                 <td>{formatEth(spentExclCompEth)}</td>
                 <td>{formatEth(compoundedEth)}</td>
-                <td className="pearls-positive">+{formatEth(stats.total_earned_eth + getEstEthNative())}</td>
+                <td className="pearls-positive">+{formatEth(stats.total_earned_eth)}</td>
                 <td className={projectedNetEth >= 0 ? 'pearls-positive' : 'pearls-negative'}>
                   {formatEth(projectedNetEth)}
                 </td>
@@ -356,8 +385,16 @@ export default function WalletSummary({ stats, rates, polPrice, ethPrice, curren
 
       {/* Break-even */}
       <div className="pearls-break-even">
+        <div className="pearls-be-mode-tabs" style={{ marginBottom: '0.35rem' }}>
+          <span className="pearls-stat-label" style={{ marginRight: '0.5rem' }}>Calculate Break-Even:</span>
+          <button type="button" className={`pearls-est-tab${breakEvenMode === 'fiat' ? ' active' : ''}`} onClick={() => setBreakEvenMode('fiat')}>Fiat</button>
+          <button type="button" className={`pearls-est-tab${breakEvenMode === 'pol' ? ' active' : ''}`} onClick={() => setBreakEvenMode('pol')}>POL EQ</button>
+          <button type="button" className={`pearls-est-tab${breakEvenMode === 'eth' ? ' active' : ''}`} onClick={() => setBreakEvenMode('eth')}>ETH EQ</button>
+        </div>
         <div className="pearls-break-even-header">
-          <span className="pearls-stat-label">Current Break-even Progress</span>
+          <span className="pearls-stat-label">
+            Current Break-even Progress{breakEvenMode !== 'fiat' ? ` (${breakEvenMode === 'pol' ? 'POL EQ' : 'ETH EQ'})` : ''}
+          </span>
           <div className="pearls-break-even-right">
             <span className="pearls-break-even-est">
               <span className="pearls-label-current">Linear</span>: {breakEven.toFixed(1)}% &middot; {monthsLabel(monthsAsIs)}
@@ -392,6 +429,13 @@ export default function WalletSummary({ stats, rates, polPrice, ethPrice, curren
         totalEarnedUsd={stats.total_earned_usd}
         polPrice={polPrice}
         ethPrice={ethPrice}
+        breakEvenMode={breakEvenMode}
+        holdingsNativePol={combinedHoldingsPol}
+        totalSpentNativePol={combinedSpentPol}
+        totalEarnedNativePol={combinedEarnedPol}
+        holdingsNativeEth={combinedHoldingsEth}
+        totalSpentNativeEth={combinedSpentEth}
+        totalEarnedNativeEth={combinedEarnedEth}
       />
     </div>
   );
