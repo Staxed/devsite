@@ -94,6 +94,8 @@ export interface WalletStats {
   total_spent_eth: number;
   total_spent_excluding_compounded_pol: number;
   total_spent_excluding_compounded_eth: number;
+  total_compounded_pol: number;
+  total_compounded_eth: number;
   total_booster_spent_pol: number;
   holdings_pol_value: number;
   holdings_eth_value: number;
@@ -178,4 +180,19 @@ export interface PayoutEstimate {
   monthlyUsd: number;
   yearlyNoCompoundUsd: number;
   yearlyMaxCompoundUsd: number;
+}
+
+export type TimePeriod = 'weekly' | 'monthly' | 'quarterly' | 'yearly' | 'all';
+
+export interface PeriodWalletStats {
+  wallet_address: string;
+  total_pearls: number;
+  pol_pearls: number;
+  eth_pearls: number;
+  total_boosters: number;
+  effective_apr: number;
+  total_spent_excluding_compounded_pol: number;
+  total_spent_excluding_compounded_eth: number;
+  total_compounded_pol: number;
+  total_compounded_eth: number;
 }

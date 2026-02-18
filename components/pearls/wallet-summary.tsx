@@ -218,6 +218,10 @@ export default function WalletSummary({ stats, rates, polPrice, ethPrice, curren
           <span className="pearls-hero-value">{fmt(spentExclCompUsd)}</span>
         </div>
         <div className="pearls-hero-stat">
+          <span className="pearls-hero-label">Total Compounded</span>
+          <span className="pearls-hero-value">{fmt(compoundedUsd)}</span>
+        </div>
+        <div className="pearls-hero-stat">
           <span className="pearls-hero-label">Net P/L</span>
           <span className={`pearls-hero-value ${projectedNetUsd >= 0 ? 'pearls-positive' : 'pearls-negative'}`}>
             {fmt(projectedNetUsd)}
@@ -257,14 +261,15 @@ export default function WalletSummary({ stats, rates, polPrice, ethPrice, curren
         <div className="pearls-table-wrap">
           <table className="pearls-table pearls-asset-table" role="table">
             <colgroup>
-              <col style={{ width: isCompound ? '10%' : '12%' }} />
-              <col style={{ width: isCompound ? '7%' : '8%' }} />
-              <col style={{ width: isCompound ? '13%' : '16%' }} />
-              <col style={{ width: '14%' }} />
-              <col style={{ width: '14%' }} />
-              <col style={{ width: '14%' }} />
-              <col style={{ width: '14%' }} />
-              {isCompound && <col style={{ width: '14%' }} />}
+              <col style={{ width: isCompound ? '10%' : '11%' }} />
+              <col style={{ width: isCompound ? '6%' : '7%' }} />
+              <col style={{ width: isCompound ? '12%' : '14%' }} />
+              <col style={{ width: isCompound ? '11%' : '12%' }} />
+              <col style={{ width: isCompound ? '11%' : '12%' }} />
+              <col style={{ width: isCompound ? '11%' : '12%' }} />
+              <col style={{ width: isCompound ? '11%' : '12%' }} />
+              <col style={{ width: isCompound ? '11%' : '12%' }} />
+              {isCompound && <col style={{ width: '11%' }} />}
             </colgroup>
             <thead>
               <tr>
@@ -272,6 +277,7 @@ export default function WalletSummary({ stats, rates, polPrice, ethPrice, curren
                 <th scope="col">Owned</th>
                 <th scope="col">Current Value</th>
                 <th scope="col">Spent</th>
+                <th scope="col">Compounded</th>
                 <th scope="col">Earned</th>
                 <th scope="col">Net</th>
                 <th scope="col">{getEstLabel()}</th>
@@ -284,6 +290,7 @@ export default function WalletSummary({ stats, rates, polPrice, ethPrice, curren
                 <td>{stats.pol_pearls}</td>
                 <td>{fmt(holdingsPolUsd)}</td>
                 <td>{formatPol(spentExclCompPol)}</td>
+                <td>{formatPol(compoundedPol)}</td>
                 <td className="pearls-positive">+{formatPol(stats.total_earned_pol + getEstPolNative())}</td>
                 <td className={projectedNetPol >= 0 ? 'pearls-positive' : 'pearls-negative'}>
                   {formatPol(projectedNetPol)}
@@ -296,6 +303,7 @@ export default function WalletSummary({ stats, rates, polPrice, ethPrice, curren
                 <td>{stats.eth_pearls}</td>
                 <td>{fmt(holdingsEthUsd)}</td>
                 <td>{formatEth(spentExclCompEth)}</td>
+                <td>{formatEth(compoundedEth)}</td>
                 <td className="pearls-positive">+{formatEth(stats.total_earned_eth + getEstEthNative())}</td>
                 <td className={projectedNetEth >= 0 ? 'pearls-positive' : 'pearls-negative'}>
                   {formatEth(projectedNetEth)}
@@ -309,6 +317,7 @@ export default function WalletSummary({ stats, rates, polPrice, ethPrice, curren
                   <td>{stats.total_boosters}</td>
                   <td>{formatPol(stats.holdings_booster_value)}</td>
                   <td>{formatPol(stats.total_booster_spent_pol)}</td>
+                  <td></td>
                   <td></td>
                   <td></td>
                   <td></td>
@@ -338,6 +347,7 @@ export default function WalletSummary({ stats, rates, polPrice, ethPrice, curren
         </div>
       </div>
       <p className="pearls-compound-disclaimer">Compounding estimates based on current owned assets assuming no more are purchased. (But never not buy more pearls...)</p>
+      <p className="pearls-compound-disclaimer">Compounding is set manually by the wallet holder and may not be accurate if they have not marked compounded purchases.</p>
 
       {/* Break-even */}
       <div className="pearls-break-even">

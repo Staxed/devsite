@@ -52,7 +52,7 @@ export default function Home() {
       </Shell>
       <div className="pearls-link-wrap">
         <a href="/pearls" className="pearls-link">
-          Pearls Tracker
+          SeaLaife Pearls Tracker
         </a>
       </div>
     </div>

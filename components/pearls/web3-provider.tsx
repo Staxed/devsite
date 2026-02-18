@@ -2,7 +2,7 @@
 
 import { type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cookieToInitialState, WagmiProvider, type Config, http } from 'wagmi';
+import { cookieToInitialState, WagmiProvider, type Config, http, fallback } from 'wagmi';
 import { cookieStorage, createStorage } from '@wagmi/core';
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi';
 import { createAppKit } from '@reown/appkit/react';
@@ -29,8 +29,14 @@ const wagmiAdapter = new WagmiAdapter({
   projectId,
   networks,
   transports: {
-    [polygon.id]: http('https://polygon-rpc.com'),
-    [base.id]: http('https://mainnet.base.org'),
+    [polygon.id]: fallback([
+      http(`https://matic.nownodes.io/${process.env.NEXT_PUBLIC_NOWNODES_API_KEY}`),
+      http('https://rpc.ankr.com/polygon'),
+    ]),
+    [base.id]: fallback([
+      http('https://mainnet.base.org'),
+      http('https://rpc.ankr.com/base'),
+    ]),
   },
 });
 
@@ -88,7 +94,7 @@ const siweConfig = createSIWEConfig({
     domain: typeof window !== 'undefined' ? window.location.host : '',
     uri: typeof window !== 'undefined' ? window.location.origin : '',
     chains: [137, 8453],
-    statement: 'Sign in to Pearls Tracker.',
+    statement: 'Sign in to SeaLaife Pearls Tracker.',
   }),
   createMessage: ({ address, ...args }: SIWECreateMessageArgs) =>
     formatMessage(args, address),
@@ -100,7 +106,7 @@ const siweConfig = createSIWEConfig({
 });
 
 const metadata = {
-  name: 'Staxed Pearls Tracker',
+  name: 'SeaLaife Pearls Tracker',
   description: 'Track Pearl NFT holdings, payouts, and ROI',
   url: typeof window !== 'undefined' ? window.location.origin : 'https://staxed.dev',
   icons: ['/assets/StaxedDragonAvatar.jpg'],
@@ -111,6 +117,10 @@ createAppKit({
   projectId,
   networks,
   defaultNetwork: polygon,
+  customRpcUrls: {
+    'eip155:137': [{ url: `https://matic.nownodes.io/${process.env.NEXT_PUBLIC_NOWNODES_API_KEY}` }],
+    'eip155:8453': [{ url: 'https://mainnet.base.org' }],
+  },
   metadata,
   siweConfig,
   features: {

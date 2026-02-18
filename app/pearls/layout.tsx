@@ -2,7 +2,7 @@ import { headers } from 'next/headers';
 import Web3Provider from '@/components/pearls/web3-provider';
 
 export const metadata = {
-  title: 'Pearls Tracker',
+  title: 'SeaLaife Pearls Tracker',
   description: 'Track Pearl NFT holdings, payouts, and ROI across Polygon and Base chains.',
 };
 

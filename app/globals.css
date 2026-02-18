@@ -565,6 +565,11 @@ main ul a:focus-visible {
   flex-wrap: wrap;
 }
 
+.pearls-header > div:first-child {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
 .pearls-header h1 {
   font-size: clamp(1.5rem, 4vw, 2.2rem);
   margin-bottom: 0.25rem;
@@ -574,6 +579,23 @@ main ul a:focus-visible {
   color: var(--color-text-muted);
   font-size: 0.9rem;
   margin: 0;
+}
+
+.pearls-intro {
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  line-height: 1.6;
+  margin: 0 0 2rem;
+  max-width: 720px;
+}
+
+.pearls-intro a {
+  color: var(--color-accent-gold);
+  text-decoration: none;
+}
+
+.pearls-intro a:hover {
+  text-decoration: underline;
 }
 
 .pearls-address {
@@ -586,6 +608,12 @@ main ul a:focus-visible {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+}
+
+.pearls-leaderboard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
 .pearls-toolbar {
@@ -618,9 +646,15 @@ main ul a:focus-visible {
 /* Tabs */
 .pearls-tabs {
   display: flex;
+  align-items: center;
   gap: 0;
-  border-bottom: 1px solid var(--color-border-soft);
-  margin-top: 1.5rem;
+  margin-top: 0;
+}
+
+.pearls-tabs .pearls-fc-filter {
+  margin-left: auto;
+  margin-right: 1.75em;
+  padding: 0.6rem 0;
 }
 
 .pearls-tab {
@@ -632,7 +666,8 @@ main ul a:focus-visible {
   padding: 0.6rem 1.25rem;
   cursor: pointer;
   border-bottom: 2px solid transparent;
-  transition: color 0.2s, border-color 0.2s;
+  transition: color 0.2s;
+  text-decoration: none;
 }
 
 .pearls-tab:hover {
@@ -641,7 +676,11 @@ main ul a:focus-visible {
 
 .pearls-tab.active {
   color: var(--color-accent-sky);
-  border-bottom-color: var(--color-accent-sky);
+  border-bottom-color: transparent;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-thickness: 2px;
+  text-decoration-color: var(--color-accent-sky);
 }
 
 .pearls-tab-content {
@@ -685,6 +724,17 @@ main ul a:focus-visible {
   border-radius: 0.75rem;
   border: 1px solid var(--color-border-soft);
   background: rgba(15, 23, 42, 0.6);
+}
+
+.pearls-legend {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
+  padding: 0.5rem 0 0.5rem 0.25rem;
+  margin-right: 1.75rem;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
 }
 
 .pearls-table {
@@ -995,8 +1045,12 @@ a.pearls-wallet-link.pearls-named {
   font-style: italic;
   color: var(--color-text-muted);
   text-align: right;
-  margin: -0.75rem 1rem 0 0;
+  margin: 0.5rem 1.75rem 0 0;
   opacity: 0.4;
+}
+
+.pearls-summary .pearls-compound-disclaimer {
+  margin: -0.75rem 1rem 0 0;
 }
 
 .pearls-compound-label {
