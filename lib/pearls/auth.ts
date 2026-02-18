@@ -9,7 +9,7 @@ function getSecret() {
 }
 
 export async function createSession(address: string, chainId: number): Promise<string> {
-  return new SignJWT({ address: address.toLowerCase(), chainId })
+  return new SignJWT({ address, chainId })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime('7d')

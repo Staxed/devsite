@@ -2,7 +2,7 @@
 
 import { type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cookieToInitialState, WagmiProvider, type Config } from 'wagmi';
+import { cookieToInitialState, WagmiProvider, type Config, http } from 'wagmi';
 import { cookieStorage, createStorage } from '@wagmi/core';
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi';
 import { createAppKit } from '@reown/appkit/react';
@@ -28,6 +28,10 @@ const wagmiAdapter = new WagmiAdapter({
   ssr: true,
   projectId,
   networks,
+  transports: {
+    [polygon.id]: http('https://polygon-rpc.com'),
+    [base.id]: http('https://mainnet.base.org'),
+  },
 });
 
 async function getNonce(): Promise<string> {

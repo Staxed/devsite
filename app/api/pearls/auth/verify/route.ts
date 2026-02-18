@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
     const token = await createSession(address, chainId);
     cookieStore.set('pearls-session', token, getSessionCookieOptions());
 
-    return NextResponse.json({ address: address.toLowerCase(), chainId });
+    return NextResponse.json({ address, chainId });
   } catch {
     return NextResponse.json({ error: 'Verification failed' }, { status: 500 });
   }
