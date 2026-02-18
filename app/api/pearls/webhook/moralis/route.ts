@@ -9,11 +9,6 @@ function getServiceClient() {
   return createAnonClient(url, key);
 }
 
-async function loadSellerAddresses(supabase: ReturnType<typeof getServiceClient>): Promise<Set<string>> {
-  const { data } = await supabase.from('seller_wallets').select('address');
-  return new Set((data ?? []).map((w) => w.address.toLowerCase()));
-}
-
 async function loadPayoutAddresses(supabase: ReturnType<typeof getServiceClient>): Promise<Set<string>> {
   const { data } = await supabase.from('payout_wallets').select('address');
   return new Set((data ?? []).map((w) => w.address.toLowerCase()));
@@ -36,7 +31,13 @@ async function verifySignature(body: string, signature: string): Promise<boolean
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
 
-  return computed === signature.toLowerCase();
+  const target = signature.toLowerCase();
+  if (computed.length !== target.length) return false;
+  let result = 0;
+  for (let i = 0; i < computed.length; i++) {
+    result |= computed.charCodeAt(i) ^ target.charCodeAt(i);
+  }
+  return result === 0;
 }
 
 export async function POST(request: NextRequest) {
@@ -66,11 +67,7 @@ export async function POST(request: NextRequest) {
 
     const nativeCurrency = chain === 'polygon' ? 'POL' : 'ETH';
 
-    // Load seller/payout addresses from DB
-    const [sellerAddresses, payoutAddresses] = await Promise.all([
-      loadSellerAddresses(supabase),
-      loadPayoutAddresses(supabase),
-    ]);
+    const payoutAddresses = await loadPayoutAddresses(supabase);
 
     // Process ERC1155 transfers
     if (body.erc1155Transfers?.length) {
@@ -183,7 +180,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ status: 'ok' });
   } catch (err) {
-    console.error('Webhook error:', err);
+    console.error('Webhook error:', err instanceof Error ? err.message : 'Unknown error');
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }

@@ -10,12 +10,21 @@ function getServiceClient() {
   return createSupabaseClient(url, key);
 }
 
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let result = 0;
+  for (let i = 0; i < a.length; i++) {
+    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return result === 0;
+}
+
 export async function POST(request: NextRequest) {
   try {
-    // Verify admin secret
-    const { searchParams } = new URL(request.url);
-    const secret = searchParams.get('secret') || request.headers.get('x-admin-secret');
-    if (secret !== process.env.BACKFILL_ADMIN_SECRET) {
+    // Verify admin secret (header only — never accept secrets in query strings)
+    const secret = request.headers.get('x-admin-secret') ?? '';
+    const expected = process.env.BACKFILL_ADMIN_SECRET ?? '';
+    if (!secret || !expected || !timingSafeEqual(secret, expected)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -252,7 +261,7 @@ export async function POST(request: NextRequest) {
     const allCompleted = results.every((r) => r.completed);
     return NextResponse.json({ results, allCompleted });
   } catch (err) {
-    console.error('Backfill error:', err);
+    console.error('Backfill error:', err instanceof Error ? err.message : 'Unknown error');
     return NextResponse.json({ error: 'Backfill failed' }, { status: 500 });
   }
 }

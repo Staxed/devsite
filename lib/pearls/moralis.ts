@@ -187,14 +187,3 @@ export async function getTransactionDetails(
 
   return res.json();
 }
-
-export function verifyWebhookSignature(body: string, signature: string): boolean {
-  const secret = process.env.MORALIS_STREAM_SECRET;
-  if (!secret) return false;
-
-  // Moralis uses the body as-is for HMAC-SHA256
-  // In edge/workers environments, we need to use Web Crypto API
-  // This is a sync check placeholder - actual implementation uses crypto.subtle
-  // For the webhook route, we'll do the async verification there
-  return signature.length > 0 && secret.length > 0;
-}

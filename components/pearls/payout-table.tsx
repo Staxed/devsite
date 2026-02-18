@@ -38,12 +38,21 @@ function groupPayoutsByDate(payouts: PayoutTransfer[]): GroupedPayout[] {
   );
 }
 
+const TX_HASH_RE = /^0x[0-9a-fA-F]{64}$/;
+
 function TxLink({ payout }: { payout: PayoutTransfer }) {
   // tx_hash may include _<address> suffix for uniqueness — strip it for the URL
   const rawHash = payout.tx_hash.split('_')[0];
-  const url = payout.native_currency === 'POL'
-    ? `https://polygonscan.com/tx/${rawHash}`
-    : `https://basescan.org/tx/${rawHash}`;
+  const safeHash = TX_HASH_RE.test(rawHash) ? rawHash : null;
+  const url = safeHash
+    ? payout.native_currency === 'POL'
+      ? `https://polygonscan.com/tx/${safeHash}`
+      : `https://basescan.org/tx/${safeHash}`
+    : null;
+
+  if (!url) {
+    return <span className="pearls-tx-link">{payout.tx_hash.slice(0, 8)}...</span>;
+  }
 
   return (
     <a href={url} target="_blank" rel="noopener noreferrer" className="pearls-tx-link">

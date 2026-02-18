@@ -1,24 +1,28 @@
 import { SignJWT, jwtVerify } from 'jose';
 import type { SessionPayload } from './types';
 
-const JWT_SECRET = process.env.PEARLS_JWT_SECRET;
-
 function getSecret() {
-  if (!JWT_SECRET) throw new Error('PEARLS_JWT_SECRET not configured');
-  return new TextEncoder().encode(JWT_SECRET);
+  const secret = process.env.PEARLS_JWT_SECRET;
+  if (!secret) throw new Error('PEARLS_JWT_SECRET not configured');
+  return new TextEncoder().encode(secret);
 }
 
 export async function createSession(address: string, chainId: number): Promise<string> {
   return new SignJWT({ address, chainId })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
+    .setIssuer('staxed.dev')
+    .setAudience('pearls')
     .setExpirationTime('7d')
     .sign(getSecret());
 }
 
 export async function verifySession(token: string): Promise<SessionPayload | null> {
   try {
-    const { payload } = await jwtVerify(token, getSecret());
+    const { payload } = await jwtVerify(token, getSecret(), {
+      issuer: 'staxed.dev',
+      audience: 'pearls',
+    });
     return payload as unknown as SessionPayload;
   } catch {
     return null;
