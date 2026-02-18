@@ -2,7 +2,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { verifySession } from '@/lib/pearls/auth';
-import { getFiatRates, getCurrentPrice } from '@/lib/pearls/coingecko';
+import { getFiatRates, getCurrentPrice, getLatestCachedPrice, getLatestCachedRates } from '@/lib/pearls/coingecko';
 import type { WalletStats, NftTransfer, PayoutTransfer, CurrencyRates } from '@/lib/pearls/types';
 import ConnectButton from '@/components/pearls/connect-button';
 import UserDashboard from '@/components/pearls/user-dashboard';
@@ -47,10 +47,9 @@ export default async function DashboardPage() {
   const purchases = (purchasesResult.data as NftTransfer[]) ?? [];
   const payouts = (payoutsResult.data as PayoutTransfer[]) ?? [];
 
-  let rates: CurrencyRates = { EUR: 0.92, GBP: 0.79, CAD: 1.36 };
-  let polPrice = 0.5;
-  let ethPrice = 2500;
-
+  let rates: CurrencyRates;
+  let polPrice: number;
+  let ethPrice: number;
   try {
     [rates, polPrice, ethPrice] = await Promise.all([
       getFiatRates(),
@@ -58,7 +57,11 @@ export default async function DashboardPage() {
       getCurrentPrice('ETH'),
     ]);
   } catch {
-    // Use defaults
+    [rates, polPrice, ethPrice] = await Promise.all([
+      getLatestCachedRates(),
+      getLatestCachedPrice('POL'),
+      getLatestCachedPrice('ETH'),
+    ]);
   }
 
   if (!stats) {

@@ -136,6 +136,41 @@ export async function getCurrentPrice(token: string): Promise<number> {
   return usdPrice;
 }
 
+export async function getLatestCachedPrice(token: string): Promise<number> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('price_cache')
+    .select('usd_price')
+    .eq('token', token)
+    .order('date', { ascending: false })
+    .limit(1)
+    .single();
+
+  if (!data) throw new Error(`No cached price for ${token}`);
+  return Number(data.usd_price);
+}
+
+export async function getLatestCachedRates(): Promise<CurrencyRates> {
+  const supabase = await createClient();
+  const currencies = ['EUR', 'GBP', 'CAD'];
+  const rates: Record<string, number> = {};
+
+  for (const currency of currencies) {
+    const { data } = await supabase
+      .from('price_cache')
+      .select('usd_price')
+      .eq('token', currency)
+      .order('date', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (!data) throw new Error(`No cached rate for ${currency}`);
+    rates[currency] = Number(data.usd_price);
+  }
+
+  return rates as unknown as CurrencyRates;
+}
+
 export async function getFiatRates(): Promise<CurrencyRates> {
   const today = new Date().toISOString().split('T')[0];
   const supabase = await createClient();
@@ -168,11 +203,15 @@ export async function getFiatRates(): Promise<CurrencyRates> {
   const data = await res.json();
   const usdc = data?.['usd-coin'];
 
+  if (!usdc?.eur || !usdc?.gbp || !usdc?.cad) {
+    return getLatestCachedRates();
+  }
+
   // USDC rates give us USD -> fiat conversion rates
   const rates: CurrencyRates = {
-    EUR: usdc?.eur ?? 0.92,
-    GBP: usdc?.gbp ?? 0.79,
-    CAD: usdc?.cad ?? 1.36,
+    EUR: usdc.eur,
+    GBP: usdc.gbp,
+    CAD: usdc.cad,
   };
 
   // Cache all three

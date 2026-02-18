@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import type { WalletStats, PeriodWalletStats, CollectionStat, ContractInfo } from '@/lib/pearls/types';
 import ConnectButton from '@/components/pearls/connect-button';
 import PearlsLeaderboardView from '@/components/pearls/pearls-leaderboard-view';
-import { getCurrentPrice } from '@/lib/pearls/coingecko';
+import { getCurrentPrice, getLatestCachedPrice } from '@/lib/pearls/coingecko';
 import { getWeekStart, getMonthStart, getQuarterStart, getYearStart } from '@/lib/pearls/periods';
 
 export default async function PearlsPage() {
@@ -14,8 +14,8 @@ export default async function PearlsPage() {
       .select('*')
       .order('total_spent_excluding_compounded_usd', { ascending: false }),
     supabase.from('wallet_labels').select('address, label, is_fc'),
-    getCurrentPrice('POL').catch(() => 0.25),
-    getCurrentPrice('ETH').catch(() => 2500),
+    getCurrentPrice('POL').catch(() => getLatestCachedPrice('POL')),
+    getCurrentPrice('ETH').catch(() => getLatestCachedPrice('ETH')),
   ]);
 
   const walletLabels: Record<string, string> = {};

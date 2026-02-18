@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { getFiatRates, getCurrentPrice } from '@/lib/pearls/coingecko';
+import { getFiatRates, getCurrentPrice, getLatestCachedPrice, getLatestCachedRates } from '@/lib/pearls/coingecko';
 import { verifySession } from '@/lib/pearls/auth';
 import type { WalletStats, NftTransfer, PayoutTransfer, CurrencyRates, TokenMetadata, Contract } from '@/lib/pearls/types';
 import ConnectButton from '@/components/pearls/connect-button';
@@ -85,20 +85,21 @@ export default async function WalletPage({ params }: Props) {
     contracts
   );
 
-  let rates: CurrencyRates = { EUR: 0.92, GBP: 0.79, CAD: 1.36 };
-  let polPrice = 0.25;
-  let ethPrice = 2500;
+  let rates: CurrencyRates;
+  let polPrice: number;
+  let ethPrice: number;
   try {
-    const [fetchedRates, pol, eth] = await Promise.all([
+    [rates, polPrice, ethPrice] = await Promise.all([
       getFiatRates(),
       getCurrentPrice('POL'),
       getCurrentPrice('ETH'),
     ]);
-    rates = fetchedRates;
-    polPrice = pol;
-    ethPrice = eth;
   } catch {
-    // Use defaults
+    [rates, polPrice, ethPrice] = await Promise.all([
+      getLatestCachedRates(),
+      getLatestCachedPrice('POL'),
+      getLatestCachedPrice('ETH'),
+    ]);
   }
 
   if (!stats) {
