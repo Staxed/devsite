@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import YieldCalculator from './yield-calculator';
 import type { WalletStats, CurrencyRates } from '@/lib/pearls/types';
 import type { SupportedCurrency } from '@/lib/pearls/config';
 import { convertUsdTo, formatCurrency, formatPol, formatEth } from '@/lib/pearls/currencies';
@@ -118,7 +119,11 @@ export default function WalletSummary({ stats, rates, polPrice, ethPrice, curren
     if (months === 0) return 'Broken even!';
     if (months == null) return 'N/A';
     if (months === 1) return '~1 month';
-    return `~${months} months`;
+    const years = Math.floor(months / 12);
+    const rem = months % 12;
+    if (years === 0) return `~${months} months`;
+    if (rem === 0) return `~${years} year${years > 1 ? 's' : ''}`;
+    return `~${years}y ${rem}m`;
   }
 
   // Projected values: actual + estimated earnings for selected period
@@ -352,10 +357,10 @@ export default function WalletSummary({ stats, rates, polPrice, ethPrice, curren
       {/* Break-even */}
       <div className="pearls-break-even">
         <div className="pearls-break-even-header">
-          <span className="pearls-stat-label">Break-even Progress</span>
+          <span className="pearls-stat-label">Current Break-even Progress</span>
           <div className="pearls-break-even-right">
             <span className="pearls-break-even-est">
-              <span className="pearls-label-current">Current</span>: {breakEven.toFixed(1)}% &middot; {monthsLabel(monthsAsIs)}
+              <span className="pearls-label-current">Linear</span>: {breakEven.toFixed(1)}% &middot; {monthsLabel(monthsAsIs)}
             </span>
             <span className="pearls-break-even-est">
               <span className="pearls-label-compound">Compound</span>: {compoundBreakEven.toFixed(1)}% &middot; {monthsLabel(monthsCompound)}
@@ -379,6 +384,15 @@ export default function WalletSummary({ stats, rates, polPrice, ethPrice, curren
           />
         </div>
       </div>
+      <YieldCalculator
+        currentBoosters={stats.total_boosters}
+        effectiveApr={stats.effective_apr}
+        holdingsUsd={holdingsUsd}
+        totalSpentUsd={spentExclCompUsd}
+        totalEarnedUsd={stats.total_earned_usd}
+        polPrice={polPrice}
+        ethPrice={ethPrice}
+      />
     </div>
   );
 }

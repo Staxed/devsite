@@ -1049,6 +1049,14 @@ a.pearls-wallet-link.pearls-named {
   opacity: 0.4;
 }
 
+.pearls-summary .pearls-calc-body .pearls-compound-disclaimer {
+  margin: 0.5rem 1rem 0 0;
+}
+
+.pearls-summary .pearls-calc-body .pearls-compound-disclaimer + .pearls-compound-disclaimer {
+  margin-top: 0.5rem;
+}
+
 .pearls-summary .pearls-compound-disclaimer {
   margin: -0.75rem 1rem 0 0;
 }
@@ -1435,4 +1443,115 @@ a.pearls-wallet-link.pearls-named {
   font-weight: 600;
   color: var(--color-accent-sky);
   border-top: 1px solid var(--color-border-soft);
+}
+
+/* ============================================
+   Yield Calculator
+   ============================================ */
+.pearls-calc-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--color-border-soft);
+  border-radius: 0.5rem;
+  padding: 0.6rem 1rem;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  margin-top: 0.75rem;
+}
+
+.pearls-calc-toggle:hover {
+  color: var(--color-accent-sky);
+  border-color: rgba(34, 211, 238, 0.3);
+}
+
+.pearls-calc-toggle .pearls-calc-chevron {
+  font-size: 0.75rem;
+  transition: transform 0.2s;
+}
+
+.pearls-calc-body {
+  margin-top: 0.5rem;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--color-border-soft);
+  border-radius: 0.5rem;
+}
+
+.pearls-calc-inputs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.pearls-calc-field {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.pearls-calc-field input[type="number"] {
+  width: 70px;
+  padding: 0.3rem 0.5rem;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid var(--color-border-soft);
+  border-radius: 0.375rem;
+  color: var(--color-text-main);
+  font-size: 0.8rem;
+}
+
+.pearls-calc-field input[type="number"]:focus {
+  outline: 2px solid var(--color-accent-sky);
+  outline-offset: 1px;
+}
+
+.pearls-calc-field input[type="checkbox"] {
+  accent-color: var(--color-accent-gold);
+}
+
+.pearls-calc-field label {
+  cursor: pointer;
+}
+
+.pearls-calc-results {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+}
+
+.pearls-calc-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.pearls-calc-stat-label {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.pearls-calc-stat-value {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.pearls-calc-stat-value.highlight {
+  color: var(--color-accent-sky);
+}
+
+.pearls-calc-stat-sub {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
 }
