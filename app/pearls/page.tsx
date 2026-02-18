@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
-import type { WalletStats, PeriodWalletStats } from '@/lib/pearls/types';
+import type { WalletStats, PeriodWalletStats, CollectionStat, ContractInfo } from '@/lib/pearls/types';
 import ConnectButton from '@/components/pearls/connect-button';
 import PearlsLeaderboardView from '@/components/pearls/pearls-leaderboard-view';
 import { getCurrentPrice } from '@/lib/pearls/coingecko';
@@ -50,6 +50,14 @@ export default async function PearlsPage() {
     yearly: yearlyData,
   };
 
+  const [{ data: collectionRows }, { data: contractRows }] = await Promise.all([
+    supabase.rpc('wallet_collection_stats'),
+    supabase.from('contracts').select('id, name, type').order('type', { ascending: false }).order('name'),
+  ]);
+
+  const collectionData: CollectionStat[] = (collectionRows as CollectionStat[]) ?? [];
+  const contracts: ContractInfo[] = (contractRows as ContractInfo[]) ?? [];
+
   return (
     <div className="pearls-page">
       <header className="pearls-header">
@@ -82,6 +90,8 @@ export default async function PearlsPage() {
         walletLabels={walletLabels}
         fcAddresses={fcAddresses}
         periodData={periodData}
+        collectionData={collectionData}
+        contracts={contracts}
       />
     </div>
   );

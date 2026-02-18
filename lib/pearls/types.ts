@@ -196,3 +196,18 @@ export interface PeriodWalletStats {
   total_compounded_pol: number;
   total_compounded_eth: number;
 }
+
+export interface CollectionStat {
+  wallet_address: string;
+  contract_id: string;
+  contract_name: string;
+  contract_type: 'pearl' | 'booster';
+  unique_owned: number;
+  total_possible: number;
+}
+
+export interface ContractInfo {
+  id: string;
+  name: string;
+  type: 'pearl' | 'booster';
+}

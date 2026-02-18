@@ -1287,3 +1287,152 @@ a.pearls-wallet-link.pearls-named {
     grid-template-columns: 1fr 1fr;
   }
 }
+
+/* ============================================
+   Collection Modal
+   ============================================ */
+.pearls-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.pearls-modal {
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.98), rgba(2, 6, 23, 0.98));
+  border: 1px solid var(--color-border-soft);
+  border-radius: 0.75rem;
+  max-width: 480px;
+  width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 28px 60px rgba(0, 0, 0, 0.9);
+}
+
+.pearls-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 1.25rem 1.5rem 0.75rem;
+  border-bottom: 1px solid var(--color-border-soft);
+}
+
+.pearls-modal-header h3 {
+  font-size: 1.1rem;
+  margin: 0 0 0.15rem;
+}
+
+.pearls-modal-header p {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  margin: 0;
+  font-family: monospace;
+}
+
+.pearls-modal-close {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 0.25rem;
+  line-height: 1;
+  transition: color 0.15s;
+}
+
+.pearls-modal-close:hover {
+  color: var(--color-text-main);
+}
+
+.pearls-modal-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 0.5rem;
+  padding: 1rem 1.5rem;
+}
+
+.pearls-modal-token {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.8rem;
+  border: 1px solid var(--color-border-soft);
+  background: rgba(15, 23, 42, 0.6);
+}
+
+.pearls-modal-token.owned {
+  border-color: rgba(34, 197, 94, 0.4);
+  background: rgba(34, 197, 94, 0.08);
+}
+
+.pearls-modal-token.owned .pearls-modal-check {
+  color: #22c55e;
+}
+
+.pearls-modal-token.missing {
+  opacity: 0.45;
+}
+
+.pearls-modal-token.missing .pearls-modal-check {
+  color: #ef4444;
+}
+
+.pearls-modal-footer {
+  padding: 0.75rem 1.5rem;
+  border-top: 1px solid var(--color-border-soft);
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.pearls-modal-loading {
+  padding: 2rem;
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+/* ============================================
+   Collectors Table
+   ============================================ */
+.pearls-pct-cell {
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.pearls-pct-cell:hover {
+  color: var(--color-accent-sky);
+  text-decoration: underline;
+}
+
+.pearls-pct-gold {
+  color: var(--color-accent-gold);
+  font-weight: 600;
+}
+
+.pearls-pct-dim {
+  opacity: 0.4;
+}
+
+.pearls-collectors-disclaimer {
+  font-size: 0.6rem;
+  font-style: italic;
+  color: var(--color-text-muted);
+  text-align: right;
+  margin: 0.5rem 1.75rem 0 0;
+  opacity: 0.4;
+}
+
+.pearls-modal-section-header {
+  padding: 0.75rem 1.5rem 0.25rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-accent-sky);
+  border-top: 1px solid var(--color-border-soft);
+}
