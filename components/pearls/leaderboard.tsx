@@ -2,21 +2,17 @@
 
 import { useState } from 'react';
 import type { WalletStats } from '@/lib/pearls/types';
-import type { SupportedCurrency } from '@/lib/pearls/config';
-import type { CurrencyRates } from '@/lib/pearls/types';
-import { convertUsdTo, formatCurrency } from '@/lib/pearls/currencies';
+import { formatNative } from '@/lib/pearls/currencies';
 
-type SortKey = 'total_pearls' | 'total_spent_usd' | 'total_earned_usd' | 'net_position_usd' | 'effective_apr';
+type SortKey = 'total_pearls' | 'total_spent_pol' | 'total_spent_eth' | 'total_earned_pol' | 'total_earned_eth' | 'net_pol' | 'net_eth' | 'effective_apr';
 type SortDir = 'asc' | 'desc';
 
 interface LeaderboardProps {
   wallets: WalletStats[];
-  currency: SupportedCurrency;
-  rates: CurrencyRates;
 }
 
-export default function Leaderboard({ wallets, currency, rates }: LeaderboardProps) {
-  const [sortKey, setSortKey] = useState<SortKey>('total_spent_usd');
+export default function Leaderboard({ wallets }: LeaderboardProps) {
+  const [sortKey, setSortKey] = useState<SortKey>('total_spent_pol');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
 
   function handleSort(key: SortKey) {
@@ -64,18 +60,33 @@ export default function Leaderboard({ wallets, currency, rates }: LeaderboardPro
               </button>
             </th>
             <th scope="col">
-              <button type="button" className="pearls-sort-btn" onClick={() => handleSort('total_spent_usd')}>
-                Spent{sortIndicator('total_spent_usd')}
+              <button type="button" className="pearls-sort-btn" onClick={() => handleSort('total_spent_pol')}>
+                POL Spent{sortIndicator('total_spent_pol')}
               </button>
             </th>
             <th scope="col">
-              <button type="button" className="pearls-sort-btn" onClick={() => handleSort('total_earned_usd')}>
-                Earned{sortIndicator('total_earned_usd')}
+              <button type="button" className="pearls-sort-btn" onClick={() => handleSort('total_spent_eth')}>
+                ETH Spent{sortIndicator('total_spent_eth')}
               </button>
             </th>
             <th scope="col">
-              <button type="button" className="pearls-sort-btn" onClick={() => handleSort('net_position_usd')}>
-                Net{sortIndicator('net_position_usd')}
+              <button type="button" className="pearls-sort-btn" onClick={() => handleSort('total_earned_pol')}>
+                POL Earned{sortIndicator('total_earned_pol')}
+              </button>
+            </th>
+            <th scope="col">
+              <button type="button" className="pearls-sort-btn" onClick={() => handleSort('total_earned_eth')}>
+                ETH Earned{sortIndicator('total_earned_eth')}
+              </button>
+            </th>
+            <th scope="col">
+              <button type="button" className="pearls-sort-btn" onClick={() => handleSort('net_pol')}>
+                Net POL{sortIndicator('net_pol')}
+              </button>
+            </th>
+            <th scope="col">
+              <button type="button" className="pearls-sort-btn" onClick={() => handleSort('net_eth')}>
+                Net ETH{sortIndicator('net_eth')}
               </button>
             </th>
             <th scope="col">
@@ -95,10 +106,15 @@ export default function Leaderboard({ wallets, currency, rates }: LeaderboardPro
                 </a>
               </td>
               <td>{w.total_pearls}</td>
-              <td>{formatCurrency(convertUsdTo(w.total_spent_usd, currency, rates), currency)}</td>
-              <td>{formatCurrency(convertUsdTo(w.total_earned_usd, currency, rates), currency)}</td>
-              <td className={w.net_position_usd >= 0 ? 'pearls-positive' : 'pearls-negative'}>
-                {formatCurrency(convertUsdTo(w.net_position_usd, currency, rates), currency)}
+              <td>{formatNative(w.total_spent_pol, 'POL')}</td>
+              <td>{w.total_spent_eth > 0 ? formatNative(w.total_spent_eth, 'ETH') : '\u2014'}</td>
+              <td>{formatNative(w.total_earned_pol, 'POL')}</td>
+              <td>{w.total_earned_eth > 0 ? formatNative(w.total_earned_eth, 'ETH') : '\u2014'}</td>
+              <td className={w.net_pol >= 0 ? 'pearls-positive' : 'pearls-negative'}>
+                {formatNative(w.net_pol, 'POL')}
+              </td>
+              <td className={w.net_eth >= 0 ? 'pearls-positive' : 'pearls-negative'}>
+                {w.net_eth !== 0 ? formatNative(w.net_eth, 'ETH') : '\u2014'}
               </td>
               <td>{w.effective_apr.toFixed(1)}%</td>
             </tr>

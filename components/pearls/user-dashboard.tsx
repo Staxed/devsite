@@ -112,7 +112,7 @@ export default function UserDashboard({
       />
 
       <PayoutEstimator
-        holdingsValueUsd={stats.total_spent_usd}
+        holdingsValueUsd={stats.holdings_pol_value * polPrice + stats.holdings_eth_value * ethPrice}
         apr={stats.effective_apr}
         polPrice={polPrice}
         ethPrice={ethPrice}

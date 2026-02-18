@@ -615,6 +615,39 @@ main ul a:focus-visible {
   margin-top: 0.5rem;
 }
 
+/* Tabs */
+.pearls-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--color-border-soft);
+  margin-top: 1.5rem;
+}
+
+.pearls-tab {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  font-weight: 500;
+  padding: 0.6rem 1.25rem;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+.pearls-tab:hover {
+  color: var(--color-text-main);
+}
+
+.pearls-tab.active {
+  color: var(--color-accent-sky);
+  border-bottom-color: var(--color-accent-sky);
+}
+
+.pearls-tab-content {
+  margin-top: 0.5rem;
+}
+
 /* Currency Selector */
 .pearls-currency-select {
   background: rgba(15, 23, 42, 0.9);
@@ -719,6 +752,17 @@ main ul a:focus-visible {
   text-decoration: underline;
 }
 
+.pearls-tx-links {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+.pearls-tx-sep {
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+}
+
 .pearls-back-link {
   color: var(--color-text-muted);
   text-decoration: none;
@@ -748,8 +792,47 @@ main ul a:focus-visible {
 
 .pearls-stat-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
   gap: 0.75rem;
+}
+
+.pearls-stat-row {
+  margin-bottom: 1rem;
+}
+
+.pearls-stat-row-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.pearls-row-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+}
+
+.pearls-stat-row-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
+  gap: 0.75rem;
+}
+
+.pearls-stat-row-flex {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.pearls-stat-row-flex .pearls-stat-card {
+  min-width: 155px;
+}
+
+.pearls-stat-spacer {
+  flex: 1;
+  min-width: 2rem;
 }
 
 .pearls-stat-card {
@@ -760,6 +843,23 @@ main ul a:focus-visible {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
+}
+
+.pearls-stat-card-wide {
+  min-width: 185px;
+}
+
+.pearls-stat-value-gradient {
+  background: linear-gradient(
+    to right,
+    var(--color-accent-gold),
+    var(--color-accent-orange),
+    var(--color-accent-pink)
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
 }
 
 .pearls-stat-label {
@@ -781,31 +881,72 @@ main ul a:focus-visible {
 
 /* Break-even meter */
 .pearls-break-even {
+  margin-top: 1rem;
+}
+
+.pearls-break-even-header {
   display: flex;
-  align-items: center;
-  gap: 0.75rem;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 0.4rem;
+}
+
+.pearls-break-even-right {
+  display: flex;
+  gap: 1.5rem;
 }
 
 .pearls-meter-track {
-  flex: 1;
-  height: 8px;
+  position: relative;
+  height: 10px;
   background: rgba(148, 163, 184, 0.2);
   border-radius: 999px;
   overflow: hidden;
 }
 
-.pearls-meter-fill {
+.pearls-meter-fill-compound {
+  position: absolute;
+  top: 0;
+  left: 0;
   height: 100%;
   border-radius: 999px;
   background: linear-gradient(90deg, var(--color-accent-gold), var(--color-accent-orange));
   transition: width 0.4s ease;
 }
 
-.pearls-meter-label {
-  font-size: 0.85rem;
+.pearls-meter-fill-current {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--color-accent-sky), #60a5fa);
+  transition: width 0.4s ease;
+}
+
+.pearls-label-current {
   font-weight: 600;
-  min-width: 3rem;
-  text-align: right;
+  background: linear-gradient(90deg, var(--color-accent-sky), #60a5fa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.pearls-label-compound {
+  font-weight: 600;
+  background: linear-gradient(90deg, var(--color-accent-gold), var(--color-accent-orange), #f472b6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.pearls-break-even-est {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.pearls-break-even-est strong {
+  color: var(--color-text-main);
 }
 
 /* Empty states */

@@ -1,15 +1,27 @@
-import type { NftTransfer } from '@/lib/pearls/types';
-import type { SupportedCurrency } from '@/lib/pearls/config';
-import type { CurrencyRates } from '@/lib/pearls/types';
-import { convertUsdTo, formatCurrency, formatNative } from '@/lib/pearls/currencies';
+import type { NftTransfer, TokenMetadata } from '@/lib/pearls/types';
+import { formatNative } from '@/lib/pearls/currencies';
+
+/** Lookup key: "contract_id:token_id" → name */
+export type TokenNameMap = Record<string, string>;
+
+export function buildTokenNameMap(metadata: TokenMetadata[]): TokenNameMap {
+  const map: TokenNameMap = {};
+  for (const tm of metadata) {
+    map[`${tm.contract_id}:${tm.token_id}`] = tm.name;
+  }
+  return map;
+}
 
 interface PurchaseTableProps {
   purchases: NftTransfer[];
-  currency: SupportedCurrency;
-  rates: CurrencyRates;
+  tokenNames: TokenNameMap;
 }
 
-export default function PurchaseTable({ purchases, currency, rates }: PurchaseTableProps) {
+function getPearlName(purchase: NftTransfer, tokenNames: TokenNameMap): string {
+  return tokenNames[`${purchase.contract_id}:${purchase.token_id}`] ?? `#${purchase.token_id}`;
+}
+
+export default function PurchaseTable({ purchases, tokenNames }: PurchaseTableProps) {
   if (purchases.length === 0) {
     return (
       <div className="pearls-empty">
@@ -24,10 +36,9 @@ export default function PurchaseTable({ purchases, currency, rates }: PurchaseTa
         <thead>
           <tr>
             <th scope="col">Date</th>
-            <th scope="col">Token ID</th>
+            <th scope="col">Pearl</th>
             <th scope="col">Qty</th>
             <th scope="col">Paid</th>
-            <th scope="col">Value</th>
             <th scope="col">Compounded</th>
           </tr>
         </thead>
@@ -35,16 +46,11 @@ export default function PurchaseTable({ purchases, currency, rates }: PurchaseTa
           {purchases.map((p) => (
             <tr key={p.id}>
               <td>{new Date(p.timestamp).toLocaleDateString()}</td>
-              <td>#{p.token_id}</td>
+              <td>{getPearlName(p, tokenNames)}</td>
               <td>{p.quantity}</td>
               <td>
                 {p.native_value != null && p.native_currency
                   ? formatNative(p.native_value, p.native_currency)
-                  : '\u2014'}
-              </td>
-              <td>
-                {p.usd_value != null
-                  ? formatCurrency(convertUsdTo(p.usd_value, currency, rates), currency)
                   : '\u2014'}
               </td>
               <td>{p.is_compounded ? 'Yes' : 'No'}</td>
