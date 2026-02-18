@@ -2,7 +2,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { verifySession } from '@/lib/pearls/auth';
-import { getFiatRates, getTodayPrice } from '@/lib/pearls/coingecko';
+import { getFiatRates, getCurrentPrice } from '@/lib/pearls/coingecko';
 import type { WalletStats, NftTransfer, PayoutTransfer, CurrencyRates } from '@/lib/pearls/types';
 import ConnectButton from '@/components/pearls/connect-button';
 import UserDashboard from '@/components/pearls/user-dashboard';
@@ -54,8 +54,8 @@ export default async function DashboardPage() {
   try {
     [rates, polPrice, ethPrice] = await Promise.all([
       getFiatRates(),
-      getTodayPrice('POL'),
-      getTodayPrice('ETH'),
+      getCurrentPrice('POL'),
+      getCurrentPrice('ETH'),
     ]);
   } catch {
     // Use defaults

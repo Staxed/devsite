@@ -3,15 +3,16 @@ import Leaderboard from './leaderboard';
 
 interface Props {
   wallets: WalletStats[];
+  polPrice: number;
+  ethPrice: number;
+  walletLabels: Record<string, string>;
+  fcAddresses: string[];
 }
 
-export default function PearlsLeaderboardView({ wallets }: Props) {
+export default function PearlsLeaderboardView({ wallets, polPrice, ethPrice, walletLabels, fcAddresses }: Props) {
   return (
     <section className="pearls-content">
-      <div className="pearls-toolbar">
-        <h2>Leaderboard</h2>
-      </div>
-      <Leaderboard wallets={wallets} />
+      <Leaderboard wallets={wallets} polPrice={polPrice} ethPrice={ethPrice} walletLabels={walletLabels} fcAddresses={fcAddresses} />
     </section>
   );
 }

@@ -88,9 +88,9 @@ export async function getTokenPrice(
   return usdPrice;
 }
 
-const PRICE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const PRICE_TTL_MS = 15 * 60 * 1000; // 15 minutes
 
-export async function getTodayPrice(token: string): Promise<number> {
+export async function getCurrentPrice(token: string): Promise<number> {
   const today = new Date();
   const dateStr = today.toISOString().split('T')[0];
   const supabase = await createClient();
