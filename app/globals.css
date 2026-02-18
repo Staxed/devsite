@@ -997,6 +997,11 @@ a.pearls-wallet-link.pearls-named {
   align-items: center;
   gap: 0.25rem;
   margin-left: auto;
+  margin-bottom: 0.35rem;
+}
+
+.pearls-be-label {
+  margin-right: 0.5rem;
 }
 
 .pearls-est-tab {
@@ -1045,6 +1050,16 @@ a.pearls-wallet-link.pearls-named {
 .pearls-compound-section {
   padding: 0 1rem;
   margin-top: -0.5rem;
+}
+
+.pearls-compound-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.pearls-spacer {
+  margin-left: auto;
 }
 
 .pearls-compound-disclaimer {

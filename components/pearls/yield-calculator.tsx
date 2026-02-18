@@ -10,9 +10,8 @@ import {
   findOptimalBoosters,
   findOptimalBoostersNative,
 } from '@/lib/pearls/calculations';
-import { MIN_PEARL_PRICES } from '@/lib/pearls/config';
-
-type BreakEvenMode = 'fiat' | 'pol' | 'eth';
+import { MIN_PEARL_PRICES, type BreakEvenMode } from '@/lib/pearls/config';
+import { formatMonths } from '@/lib/pearls/currencies';
 
 interface YieldCalculatorProps {
   currentBoosters: number;
@@ -29,16 +28,6 @@ interface YieldCalculatorProps {
   holdingsNativeEth: number;
   totalSpentNativeEth: number;
   totalEarnedNativeEth: number;
-}
-
-function formatMonths(months: number | null): string {
-  if (months === null) return 'N/A';
-  if (months === 0) return 'Broken even!';
-  const years = Math.floor(months / 12);
-  const rem = months % 12;
-  if (years === 0) return `~${months} months`;
-  if (rem === 0) return `~${years} year${years > 1 ? 's' : ''}`;
-  return `~${years}y ${rem}m`;
 }
 
 export default function YieldCalculator({

@@ -2,7 +2,7 @@
 
 import { useTransition } from 'react';
 import type { NftTransfer } from '@/lib/pearls/types';
-import type { TokenNameMap } from '@/lib/pearls/token-names';
+import { type TokenNameMap, getTokenName } from '@/lib/pearls/token-names';
 import { formatNative } from '@/lib/pearls/currencies';
 
 interface PurchaseTableProps {
@@ -10,10 +10,6 @@ interface PurchaseTableProps {
   tokenNames: TokenNameMap;
   isOwner?: boolean;
   onCompoundToggle?: (transferId: string) => void;
-}
-
-function getPearlName(purchase: NftTransfer, tokenNames: TokenNameMap): string {
-  return tokenNames[`${purchase.contract_id}:${purchase.token_id}`] ?? `#${purchase.token_id}`;
 }
 
 export default function PurchaseTable({ purchases, tokenNames, isOwner = false, onCompoundToggle }: PurchaseTableProps) {
@@ -62,7 +58,7 @@ export default function PurchaseTable({ purchases, tokenNames, isOwner = false, 
           {purchases.map((p) => (
             <tr key={p.id}>
               <td>{new Date(p.timestamp).toLocaleDateString()}</td>
-              <td>{getPearlName(p, tokenNames)}</td>
+              <td>{getTokenName(tokenNames, p.contract_id, p.token_id)}</td>
               <td>{p.quantity}</td>
               <td>
                 {p.native_value != null && p.native_currency

@@ -1,6 +1,6 @@
 'use client';
 
-import { type ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cookieToInitialState, WagmiProvider, type Config, http, fallback } from 'wagmi';
 import { cookieStorage, createStorage } from '@wagmi/core';
@@ -128,8 +128,6 @@ createAppKit({
   },
 });
 
-const queryClient = new QueryClient();
-
 export default function Web3Provider({
   children,
   cookies,
@@ -137,6 +135,7 @@ export default function Web3Provider({
   children: ReactNode;
   cookies: string | null;
 }) {
+  const [queryClient] = useState(() => new QueryClient());
   const initialState = cookieToInitialState(
     wagmiAdapter.wagmiConfig as Config,
     cookies

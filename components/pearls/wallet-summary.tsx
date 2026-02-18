@@ -1,18 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import YieldCalculator from './yield-calculator';
 import type { WalletStats, CurrencyRates } from '@/lib/pearls/types';
-import type { SupportedCurrency } from '@/lib/pearls/config';
-import { MIN_PEARL_PRICES } from '@/lib/pearls/config';
-import { convertUsdTo, formatCurrency, formatPol, formatEth } from '@/lib/pearls/currencies';
+import type { SupportedCurrency, BreakEvenMode, EstimateTab } from '@/lib/pearls/config';
+import { MIN_PEARL_PRICES, ESTIMATE_CONFIGS } from '@/lib/pearls/config';
+import { convertUsdTo, formatCurrency, formatPol, formatEth, formatMonths } from '@/lib/pearls/currencies';
 import {
   calculateBreakEven,
   calculateMonthlyPayout,
   calculateMonthsToBreakEven,
   calculateCompoundMonthsToBreakEven,
   calculateCompoundMonthsToBreakEvenNative,
-  calculateYearlyNoCompound,
   calculateYearlyMaxCompound,
   calculateYearlyMaxCompoundNative,
   findOptimalBoostersNative,
@@ -28,9 +27,6 @@ interface WalletSummaryProps {
   compoundedEth?: number;
   compoundedUsd?: number;
 }
-
-type EstimateTab = 'monthly' | 'yearly' | 'compound' | 'compound2' | 'compound3' | 'compound4' | 'compound5' | 'compound10' | 'compound20';
-type BreakEvenMode = 'fiat' | 'pol' | 'eth';
 
 export default function WalletSummary({ stats, rates, polPrice, ethPrice, currency, compoundedPol = 0, compoundedEth = 0, compoundedUsd = 0 }: WalletSummaryProps) {
   const [estTab, setEstTab] = useState<EstimateTab>('monthly');
@@ -101,142 +97,42 @@ export default function WalletSummary({ stats, rates, polPrice, ethPrice, curren
     compoundBreakEven = 100;
   }
 
-  const estMonthlyPol = (stats.holdings_pol_value * (stats.effective_apr / 100)) / 12;
-  const estMonthlyEth = (stats.holdings_eth_value * (stats.effective_apr / 100)) / 12;
-  const estYearlyPol = estMonthlyPol * 12;
-  const estYearlyEth = estMonthlyEth * 12;
-  const estCompoundPol = calculateYearlyMaxCompoundNative(stats.holdings_pol_value, stats.effective_apr, 10);
-  const estCompoundEth = calculateYearlyMaxCompoundNative(stats.holdings_eth_value, stats.effective_apr, 0.00075);
+  const estimates = useMemo(() => {
+    const minCostPol = MIN_PEARL_PRICES.polygon.amount;
+    const minCostEth = MIN_PEARL_PRICES.base.amount;
+    const monthlyPol = (stats.holdings_pol_value * (stats.effective_apr / 100)) / 12;
+    const monthlyEth = (stats.holdings_eth_value * (stats.effective_apr / 100)) / 12;
 
-  const compound2Usd = calculateYearlyMaxCompound(monthlyPayoutUsd, holdingsUsd, stats.effective_apr, polPrice, ethPrice, 2);
-  const compound2Pol = calculateYearlyMaxCompoundNative(stats.holdings_pol_value, stats.effective_apr, 10, 2);
-  const compound2Eth = calculateYearlyMaxCompoundNative(stats.holdings_eth_value, stats.effective_apr, 0.00075, 2);
+    const map = new Map<string, { usd: number; pol: number; eth: number; label: string; months: number; compound: boolean }>();
 
-  const compound3Usd = calculateYearlyMaxCompound(monthlyPayoutUsd, holdingsUsd, stats.effective_apr, polPrice, ethPrice, 3);
-  const compound3Pol = calculateYearlyMaxCompoundNative(stats.holdings_pol_value, stats.effective_apr, 10, 3);
-  const compound3Eth = calculateYearlyMaxCompoundNative(stats.holdings_eth_value, stats.effective_apr, 0.00075, 3);
+    for (const cfg of ESTIMATE_CONFIGS) {
+      let usd: number, pol: number, eth: number;
 
-  const compound4Usd = calculateYearlyMaxCompound(monthlyPayoutUsd, holdingsUsd, stats.effective_apr, polPrice, ethPrice, 4);
-  const compound4Pol = calculateYearlyMaxCompoundNative(stats.holdings_pol_value, stats.effective_apr, 10, 4);
-  const compound4Eth = calculateYearlyMaxCompoundNative(stats.holdings_eth_value, stats.effective_apr, 0.00075, 4);
+      if (cfg.compound) {
+        usd = calculateYearlyMaxCompound(monthlyPayoutUsd, holdingsUsd, stats.effective_apr, polPrice, ethPrice, cfg.years);
+        pol = calculateYearlyMaxCompoundNative(stats.holdings_pol_value, stats.effective_apr, minCostPol, cfg.years);
+        eth = calculateYearlyMaxCompoundNative(stats.holdings_eth_value, stats.effective_apr, minCostEth, cfg.years);
+      } else {
+        usd = monthlyPayoutUsd * cfg.months;
+        pol = monthlyPol * cfg.months;
+        eth = monthlyEth * cfg.months;
+      }
 
-  const compound5Usd = calculateYearlyMaxCompound(monthlyPayoutUsd, holdingsUsd, stats.effective_apr, polPrice, ethPrice, 5);
-  const compound5Pol = calculateYearlyMaxCompoundNative(stats.holdings_pol_value, stats.effective_apr, 10, 5);
-  const compound5Eth = calculateYearlyMaxCompoundNative(stats.holdings_eth_value, stats.effective_apr, 0.00075, 5);
+      map.set(cfg.key, { usd, pol, eth, label: cfg.label, months: cfg.months, compound: cfg.compound });
+    }
 
-  const compound10Usd = calculateYearlyMaxCompound(monthlyPayoutUsd, holdingsUsd, stats.effective_apr, polPrice, ethPrice, 10);
-  const compound10Pol = calculateYearlyMaxCompoundNative(stats.holdings_pol_value, stats.effective_apr, 10, 10);
-  const compound10Eth = calculateYearlyMaxCompoundNative(stats.holdings_eth_value, stats.effective_apr, 0.00075, 10);
+    return map;
+  }, [monthlyPayoutUsd, holdingsUsd, stats.holdings_pol_value, stats.holdings_eth_value, stats.effective_apr, polPrice, ethPrice]);
 
-  const compound20Usd = calculateYearlyMaxCompound(monthlyPayoutUsd, holdingsUsd, stats.effective_apr, polPrice, ethPrice, 20);
-  const compound20Pol = calculateYearlyMaxCompoundNative(stats.holdings_pol_value, stats.effective_apr, 10, 20);
-  const compound20Eth = calculateYearlyMaxCompoundNative(stats.holdings_eth_value, stats.effective_apr, 0.00075, 20);
+  const est = estimates.get(estTab)!;
+  const isCompound = est.compound;
 
-  const yearlyNoCompoundUsd = calculateYearlyNoCompound(monthlyPayoutUsd);
-  const yearlyMaxCompoundUsd = calculateYearlyMaxCompound(
-    monthlyPayoutUsd,
-    holdingsUsd,
-    stats.effective_apr,
-    polPrice,
-    ethPrice
-  );
+  const projectedNetUsd = netUsd + est.usd;
+  const projectedNetPol = netPol + est.pol;
+  const projectedNetEth = netEth + est.eth;
 
   function fmt(usd: number) {
     return formatCurrency(convertUsdTo(usd, currency, rates), currency);
-  }
-
-  function monthsLabel(months: number | null) {
-    if (months === 0) return 'Broken even!';
-    if (months == null) return 'N/A';
-    if (months === 1) return '~1 month';
-    const years = Math.floor(months / 12);
-    const rem = months % 12;
-    if (years === 0) return `~${months} months`;
-    if (rem === 0) return `~${years} year${years > 1 ? 's' : ''}`;
-    return `~${years}y ${rem}m`;
-  }
-
-  // Projected values: actual + estimated earnings for selected period
-  function getEstUsd(): number {
-    if (estTab === 'monthly') return monthlyPayoutUsd;
-    if (estTab === 'yearly') return yearlyNoCompoundUsd;
-    if (estTab === 'compound') return yearlyMaxCompoundUsd;
-    if (estTab === 'compound2') return compound2Usd;
-    if (estTab === 'compound3') return compound3Usd;
-    if (estTab === 'compound4') return compound4Usd;
-    if (estTab === 'compound5') return compound5Usd;
-    if (estTab === 'compound10') return compound10Usd;
-    return compound20Usd;
-  }
-  function getEstPolNative(): number {
-    if (estTab === 'monthly') return estMonthlyPol;
-    if (estTab === 'yearly') return estYearlyPol;
-    if (estTab === 'compound') return estCompoundPol;
-    if (estTab === 'compound2') return compound2Pol;
-    if (estTab === 'compound3') return compound3Pol;
-    if (estTab === 'compound4') return compound4Pol;
-    if (estTab === 'compound5') return compound5Pol;
-    if (estTab === 'compound10') return compound10Pol;
-    return compound20Pol;
-  }
-  function getEstEthNative(): number {
-    if (estTab === 'monthly') return estMonthlyEth;
-    if (estTab === 'yearly') return estYearlyEth;
-    if (estTab === 'compound') return estCompoundEth;
-    if (estTab === 'compound2') return compound2Eth;
-    if (estTab === 'compound3') return compound3Eth;
-    if (estTab === 'compound4') return compound4Eth;
-    if (estTab === 'compound5') return compound5Eth;
-    if (estTab === 'compound10') return compound10Eth;
-    return compound20Eth;
-  }
-
-  const isCompound = estTab.startsWith('compound');
-
-  const projectedNetUsd = netUsd + getEstUsd();
-  const projectedNetPol = netPol + getEstPolNative();
-  const projectedNetEth = netEth + getEstEthNative();
-
-  // Estimate values based on selected tab
-  function getEstTotal(): string {
-    return fmt(getEstUsd());
-  }
-  function getEstPol(): string {
-    return formatPol(getEstPolNative());
-  }
-  function getEstEth(): string {
-    return formatEth(getEstEthNative());
-  }
-  function getEstMonths(): number {
-    if (estTab === 'monthly') return 1;
-    if (estTab === 'yearly') return 12;
-    if (estTab === 'compound') return 12;
-    if (estTab === 'compound2') return 24;
-    if (estTab === 'compound3') return 36;
-    if (estTab === 'compound4') return 48;
-    if (estTab === 'compound5') return 60;
-    if (estTab === 'compound10') return 120;
-    return 240;
-  }
-  function getAvgMonthlyUsd(): number {
-    return getEstUsd() / getEstMonths();
-  }
-  function getAvgMonthlyPol(): string {
-    return formatPol(getEstPolNative() / getEstMonths());
-  }
-  function getAvgMonthlyEth(): string {
-    return formatEth(getEstEthNative() / getEstMonths());
-  }
-  function getEstLabel(): string {
-    if (estTab === 'monthly') return 'Monthly';
-    if (estTab === 'yearly') return 'Yearly';
-    if (estTab === 'compound') return 'Yearly Compound';
-    if (estTab === 'compound2') return '2 Year Compound';
-    if (estTab === 'compound3') return '3 Year Compound';
-    if (estTab === 'compound4') return '4 Year Compound';
-    if (estTab === 'compound5') return '5 Year Compound';
-    if (estTab === 'compound10') return '10 Year Compound';
-    return '20 Year Compound';
   }
 
   return (
@@ -271,13 +167,13 @@ export default function WalletSummary({ stats, rates, polPrice, ethPrice, curren
         </div>
         <div className="pearls-hero-right">
           <div className="pearls-hero-stat">
-            <span className="pearls-hero-label">{getEstLabel()}</span>
-            <span className="pearls-hero-value pearls-stat-value-gradient">{getEstTotal()}</span>
+            <span className="pearls-hero-label">{est.label}</span>
+            <span className="pearls-hero-value pearls-stat-value-gradient">{fmt(est.usd)}</span>
           </div>
           {isCompound && (
             <div className="pearls-hero-stat">
               <span className="pearls-hero-label">Avg. Monthly</span>
-              <span className="pearls-hero-value pearls-stat-value-gradient">{fmt(getAvgMonthlyUsd())}</span>
+              <span className="pearls-hero-value pearls-stat-value-gradient">{fmt(est.usd / est.months)}</span>
             </div>
           )}
         </div>
@@ -314,7 +210,7 @@ export default function WalletSummary({ stats, rates, polPrice, ethPrice, curren
                 <th scope="col">Compounded</th>
                 <th scope="col">Earned</th>
                 <th scope="col">Net</th>
-                <th scope="col">{getEstLabel()}</th>
+                <th scope="col">{est.label}</th>
                 {isCompound && <th scope="col">Avg. Monthly</th>}
               </tr>
             </thead>
@@ -329,8 +225,8 @@ export default function WalletSummary({ stats, rates, polPrice, ethPrice, curren
                 <td className={projectedNetPol >= 0 ? 'pearls-positive' : 'pearls-negative'}>
                   {formatPol(projectedNetPol)}
                 </td>
-                <td className="pearls-stat-value-gradient">{getEstPol()}</td>
-                {isCompound && <td className="pearls-stat-value-gradient">{getAvgMonthlyPol()}</td>}
+                <td className="pearls-stat-value-gradient">{formatPol(est.pol)}</td>
+                {isCompound && <td className="pearls-stat-value-gradient">{formatPol(est.pol / est.months)}</td>}
               </tr>
               <tr>
                 <td>ETH</td>
@@ -342,8 +238,8 @@ export default function WalletSummary({ stats, rates, polPrice, ethPrice, curren
                 <td className={projectedNetEth >= 0 ? 'pearls-positive' : 'pearls-negative'}>
                   {formatEth(projectedNetEth)}
                 </td>
-                <td className="pearls-stat-value-gradient">{getEstEth()}</td>
-                {isCompound && <td className="pearls-stat-value-gradient">{getAvgMonthlyEth()}</td>}
+                <td className="pearls-stat-value-gradient">{formatEth(est.eth)}</td>
+                {isCompound && <td className="pearls-stat-value-gradient">{formatEth(est.eth / est.months)}</td>}
               </tr>
               {stats.total_boosters > 0 && (
                 <tr>
@@ -364,11 +260,11 @@ export default function WalletSummary({ stats, rates, polPrice, ethPrice, curren
       </div>
 
       {/* Estimated Compounding */}
-      <div className="pearls-compound-section" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+      <div className="pearls-compound-section pearls-compound-row">
         <span className="pearls-compound-label">
           Available to Compound: {formatPol(stats.total_earned_pol - compoundedPol)} | {formatEth(stats.total_earned_eth - compoundedEth)} | {formatCurrency(convertUsdTo(stats.total_earned_usd - compoundedUsd, currency, rates), currency)}
         </span>
-        <span style={{ marginLeft: 'auto' }} />
+        <span className="pearls-spacer" />
         <span className="pearls-compound-label">Estimated Compounding</span>
         <div className="pearls-est-tabs">
           <button type="button" className={`pearls-est-tab ${estTab === 'compound' ? 'active' : ''}`} onClick={() => setEstTab('compound')}>1Y</button>
@@ -385,11 +281,11 @@ export default function WalletSummary({ stats, rates, polPrice, ethPrice, curren
 
       {/* Break-even */}
       <div className="pearls-break-even">
-        <div className="pearls-be-mode-tabs" style={{ marginBottom: '0.35rem' }}>
-          <span className="pearls-stat-label" style={{ marginRight: '0.5rem' }}>Calculate Break-Even:</span>
-          <button type="button" className={`pearls-est-tab${breakEvenMode === 'fiat' ? ' active' : ''}`} onClick={() => setBreakEvenMode('fiat')}>Fiat</button>
-          <button type="button" className={`pearls-est-tab${breakEvenMode === 'pol' ? ' active' : ''}`} onClick={() => setBreakEvenMode('pol')}>POL EQ</button>
-          <button type="button" className={`pearls-est-tab${breakEvenMode === 'eth' ? ' active' : ''}`} onClick={() => setBreakEvenMode('eth')}>ETH EQ</button>
+        <div className="pearls-be-mode-tabs">
+          <span className="pearls-stat-label pearls-be-label">Calculate Break-Even:</span>
+          <button type="button" className={`pearls-est-tab ${breakEvenMode === 'fiat' ? 'active' : ''}`} onClick={() => setBreakEvenMode('fiat')}>Fiat</button>
+          <button type="button" className={`pearls-est-tab ${breakEvenMode === 'pol' ? 'active' : ''}`} onClick={() => setBreakEvenMode('pol')}>POL EQ</button>
+          <button type="button" className={`pearls-est-tab ${breakEvenMode === 'eth' ? 'active' : ''}`} onClick={() => setBreakEvenMode('eth')}>ETH EQ</button>
         </div>
         <div className="pearls-break-even-header">
           <span className="pearls-stat-label">
@@ -397,10 +293,10 @@ export default function WalletSummary({ stats, rates, polPrice, ethPrice, curren
           </span>
           <div className="pearls-break-even-right">
             <span className="pearls-break-even-est">
-              <span className="pearls-label-current">Linear</span>: {breakEven.toFixed(1)}% &middot; {monthsLabel(monthsAsIs)}
+              <span className="pearls-label-current">Linear</span>: {breakEven.toFixed(1)}% &middot; {formatMonths(monthsAsIs)}
             </span>
             <span className="pearls-break-even-est">
-              <span className="pearls-label-compound">Compound</span>: {compoundBreakEven.toFixed(1)}% &middot; {monthsLabel(monthsCompound)}
+              <span className="pearls-label-compound">Compound</span>: {compoundBreakEven.toFixed(1)}% &middot; {formatMonths(monthsCompound)}
             </span>
           </div>
         </div>

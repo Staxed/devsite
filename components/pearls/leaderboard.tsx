@@ -153,6 +153,23 @@ export default function Leaderboard({ wallets, polPrice, ethPrice, walletLabels,
     return sortDir === 'desc' ? bVal - aVal : aVal - bVal;
   });
 
+  const filteredCollectors = hideFc
+    ? collectorRows.filter((r) => !fcSet.has(r.wallet_address.toLowerCase()))
+    : collectorRows;
+
+  const getCollectorVal = (row: CollectorRow, key: CollectorsSortKey): number => {
+    if (key === 'pearl_pct') return row.pearl_pct;
+    if (key === 'total_pct') return row.total_pct;
+    const s = row.contractStats[key];
+    return s ? (s.unique_owned / s.total_possible) * 100 : 0;
+  };
+
+  const sortedCollectors = [...filteredCollectors].sort((a, b) => {
+    const aVal = getCollectorVal(a, collectorsSortKey);
+    const bVal = getCollectorVal(b, collectorsSortKey);
+    return collectorsSortDir === 'desc' ? bVal - aVal : aVal - bVal;
+  });
+
   function sortIndicator(key: SortKey) {
     if (sortKey !== key) return '';
     return sortDir === 'desc' ? ' \u25BC' : ' \u25B2';
@@ -243,22 +260,7 @@ export default function Leaderboard({ wallets, polPrice, ethPrice, walletLabels,
                 </tr>
               </thead>
               <tbody>
-                {(() => {
-                  const filteredCollectors = hideFc
-                    ? collectorRows.filter((r) => !fcSet.has(r.wallet_address.toLowerCase()))
-                    : collectorRows;
-                  const getCollectorVal = (row: CollectorRow, key: CollectorsSortKey): number => {
-                    if (key === 'pearl_pct') return row.pearl_pct;
-                    if (key === 'total_pct') return row.total_pct;
-                    const s = row.contractStats[key];
-                    return s ? (s.unique_owned / s.total_possible) * 100 : 0;
-                  };
-                  const sortedCollectors = [...filteredCollectors].sort((a, b) => {
-                    const aVal = getCollectorVal(a, collectorsSortKey);
-                    const bVal = getCollectorVal(b, collectorsSortKey);
-                    return collectorsSortDir === 'desc' ? bVal - aVal : aVal - bVal;
-                  });
-                  return sortedCollectors.map((row, i) => {
+                {sortedCollectors.map((row, i) => {
                     const me = isMe(row.wallet_address);
                     const fc = fcSet.has(row.wallet_address.toLowerCase());
                     const named = !me && !fc && !!walletLabels[row.wallet_address.toLowerCase()];
@@ -325,8 +327,7 @@ export default function Leaderboard({ wallets, polPrice, ethPrice, walletLabels,
                         </td>
                       </tr>
                     );
-                  });
-                })()}
+                })}
               </tbody>
             </table>
           </div>

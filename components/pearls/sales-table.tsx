@@ -1,14 +1,10 @@
 import type { NftTransfer } from '@/lib/pearls/types';
-import type { TokenNameMap } from '@/lib/pearls/token-names';
+import { type TokenNameMap, getTokenName } from '@/lib/pearls/token-names';
 import { formatNative } from '@/lib/pearls/currencies';
 
 interface SalesTableProps {
   sales: NftTransfer[];
   tokenNames: TokenNameMap;
-}
-
-function getPearlName(transfer: NftTransfer, tokenNames: TokenNameMap): string {
-  return tokenNames[`${transfer.contract_id}:${transfer.token_id}`] ?? `#${transfer.token_id}`;
 }
 
 export default function SalesTable({ sales, tokenNames }: SalesTableProps) {
@@ -35,7 +31,7 @@ export default function SalesTable({ sales, tokenNames }: SalesTableProps) {
           {sales.map((s) => (
             <tr key={s.id}>
               <td>{new Date(s.timestamp).toLocaleDateString()}</td>
-              <td>{getPearlName(s, tokenNames)}</td>
+              <td>{getTokenName(tokenNames, s.contract_id, s.token_id)}</td>
               <td>{s.quantity}</td>
               <td>
                 {s.native_value != null && s.native_currency
