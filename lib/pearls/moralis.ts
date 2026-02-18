@@ -46,6 +46,16 @@ export interface MoralisNativeResult {
   }>;
 }
 
+export interface WalletHistoryNativeTransfer {
+  from_address: string;
+  to_address: string;
+  value: string;
+  value_formatted: string;
+  tx_hash: string;
+  block_number: string;
+  block_timestamp: string;
+}
+
 export async function getErc1155Transfers(
   contractAddress: string,
   chain: string,
@@ -101,6 +111,62 @@ export async function getNativeTransfers(
   }
 
   return res.json();
+}
+
+/**
+ * Get outgoing native transfers (including internal txs from contract calls)
+ * using the wallet history endpoint. This captures bulk payouts via multisig/Safe.
+ */
+export async function getWalletPayoutTransfers(
+  walletAddress: string,
+  chain: string,
+  cursor?: string | null
+): Promise<{
+  cursor: string | null;
+  result: WalletHistoryNativeTransfer[];
+}> {
+  const chainId = chainToMoralisId(chain);
+  const walletLower = walletAddress.toLowerCase();
+  const params = new URLSearchParams({
+    chain: chainId,
+    limit: '10',
+    include_internal_transactions: 'true',
+    nft_metadata: 'false',
+  });
+
+  if (cursor) params.set('cursor', cursor);
+
+  const res = await fetch(
+    `${MORALIS_BASE}/wallets/${walletAddress}/history?${params}`,
+    { headers: getHeaders() }
+  );
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Moralis wallet history error ${res.status}: ${text}`);
+  }
+
+  const data = await res.json();
+  const outgoing: WalletHistoryNativeTransfer[] = [];
+
+  for (const tx of data.result ?? []) {
+    for (const nt of tx.native_transfers ?? []) {
+      // Only include outgoing transfers from this wallet
+      if (nt.from_address?.toLowerCase() === walletLower && nt.to_address) {
+        outgoing.push({
+          from_address: nt.from_address.toLowerCase(),
+          to_address: nt.to_address.toLowerCase(),
+          value: nt.value ?? '0',
+          value_formatted: nt.value_formatted ?? '0',
+          tx_hash: tx.hash,
+          block_number: String(tx.block_number),
+          block_timestamp: tx.block_timestamp,
+        });
+      }
+    }
+  }
+
+  return { cursor: data.cursor ?? null, result: outgoing };
 }
 
 export async function getTransactionDetails(

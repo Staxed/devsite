@@ -11,6 +11,58 @@ export function calculateBreakEven(totalNewMoneySpent: number, totalEarned: numb
   return Math.min(pct, 100);
 }
 
+export function calculateMonthsToBreakEven(
+  totalNewMoneySpentUsd: number,
+  totalEarnedUsd: number,
+  monthlyPayoutUsd: number
+): number | null {
+  if (totalNewMoneySpentUsd <= 0) return 0;
+  const remaining = totalNewMoneySpentUsd - totalEarnedUsd;
+  if (remaining <= 0) return 0;
+  if (monthlyPayoutUsd <= 0) return null; // can't break even with no income
+  return Math.ceil(remaining / monthlyPayoutUsd);
+}
+
+export function calculateCompoundMonthsToBreakEven(
+  totalSpentUsd: number,
+  totalEarnedUsd: number,
+  holdingsValueUsd: number,
+  apr: number,
+  polPriceUsd: number,
+  ethPriceUsd: number
+): number | null {
+  if (totalSpentUsd <= 0) return 0;
+  let remaining = totalSpentUsd - totalEarnedUsd;
+  if (remaining <= 0) return 0;
+  if (apr <= 0) return null;
+
+  const minPearlCostPolygonUsd = MIN_PEARL_PRICES.polygon.amount * polPriceUsd;
+  const minPearlCostBaseUsd = MIN_PEARL_PRICES.base.amount * ethPriceUsd;
+  const minPearlCostUsd = Math.min(minPearlCostPolygonUsd, minPearlCostBaseUsd);
+  if (minPearlCostUsd <= 0) return null;
+
+  let holdingsValue = holdingsValueUsd;
+  let cumEarned = totalEarnedUsd;
+  let carryover = 0;
+  const maxMonths = 240; // 20 year cap
+
+  for (let month = 0; month < maxMonths; month++) {
+    const monthPayout = (holdingsValue * (apr / 100)) / 12;
+    cumEarned += monthPayout;
+    remaining = totalSpentUsd - cumEarned;
+    if (remaining <= 0) return month + 1;
+
+    // Compound: buy pearls with payout
+    const available = monthPayout + carryover;
+    const pearlsToBuy = Math.floor(available / minPearlCostUsd);
+    const spent = pearlsToBuy * minPearlCostUsd;
+    carryover = available - spent;
+    holdingsValue += spent;
+  }
+
+  return null; // won't break even within 20 years
+}
+
 export function calculateMonthlyPayout(holdingsValueUsd: number, apr: number): number {
   return (holdingsValueUsd * (apr / 100)) / 12;
 }

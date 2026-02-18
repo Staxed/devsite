@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
-import { getErc1155Transfers, getNativeTransfers } from '@/lib/pearls/moralis';
+import { getErc1155Transfers, getWalletPayoutTransfers, getTransactionDetails } from '@/lib/pearls/moralis';
 import { getTokenPrice } from '@/lib/pearls/coingecko';
 
 function getServiceClient() {
@@ -59,11 +59,15 @@ export async function POST(request: NextRequest) {
             continue;
           }
 
-          const data = await getNativeTransfers(
+          // Use wallet history endpoint to capture internal txs (bulk payouts via multisig/Safe)
+          const data = await getWalletPayoutTransfers(
             payoutWallet.address,
             chain,
             cursorRow?.cursor
           );
+
+          // Deduplicate prices per date
+          const priceCache = new Map<string, number>();
 
           let processed = 0;
           for (const tx of data.result) {
@@ -73,20 +77,29 @@ export async function POST(request: NextRequest) {
             let usdValue: number | null = null;
             try {
               const txDate = new Date(tx.block_timestamp);
-              const price = await getTokenPrice(nativeCurrency, txDate);
+              const dateKey = `${nativeCurrency}_${txDate.toISOString().split('T')[0]}`;
+              let price: number;
+              if (priceCache.has(dateKey)) {
+                price = priceCache.get(dateKey)!;
+              } else {
+                await new Promise((r) => setTimeout(r, 300));
+                price = await getTokenPrice(nativeCurrency, txDate, supabase);
+                priceCache.set(dateKey, price);
+              }
               usdValue = amount * price;
             } catch {
               // skip price
             }
 
+            // Use tx_hash + to_address as unique key since one TX has many payouts
             await supabase.from('payout_transfers').upsert(
               {
                 payout_wallet_id: payoutWallet.id,
-                to_address: tx.to_address.toLowerCase(),
+                to_address: tx.to_address,
                 amount,
                 native_currency: nativeCurrency,
                 usd_value: usdValue,
-                tx_hash: tx.hash,
+                tx_hash: `${tx.tx_hash}_${tx.to_address}`,
                 block_number: Number(tx.block_number),
                 timestamp: new Date(tx.block_timestamp).toISOString(),
               },
@@ -140,24 +153,63 @@ export async function POST(request: NextRequest) {
           cursorRow?.cursor
         );
 
+        // In-memory caches to avoid duplicate API calls within this page
+        const txValueCache = new Map<string, number>();
+        const priceCache = new Map<string, number>();
+
+        // Pre-count transfers per tx_hash so we can split the TX value evenly
+        // (e.g. 1 TX with 8 ERC1155 transfers = TX value / 8 per transfer)
+        const txTransferCount = new Map<string, number>();
+        for (const t of data.result) {
+          txTransferCount.set(t.transaction_hash, (txTransferCount.get(t.transaction_hash) ?? 0) + 1);
+        }
+
         let processed = 0;
         for (const transfer of data.result) {
           const fromAddr = transfer.from_address.toLowerCase();
           const toAddr = transfer.to_address.toLowerCase();
-          const isPurchase = sellerAddresses.has(fromAddr);
 
           let nativeValue: number | null = null;
           let usdValue: number | null = null;
+          let isPurchase = false;
 
-          if (isPurchase && transfer.value && transfer.value !== '0') {
-            nativeValue = Number(transfer.value) / 1e18;
-            try {
-              const txDate = new Date(transfer.block_timestamp);
-              const price = await getTokenPrice(nativeCurrency, txDate);
-              usdValue = nativeValue * price;
-            } catch {
-              // skip price
+          try {
+            // Get tx native value (deduplicated - batch transfers share tx hash)
+            let txValue: number;
+            if (txValueCache.has(transfer.transaction_hash)) {
+              txValue = txValueCache.get(transfer.transaction_hash)!;
+            } else {
+              const txDetails = await getTransactionDetails(
+                transfer.transaction_hash,
+                contractRow.chain
+              );
+              txValue = Number(txDetails.value) / 1e18;
+              txValueCache.set(transfer.transaction_hash, txValue);
             }
+
+            // Any transfer with native value is a purchase (includes secondary market)
+            if (txValue > 0) {
+              isPurchase = true;
+              const transfersInTx = txTransferCount.get(transfer.transaction_hash) ?? 1;
+              nativeValue = txValue / transfersInTx;
+
+              const txDate = new Date(transfer.block_timestamp);
+              const dateKey = `${nativeCurrency}_${txDate.toISOString().split('T')[0]}`;
+
+              // Get price (deduplicated per token+date, with 300ms throttle)
+              let price: number;
+              if (priceCache.has(dateKey)) {
+                price = priceCache.get(dateKey)!;
+              } else {
+                await new Promise((r) => setTimeout(r, 300));
+                price = await getTokenPrice(nativeCurrency, txDate, supabase);
+                priceCache.set(dateKey, price);
+              }
+
+              usdValue = nativeValue * price;
+            }
+          } catch {
+            // skip price lookup on error
           }
 
           await supabase.from('nft_transfers').upsert(

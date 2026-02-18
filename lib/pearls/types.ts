@@ -55,6 +55,16 @@ export interface PayoutTransfer {
   created_at: string;
 }
 
+export interface TokenMetadata {
+  id: string;
+  contract_id: string;
+  token_id: string;
+  name: string;
+  intrinsic_value: number;
+  currency: string;
+  created_at: string;
+}
+
 export interface PriceCache {
   id: string;
   token: string;
@@ -76,11 +86,22 @@ export interface WalletStats {
   wallet_address: string;
   total_pearls: number;
   total_boosters: number;
+  pol_pearls: number;
+  eth_pearls: number;
   total_spent_usd: number;
   total_spent_excluding_compounded_usd: number;
+  total_spent_pol: number;
+  total_spent_eth: number;
+  total_booster_spent_pol: number;
+  holdings_pol_value: number;
+  holdings_eth_value: number;
   total_earned_usd: number;
+  total_earned_pol: number;
+  total_earned_eth: number;
   effective_apr: number;
   net_position_usd: number;
+  net_pol: number;
+  net_eth: number;
 }
 
 export interface SessionPayload {

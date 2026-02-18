@@ -29,9 +29,21 @@ export function formatCurrency(amount: number, currency: SupportedCurrency): str
   return amount < 0 ? `-${symbol}${formatted}` : `${symbol}${formatted}`;
 }
 
+function trimTrailingZeros(value: string): string {
+  return value.replace(/\.?0+$/, '');
+}
+
 export function formatNative(amount: number, currency: string): string {
   if (currency === 'ETH') {
-    return `${amount.toFixed(6)} ETH`;
+    return `${trimTrailingZeros(amount.toFixed(10))} ETH`;
   }
-  return `${amount.toFixed(2)} ${currency}`;
+  return `${trimTrailingZeros(amount.toFixed(5))} ${currency}`;
+}
+
+export function formatPol(n: number): string {
+  return trimTrailingZeros(n.toFixed(5));
+}
+
+export function formatEth(n: number): string {
+  return trimTrailingZeros(n.toFixed(10));
 }

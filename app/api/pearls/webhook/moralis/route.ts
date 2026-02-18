@@ -74,10 +74,18 @@ export async function POST(request: NextRequest) {
 
     // Process ERC1155 transfers
     if (body.erc1155Transfers?.length) {
+      // Pre-count transfers per tx to split native value evenly
+      const txTransferCount = new Map<string, number>();
+      for (const t of body.erc1155Transfers) {
+        const txHash = t.transaction_hash ?? t.transactionHash;
+        txTransferCount.set(txHash, (txTransferCount.get(txHash) ?? 0) + 1);
+      }
+
       for (const transfer of body.erc1155Transfers) {
         const fromAddr = transfer.from_address?.toLowerCase() ?? transfer.from?.toLowerCase();
         const toAddr = transfer.to_address?.toLowerCase() ?? transfer.to?.toLowerCase();
         const contractAddr = (transfer.contract_address ?? transfer.contract)?.toLowerCase();
+        const txHash = transfer.transaction_hash ?? transfer.transactionHash;
 
         // Find matching contract
         const { data: contract } = await supabase
@@ -89,16 +97,19 @@ export async function POST(request: NextRequest) {
 
         if (!contract) continue;
 
-        const isPurchase = sellerAddresses.has(fromAddr);
         let nativeValue: number | null = null;
         let usdValue: number | null = null;
 
-        if (isPurchase && transfer.value) {
-          // value is in wei
-          nativeValue = Number(transfer.value) / 1e18;
+        // Any transfer with native value is a purchase (includes secondary market)
+        const txValue = transfer.value ? Number(transfer.value) / 1e18 : 0;
+        const isPurchase = txValue > 0;
+
+        if (isPurchase) {
+          const transfersInTx = txTransferCount.get(txHash) ?? 1;
+          nativeValue = txValue / transfersInTx;
           try {
             const blockDate = new Date(body.block.timestamp * 1000);
-            const price = await getTokenPrice(nativeCurrency, blockDate);
+            const price = await getTokenPrice(nativeCurrency, blockDate, supabase);
             usdValue = nativeValue * price;
           } catch {
             // Price lookup failed, leave null
@@ -108,13 +119,13 @@ export async function POST(request: NextRequest) {
         await supabase.from('nft_transfers').upsert(
           {
             contract_id: contract.id,
-            tx_hash: transfer.transaction_hash ?? transfer.transactionHash,
+            tx_hash: txHash,
             log_index: Number(transfer.log_index ?? transfer.logIndex ?? 0),
             block_number: Number(body.block.number),
             from_address: fromAddr,
             to_address: toAddr,
             token_id: transfer.token_id ?? transfer.tokenId ?? '0',
-            quantity: Number(transfer.amount ?? transfer.value ?? 1),
+            quantity: Number(transfer.amount ?? 1),
             is_purchase: isPurchase,
             native_value: nativeValue,
             native_currency: isPurchase ? nativeCurrency : null,
@@ -148,7 +159,7 @@ export async function POST(request: NextRequest) {
 
         try {
           const blockDate = new Date(body.block.timestamp * 1000);
-          const price = await getTokenPrice(nativeCurrency, blockDate);
+          const price = await getTokenPrice(nativeCurrency, blockDate, supabase);
           usdValue = amount * price;
         } catch {
           // Price lookup failed
