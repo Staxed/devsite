@@ -1,14 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { getErc1155Transfers, getWalletPayoutTransfers, getTransactionDetails } from '@/lib/pearls/moralis';
 import { getTokenPrice } from '@/lib/pearls/coingecko';
-
-function getServiceClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) throw new Error('Missing Supabase service role config');
-  return createSupabaseClient(url, key);
-}
+import { getServiceClient } from '@/lib/pearls/supabase-admin';
 
 function timingSafeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;

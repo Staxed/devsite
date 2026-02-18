@@ -1,13 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient as createAnonClient } from '@supabase/supabase-js';
 import { getTokenPrice } from '@/lib/pearls/coingecko';
-
-function getServiceClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) throw new Error('Missing Supabase service role config');
-  return createAnonClient(url, key);
-}
+import { getServiceClient } from '@/lib/pearls/supabase-admin';
 
 async function loadPayoutAddresses(supabase: ReturnType<typeof getServiceClient>): Promise<Set<string>> {
   const { data } = await supabase.from('payout_wallets').select('address');

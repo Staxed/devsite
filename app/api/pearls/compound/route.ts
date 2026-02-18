@@ -1,14 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { verifySession } from '@/lib/pearls/auth';
-
-function getServiceClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) throw new Error('Missing Supabase service role config');
-  return createSupabaseClient(url, key);
-}
+import { getServiceClient } from '@/lib/pearls/supabase-admin';
 
 export async function POST(request: NextRequest) {
   try {

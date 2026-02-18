@@ -10,3 +10,7 @@ export function buildTokenNameMap(metadata: TokenMetadata[]): TokenNameMap {
   }
   return map;
 }
+
+export function getTokenName(tokenNames: TokenNameMap, contractId: string, tokenId: string): string {
+  return tokenNames[`${contractId}:${tokenId}`] ?? `#${tokenId}`;
+}

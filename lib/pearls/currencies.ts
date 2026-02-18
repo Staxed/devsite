@@ -47,3 +47,14 @@ export function formatPol(n: number): string {
 export function formatEth(n: number): string {
   return `${trimTrailingZeros(n.toFixed(10))} ETH`;
 }
+
+export function formatMonths(months: number | null): string {
+  if (months === null) return 'N/A';
+  if (months === 0) return 'Broken even!';
+  if (months === 1) return '~1 month';
+  const years = Math.floor(months / 12);
+  const rem = months % 12;
+  if (years === 0) return `~${months} months`;
+  if (rem === 0) return `~${years} year${years > 1 ? 's' : ''}`;
+  return `~${years}y ${rem}m`;
+}
