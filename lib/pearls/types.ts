@@ -92,9 +92,12 @@ export interface WalletStats {
   total_spent_excluding_compounded_usd: number;
   total_spent_pol: number;
   total_spent_eth: number;
+  total_spent_excluding_compounded_pol: number;
+  total_spent_excluding_compounded_eth: number;
   total_booster_spent_pol: number;
   holdings_pol_value: number;
   holdings_eth_value: number;
+  holdings_booster_value: number;
   total_earned_usd: number;
   total_earned_pol: number;
   total_earned_eth: number;

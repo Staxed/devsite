@@ -76,38 +76,56 @@ export function calculateYearlyMaxCompound(
   currentHoldingsValueUsd: number,
   apr: number,
   polPriceUsd: number,
-  ethPriceUsd: number
+  ethPriceUsd: number,
+  years: number = 1
 ): number {
-  // 12-month forward projection where each month:
-  // 1. Take payout amount
-  // 2. Buy max cheapest Pearls possible (10 POL on Polygon or 0.00075 ETH on Base)
-  // 3. Remainder carries to next month
-  // 4. New Pearls increase next month's payout base
-
   const minPearlCostPolygonUsd = MIN_PEARL_PRICES.polygon.amount * polPriceUsd;
   const minPearlCostBaseUsd = MIN_PEARL_PRICES.base.amount * ethPriceUsd;
-
-  // Use cheapest option
   const minPearlCostUsd = Math.min(minPearlCostPolygonUsd, minPearlCostBaseUsd);
 
-  if (minPearlCostUsd <= 0) return monthlyPayoutUsd * 12;
+  if (minPearlCostUsd <= 0) return monthlyPayoutUsd * 12 * years;
 
   let totalEarned = 0;
   let holdingsValue = currentHoldingsValueUsd;
   let carryover = 0;
+  const totalMonths = 12 * years;
 
-  for (let month = 0; month < 12; month++) {
+  for (let month = 0; month < totalMonths; month++) {
     const monthPayout = (holdingsValue * (apr / 100)) / 12;
     totalEarned += monthPayout;
 
-    // Try to buy Pearls with payout + carryover
     const available = monthPayout + carryover;
     const pearlsToBuy = Math.floor(available / minPearlCostUsd);
     const spent = pearlsToBuy * minPearlCostUsd;
     carryover = available - spent;
-
-    // New Pearls increase holdings value
     holdingsValue += spent;
+  }
+
+  return totalEarned;
+}
+
+export function calculateYearlyMaxCompoundNative(
+  holdingsNative: number,
+  apr: number,
+  minPearlCostNative: number,
+  years: number = 1
+): number {
+  if (minPearlCostNative <= 0) return (holdingsNative * (apr / 100)) * years;
+
+  let totalEarned = 0;
+  let holdings = holdingsNative;
+  let carryover = 0;
+  const totalMonths = 12 * years;
+
+  for (let month = 0; month < totalMonths; month++) {
+    const monthPayout = (holdings * (apr / 100)) / 12;
+    totalEarned += monthPayout;
+
+    const available = monthPayout + carryover;
+    const pearlsToBuy = Math.floor(available / minPearlCostNative);
+    const spent = pearlsToBuy * minPearlCostNative;
+    carryover = available - spent;
+    holdings += spent;
   }
 
   return totalEarned;

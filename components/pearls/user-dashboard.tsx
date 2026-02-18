@@ -30,10 +30,10 @@ export default function UserDashboard({
 
   // Calculate native totals
   const totalSpentPol = purchases
-    .filter((p) => p.native_currency === 'POL' && p.native_value != null)
+    .filter((p) => p.native_currency === 'POL' && p.native_value != null && !p.is_compounded)
     .reduce((sum, p) => sum + (p.native_value ?? 0), 0);
   const totalSpentEth = purchases
-    .filter((p) => p.native_currency === 'ETH' && p.native_value != null)
+    .filter((p) => p.native_currency === 'ETH' && p.native_value != null && !p.is_compounded)
     .reduce((sum, p) => sum + (p.native_value ?? 0), 0);
 
   const compoundedPurchases = purchases.filter((p) => p.is_compounded);
@@ -65,7 +65,7 @@ export default function UserDashboard({
         <div className="pearls-stat-card">
           <span className="pearls-stat-label">Total Spent</span>
           <span className="pearls-stat-value">
-            {formatCurrency(convertUsdTo(stats.total_spent_usd, currency, rates), currency)}
+            {formatCurrency(convertUsdTo(stats.total_spent_excluding_compounded_usd, currency, rates), currency)}
           </span>
           <span className="pearls-stat-sub">
             {formatNative(totalSpentPol, 'POL')} + {formatNative(totalSpentEth, 'ETH')}

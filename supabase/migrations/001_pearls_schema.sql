@@ -144,8 +144,9 @@ holdings as (
     coalesce(sum(net_qty) filter (where c.type = 'booster'), 0) as held_boosters,
     coalesce(sum(net_qty) filter (where c.type = 'pearl' and c.chain = 'polygon'), 0) as pol_pearls,
     coalesce(sum(net_qty) filter (where c.type = 'pearl' and c.chain = 'base'), 0) as eth_pearls,
-    coalesce(sum(net_qty * coalesce(tm.intrinsic_value, 0)) filter (where tm.currency = 'POL'), 0) as holdings_pol_value,
-    coalesce(sum(net_qty * coalesce(tm.intrinsic_value, 0)) filter (where tm.currency = 'ETH'), 0) as holdings_eth_value
+    coalesce(sum(net_qty * coalesce(tm.intrinsic_value, 0)) filter (where c.type = 'pearl' and tm.currency = 'POL'), 0) as holdings_pol_value,
+    coalesce(sum(net_qty * coalesce(tm.intrinsic_value, 0)) filter (where c.type = 'pearl' and tm.currency = 'ETH'), 0) as holdings_eth_value,
+    coalesce(sum(net_qty * coalesce(tm.intrinsic_value, 0)) filter (where c.type = 'booster'), 0) as holdings_booster_value
   from (
     select to_address as addr, contract_id, token_id, sum(quantity) as net_qty from nft_transfers group by to_address, contract_id, token_id
     union all
@@ -178,6 +179,7 @@ select
   coalesce(ps.total_booster_spent_pol, 0) as total_booster_spent_pol,
   h.holdings_pol_value,
   h.holdings_eth_value,
+  h.holdings_booster_value,
   coalesce(pay.total_earned_usd, 0) as total_earned_usd,
   coalesce(pay.total_earned_pol, 0) as total_earned_pol,
   coalesce(pay.total_earned_eth, 0) as total_earned_eth,

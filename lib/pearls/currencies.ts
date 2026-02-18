@@ -41,9 +41,9 @@ export function formatNative(amount: number, currency: string): string {
 }
 
 export function formatPol(n: number): string {
-  return trimTrailingZeros(n.toFixed(5));
+  return `${trimTrailingZeros(n.toFixed(5))} POL`;
 }
 
 export function formatEth(n: number): string {
-  return trimTrailingZeros(n.toFixed(10));
+  return `${trimTrailingZeros(n.toFixed(10))} ETH`;
 }
