@@ -1,13 +1,31 @@
-import { createHmac, timingSafeEqual as cryptoTimingSafeEqual } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { getErc1155Transfers, getWalletPayoutTransfers, getTransactionDetails } from '@/lib/pearls/moralis';
 import { getTokenPrice } from '@/lib/pearls/coingecko';
 import { getServiceClient } from '@/lib/pearls/supabase-admin';
 
-function safeCompare(a: string, b: string): boolean {
-  const ha = createHmac('sha256', 'backfill-auth').update(a).digest();
-  const hb = createHmac('sha256', 'backfill-auth').update(b).digest();
-  return cryptoTimingSafeEqual(ha, hb);
+export const runtime = 'edge';
+
+async function safeCompare(a: string, b: string): Promise<boolean> {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode('backfill-auth'),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const [ha, hb] = await Promise.all([
+    crypto.subtle.sign('HMAC', key, encoder.encode(a)),
+    crypto.subtle.sign('HMAC', key, encoder.encode(b)),
+  ]);
+  const viewA = new Uint8Array(ha);
+  const viewB = new Uint8Array(hb);
+  if (viewA.length !== viewB.length) return false;
+  let result = 0;
+  for (let i = 0; i < viewA.length; i++) {
+    result |= viewA[i] ^ viewB[i];
+  }
+  return result === 0;
 }
 
 export async function POST(request: NextRequest) {
@@ -15,7 +33,7 @@ export async function POST(request: NextRequest) {
     // Verify admin secret (header only — never accept secrets in query strings)
     const secret = request.headers.get('x-admin-secret') ?? '';
     const expected = process.env.BACKFILL_ADMIN_SECRET ?? '';
-    if (!secret || !expected || !safeCompare(secret, expected)) {
+    if (!secret || !expected || !(await safeCompare(secret, expected))) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

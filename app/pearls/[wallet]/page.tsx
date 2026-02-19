@@ -9,6 +9,8 @@ import WalletDetailView from '@/components/pearls/wallet-detail-view';
 import { buildTokenNameMap } from '@/lib/pearls/token-names';
 import { buildInventory } from '@/components/pearls/inventory-table';
 
+export const runtime = 'edge';
+
 const ETH_ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
 
 interface Props {
