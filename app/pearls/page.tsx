@@ -80,7 +80,7 @@ export default async function PearlsPage() {
             <a href="https://aeonforge.io" target="_blank" rel="noopener noreferrer">Aeon Forge</a>, and myself by association, are proud partners of this amazing project.
           </p>
           <p className="pearls-subtitle">
-            You can use this DApp to track your own SeaLaife Pearl holdings, payouts, compounding, and ROI...as well
+            You can use this DApp to track your own SeaLaife Pearl holdings, payouts, compounding, and ROI... as well
             as see the stats of any holding wallet.<br />If you login with your wallet, you will have the ability to
             mark purchases as "compounded" via the wallet details view.
           </p>
