@@ -26,7 +26,7 @@ async function verifySignature(body: string, signature: string): Promise<boolean
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
 
-  const target = signature.toLowerCase();
+  const target = signature.toLowerCase().replace(/^0x/, '');
   if (computed.length !== target.length) return false;
   let result = 0;
   for (let i = 0; i < computed.length; i++) {
