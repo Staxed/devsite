@@ -25,9 +25,17 @@ function groupPayoutsByDate(payouts: PayoutTransfer[]): GroupedPayout[] {
       map.set(date, group);
     }
     if (p.native_currency === 'ETH') {
-      group.eth = p;
+      if (group.eth) {
+        group.eth = { ...group.eth, amount: group.eth.amount + p.amount, usd_value: (group.eth.usd_value ?? 0) + (p.usd_value ?? 0) };
+      } else {
+        group.eth = p;
+      }
     } else {
-      group.pol = p;
+      if (group.pol) {
+        group.pol = { ...group.pol, amount: group.pol.amount + p.amount, usd_value: (group.pol.usd_value ?? 0) + (p.usd_value ?? 0) };
+      } else {
+        group.pol = p;
+      }
     }
   }
 

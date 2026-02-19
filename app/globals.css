@@ -794,6 +794,18 @@ main ul a:focus-visible {
   outline-offset: 2px;
 }
 
+.pearls-intro a:focus-visible,
+.pearls-tab:focus-visible,
+.pearls-wallet-link:focus-visible,
+.pearls-tx-link:focus-visible,
+.pearls-back-link:focus-visible,
+.pearls-link:focus-visible,
+.pearls-modal-close:focus-visible,
+.pearls-calc-toggle:focus-visible {
+  outline: 2px solid var(--color-accent-sky);
+  outline-offset: 2px;
+}
+
 /* Links */
 .pearls-wallet-link {
   color: var(--color-accent-sky);
@@ -1283,7 +1295,14 @@ a.pearls-wallet-link.pearls-named {
   }
 
   .pearls-table thead {
-    display: none;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 
   .pearls-table tbody tr {

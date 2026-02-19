@@ -285,7 +285,7 @@ export default function YieldCalculator({
                   {additionalPol > 0 && additionalEth > 0 && ' + '}
                   {additionalEth > 0 && `${additionalEth} ETH`}
                   {(additionalPol > 0 || additionalEth > 0) && boosterCost > 0 && ' + '}
-                  {boosterCost > 0 && `${Math.round(boosterCost / polPrice).toLocaleString()} Boosters`}
+                  {boosterCost > 0 && `${breakEvenMode === 'eth' ? boosterCost.toFixed(6) : Math.round(breakEvenMode === 'pol' ? boosterCost : boosterCost / polPrice).toLocaleString()} Boosters`}
                 </span>
               )}
             </div>

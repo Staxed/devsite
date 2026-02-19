@@ -69,10 +69,10 @@ export default async function PearlsPage() {
             is a yield-earning NFT project with more than 18 months on record of constantly meeting
             their payout goals of 12%+ APR.<br />
             Learn more about them via their{' '}
-            <a href="http://discord.gg/fishandchipsgg" target="_blank" rel="noopener noreferrer">Discord</a>,{' '}
+            <a href="https://discord.gg/fishandchipsgg" target="_blank" rel="noopener noreferrer">Discord</a>,{' '}
             <a href="https://x.com/FishnChipsgg" target="_blank" rel="noopener noreferrer">on X</a>,{' '}
             or during their Sunday Game Night streams on{' '}
-            <a href="twitch.tv/fishandchipsgg" target="_blank" rel="noopener noreferrer">Twitch</a>.{' '}<br />
+            <a href="https://twitch.tv/fishandchipsgg" target="_blank" rel="noopener noreferrer">Twitch</a>.{' '}<br />
             <a href="https://aeonforge.io" target="_blank" rel="noopener noreferrer">Aeon Forge</a>, and myself by association, are proud partners of this amazing project.
           </p>
           <p className="pearls-subtitle">

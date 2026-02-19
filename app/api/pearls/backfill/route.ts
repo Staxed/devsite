@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
             }
 
             // Use tx_hash + to_address as unique key since one TX has many payouts
-            await supabase.from('payout_transfers').upsert(
+            const { error: upsertErr } = await supabase.from('payout_transfers').upsert(
               {
                 payout_wallet_id: payoutWallet.id,
                 to_address: tx.to_address,
@@ -105,11 +105,12 @@ export async function POST(request: NextRequest) {
               },
               { onConflict: 'tx_hash' }
             );
+            if (upsertErr) console.error('Upsert failed:', upsertErr.message);
             processed++;
           }
 
           const hasMore = !!data.cursor;
-          await supabase.from('sync_cursors').upsert(
+          const { error: cursorUpsertErr } = await supabase.from('sync_cursors').upsert(
             {
               contract_id: cursorKey,
               cursor: data.cursor,
@@ -119,6 +120,7 @@ export async function POST(request: NextRequest) {
             },
             { onConflict: 'contract_id' }
           );
+          if (cursorUpsertErr) console.error('Upsert failed:', cursorUpsertErr.message);
 
           results.push({ name: `payouts-${chain}`, chain, processed, hasMore, completed: !hasMore });
         }
@@ -156,6 +158,7 @@ export async function POST(request: NextRequest) {
 
         // Pre-count transfers per tx_hash so we can split the TX value evenly
         // (e.g. 1 TX with 8 ERC1155 transfers = TX value / 8 per transfer)
+        // Note: count is per-page — transactions split across cursor pages get approximate values
         const txTransferCount = new Map<string, number>();
         for (const t of data.result) {
           txTransferCount.set(t.transaction_hash, (txTransferCount.get(t.transaction_hash) ?? 0) + 1);
@@ -209,7 +212,7 @@ export async function POST(request: NextRequest) {
             // skip price lookup on error
           }
 
-          await supabase.from('nft_transfers').upsert(
+          const { error: nftUpsertErr } = await supabase.from('nft_transfers').upsert(
             {
               contract_id: contractRow.id,
               tx_hash: transfer.transaction_hash,
@@ -227,11 +230,12 @@ export async function POST(request: NextRequest) {
             },
             { onConflict: 'tx_hash,log_index' }
           );
+          if (nftUpsertErr) console.error('Upsert failed:', nftUpsertErr.message);
           processed++;
         }
 
         const hasMore = !!data.cursor;
-        await supabase.from('sync_cursors').upsert(
+        const { error: syncCursorErr } = await supabase.from('sync_cursors').upsert(
           {
             contract_id: contractRow.id,
             cursor: data.cursor,
@@ -241,6 +245,7 @@ export async function POST(request: NextRequest) {
           },
           { onConflict: 'contract_id' }
         );
+        if (syncCursorErr) console.error('Upsert failed:', syncCursorErr.message);
 
         results.push({ name: contractRow.name, chain: contractRow.chain, processed, hasMore, completed: !hasMore });
       }

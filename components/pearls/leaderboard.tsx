@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAccount } from 'wagmi';
 import type { WalletStats, PeriodWalletStats, TimePeriod, CollectionStat, ContractInfo } from '@/lib/pearls/types';
-import { formatNative } from '@/lib/pearls/currencies';
+
 import CollectionModal from './collection-modal';
 
 type SortKey = 'total_pearls' | 'pol_pearls' | 'eth_pearls' | 'total_boosters' | 'effective_apr' | 'pol_equiv' | 'compounded_pol_equiv';
