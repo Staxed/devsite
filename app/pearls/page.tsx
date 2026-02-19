@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { getServiceClient } from '@/lib/pearls/supabase-admin';
 import type { WalletStats, PeriodWalletStats, CollectionStat, ContractInfo } from '@/lib/pearls/types';
 import ConnectButton from '@/components/pearls/connect-button';
 import PearlsLeaderboardView from '@/components/pearls/pearls-leaderboard-view';
@@ -9,6 +10,7 @@ export const runtime = 'edge';
 
 export default async function PearlsPage() {
   const supabase = await createClient();
+  const serviceDb = getServiceClient();
 
   const [{ data: wallets }, { data: labelRows }, polPrice, ethPrice] = await Promise.all([
     supabase
@@ -16,8 +18,8 @@ export default async function PearlsPage() {
       .select('*')
       .order('total_spent_excluding_compounded_usd', { ascending: false }),
     supabase.from('wallet_labels').select('address, label, is_fc'),
-    getCurrentPrice('POL').catch(() => getLatestCachedPrice('POL')).catch(() => 0),
-    getCurrentPrice('ETH').catch(() => getLatestCachedPrice('ETH')).catch(() => 0),
+    getCurrentPrice('POL', serviceDb).catch(() => getLatestCachedPrice('POL', serviceDb)).catch(() => 0),
+    getCurrentPrice('ETH', serviceDb).catch(() => getLatestCachedPrice('ETH', serviceDb)).catch(() => 0),
   ]);
 
   const walletLabels: Record<string, string> = {};
