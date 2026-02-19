@@ -142,8 +142,8 @@ export async function getCurrentPrice(token: string, supabaseClient?: SupabaseCl
   throw new Error(`Unreachable`);
 }
 
-export async function getLatestCachedPrice(token: string): Promise<number> {
-  const supabase = await createClient();
+export async function getLatestCachedPrice(token: string, supabaseClient?: SupabaseClient): Promise<number> {
+  const supabase = supabaseClient ?? (await createClient());
   const { data } = await supabase
     .from('price_cache')
     .select('usd_price')
@@ -156,8 +156,8 @@ export async function getLatestCachedPrice(token: string): Promise<number> {
   return Number(data.usd_price);
 }
 
-export async function getLatestCachedRates(): Promise<CurrencyRates> {
-  const supabase = await createClient();
+export async function getLatestCachedRates(supabaseClient?: SupabaseClient): Promise<CurrencyRates> {
+  const supabase = supabaseClient ?? (await createClient());
   const currencies = ['EUR', 'GBP', 'CAD'] as const;
 
   const results = await Promise.all(
@@ -182,9 +182,9 @@ export async function getLatestCachedRates(): Promise<CurrencyRates> {
   return rates as unknown as CurrencyRates;
 }
 
-export async function getFiatRates(): Promise<CurrencyRates> {
+export async function getFiatRates(supabaseClient?: SupabaseClient): Promise<CurrencyRates> {
   const today = new Date().toISOString().split('T')[0];
-  const supabase = await createClient();
+  const supabase = supabaseClient ?? (await createClient());
   const currencies = ['EUR', 'GBP', 'CAD'];
 
   const { data: cached } = await supabase
@@ -216,7 +216,7 @@ export async function getFiatRates(): Promise<CurrencyRates> {
       const usdc = data?.['usd-coin'];
 
       if (!usdc?.eur || !usdc?.gbp || !usdc?.cad) {
-        return getLatestCachedRates();
+        return getLatestCachedRates(supabase);
       }
 
       const rates: CurrencyRates = {
@@ -236,10 +236,10 @@ export async function getFiatRates(): Promise<CurrencyRates> {
       return rates;
     } catch {
       if (attempt === delays.length - 1) {
-        return getLatestCachedRates();
+        return getLatestCachedRates(supabase);
       }
     }
   }
 
-  return getLatestCachedRates();
+  return getLatestCachedRates(supabase);
 }
