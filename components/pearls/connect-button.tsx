@@ -10,7 +10,7 @@ export default function ConnectButton() {
   useEffect(() => {
     if (isConnected) {
       const timer = setTimeout(() => {
-        fetchBalance();
+        fetchBalance().catch(() => {});
       }, 1000);
       return () => clearTimeout(timer);
     }

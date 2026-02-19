@@ -82,11 +82,12 @@ async function verifyMessage({
 }
 
 async function signOut(): Promise<boolean> {
-  const res = await fetch('/api/pearls/auth/signout', {
-    method: 'POST',
-    credentials: 'include',
-  });
-  return res.ok;
+  try {
+    const res = await fetch('/api/pearls/auth/signout', { method: 'POST', credentials: 'include' });
+    return res.ok;
+  } catch {
+    return false;
+  }
 }
 
 const siweConfig = createSIWEConfig({

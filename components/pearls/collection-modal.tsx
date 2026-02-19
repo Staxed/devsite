@@ -44,63 +44,67 @@ export default function CollectionModal({
 
   useEffect(() => {
     async function fetchData() {
-      const supabase = createClient();
+      try {
+        const supabase = createClient();
 
-      const contractSections = await Promise.all(
-        contracts.map(async (contract) => {
-          const [metaRes, receivedRes, sentRes] = await Promise.all([
-            supabase
-              .from('token_metadata')
-              .select('token_id, name')
-              .eq('contract_id', contract.id)
-              .order('token_id'),
-            supabase
-              .from('nft_transfers')
-              .select('token_id, quantity')
-              .eq('to_address', walletAddress)
-              .eq('contract_id', contract.id),
-            supabase
-              .from('nft_transfers')
-              .select('token_id, quantity')
-              .eq('from_address', walletAddress)
-              .eq('contract_id', contract.id),
-          ]);
+        const contractSections = await Promise.all(
+          contracts.map(async (contract) => {
+            const [metaRes, receivedRes, sentRes] = await Promise.all([
+              supabase
+                .from('token_metadata')
+                .select('token_id, name')
+                .eq('contract_id', contract.id)
+                .order('token_id'),
+              supabase
+                .from('nft_transfers')
+                .select('token_id, quantity')
+                .eq('to_address', walletAddress)
+                .eq('contract_id', contract.id),
+              supabase
+                .from('nft_transfers')
+                .select('token_id, quantity')
+                .eq('from_address', walletAddress)
+                .eq('contract_id', contract.id),
+            ]);
 
-          const meta: TokenMeta[] = metaRes.data ?? [];
+            const meta: TokenMeta[] = metaRes.data ?? [];
 
-          // Compute net balance per token_id
-          const balance: TokenBalance = {};
+            // Compute net balance per token_id
+            const balance: TokenBalance = {};
 
-          for (const row of receivedRes.data ?? []) {
-            balance[row.token_id] = (balance[row.token_id] ?? 0) + (row.quantity ?? 1);
-          }
-          for (const row of sentRes.data ?? []) {
-            balance[row.token_id] = (balance[row.token_id] ?? 0) - (row.quantity ?? 1);
-          }
+            for (const row of receivedRes.data ?? []) {
+              balance[row.token_id] = (balance[row.token_id] ?? 0) + (row.quantity ?? 1);
+            }
+            for (const row of sentRes.data ?? []) {
+              balance[row.token_id] = (balance[row.token_id] ?? 0) - (row.quantity ?? 1);
+            }
 
-          const ownedSet = new Set<string>(
-            Object.entries(balance)
-              .filter(([, qty]) => qty > 0)
-              .map(([tokenId]) => tokenId)
-          );
+            const ownedSet = new Set<string>(
+              Object.entries(balance)
+                .filter(([, qty]) => qty > 0)
+                .map(([tokenId]) => tokenId)
+            );
 
-          const tokens = meta.map((t) => ({
-            token_id: t.token_id,
-            name: t.name,
-            owned: ownedSet.has(t.token_id),
-          }));
+            const tokens = meta.map((t) => ({
+              token_id: t.token_id,
+              name: t.name,
+              owned: ownedSet.has(t.token_id),
+            }));
 
-          return {
-            contractName: contract.name,
-            tokens,
-            ownedCount: tokens.filter((t) => t.owned).length,
-            total: tokens.length,
-          };
-        })
-      );
+            return {
+              contractName: contract.name,
+              tokens,
+              ownedCount: tokens.filter((t) => t.owned).length,
+              total: tokens.length,
+            };
+          })
+        );
 
-      setSections(contractSections);
-      setLoading(false);
+        setSections(contractSections);
+      } catch {
+      } finally {
+        setLoading(false);
+      }
     }
 
     fetchData();

@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        await supabase.from('nft_transfers').upsert(
+        const { error: nftUpsertErr } = await supabase.from('nft_transfers').upsert(
           {
             contract_id: contract.id,
             tx_hash: txHash,
@@ -123,6 +123,7 @@ export async function POST(request: NextRequest) {
           },
           { onConflict: 'tx_hash,log_index' }
         );
+        if (nftUpsertErr) console.error('Webhook upsert failed:', nftUpsertErr.message);
       }
     }
 
@@ -154,7 +155,7 @@ export async function POST(request: NextRequest) {
           // Price lookup failed
         }
 
-        await supabase.from('payout_transfers').upsert(
+        const { error: payoutUpsertErr } = await supabase.from('payout_transfers').upsert(
           {
             payout_wallet_id: payoutWallet.id,
             to_address: toAddr,
@@ -167,6 +168,7 @@ export async function POST(request: NextRequest) {
           },
           { onConflict: 'tx_hash' }
         );
+        if (payoutUpsertErr) console.error('Webhook upsert failed:', payoutUpsertErr.message);
       }
     }
 

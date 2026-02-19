@@ -266,7 +266,7 @@ export default function WalletSummary({ stats, rates, polPrice, ethPrice, curren
       {/* Estimated Compounding */}
       <div className="pearls-compound-section pearls-compound-row">
         <span className="pearls-compound-label">
-          Available to Compound: {formatPol(stats.total_earned_pol - compoundedPol)} | {formatEth(stats.total_earned_eth - compoundedEth)} | {formatCurrency(convertUsdTo(stats.total_earned_usd - compoundedUsd, currency, rates), currency)}
+          Available to Compound: {formatPol(Math.max(0, stats.total_earned_pol - compoundedPol))} | {formatEth(Math.max(0, stats.total_earned_eth - compoundedEth))} | {formatCurrency(convertUsdTo(Math.max(0, stats.total_earned_usd - compoundedUsd), currency, rates), currency)}
         </span>
         <span className="pearls-spacer" />
         <span className="pearls-compound-label">Estimated Compounding</span>

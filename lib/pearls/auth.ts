@@ -18,11 +18,9 @@ export async function createSession(address: string, chainId: number): Promise<s
 }
 
 export async function verifySession(token: string): Promise<SessionPayload | null> {
+  const secret = getSecret();
   try {
-    const { payload } = await jwtVerify(token, getSecret(), {
-      issuer: 'staxed.dev',
-      audience: 'pearls',
-    });
+    const { payload } = await jwtVerify(token, secret, { issuer: 'staxed.dev', audience: 'pearls' });
     return payload as unknown as SessionPayload;
   } catch {
     return null;

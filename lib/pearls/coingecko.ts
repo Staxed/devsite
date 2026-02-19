@@ -175,7 +175,7 @@ export async function getFiatRates(): Promise<CurrencyRates> {
     .in('token', currencies)
     .eq('date', today);
 
-  if (cached && cached.length === 3) {
+  if (cached && cached.length === currencies.length) {
     const rates: Record<string, number> = {};
     for (const row of cached) {
       rates[row.token] = Number(row.usd_price);

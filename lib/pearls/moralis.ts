@@ -70,7 +70,7 @@ export async function getErc1155Transfers(
   });
 
   if (cursor) params.set('cursor', cursor);
-  if (fromBlock) params.set('from_block', String(fromBlock));
+  if (fromBlock != null) params.set('from_block', String(fromBlock));
 
   const res = await fetch(
     `${MORALIS_BASE}/nft/${contractAddress}/transfers?${params}`,
@@ -98,7 +98,7 @@ export async function getNativeTransfers(
   });
 
   if (cursor) params.set('cursor', cursor);
-  if (fromBlock) params.set('from_block', String(fromBlock));
+  if (fromBlock != null) params.set('from_block', String(fromBlock));
 
   const res = await fetch(
     `${MORALIS_BASE}/${walletAddress}?${params}`,

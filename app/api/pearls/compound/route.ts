@@ -27,11 +27,15 @@ export async function POST(request: NextRequest) {
     const supabase = getServiceClient();
 
     // Verify the transfer belongs to the authenticated wallet
-    const { data: transfer } = await supabase
+    const { data: transfer, error: fetchErr } = await supabase
       .from('nft_transfers')
       .select('id, to_address, is_purchase')
       .eq('id', transfer_id)
       .single();
+
+    if (fetchErr) {
+      return NextResponse.json({ error: fetchErr.message }, { status: 500 });
+    }
 
     if (!transfer) {
       return NextResponse.json({ error: 'Transfer not found' }, { status: 404 });
