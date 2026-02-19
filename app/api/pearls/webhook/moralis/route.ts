@@ -52,7 +52,10 @@ export async function POST(request: NextRequest) {
     }
 
     const nativeCurrency = chain === 'polygon' ? 'POL' : 'ETH';
-    console.log(`Webhook: chain=${chain}, erc1155=${body.erc1155Transfers?.length ?? 0}, native=${body.nativeTransfers?.length ?? 0}`);
+    const arrayKeys = Object.keys(body).filter(k => Array.isArray(body[k]) && body[k].length > 0);
+    console.log(`Webhook: chain=${chain}, keys with data: ${arrayKeys.join(', ')}`);
+    if (body.nftTransfers?.length) console.log(`Webhook: nftTransfers sample:`, JSON.stringify(body.nftTransfers[0]).slice(0, 500));
+    console.log(`Webhook: erc1155=${body.erc1155Transfers?.length ?? 0}, nft=${body.nftTransfers?.length ?? 0}, native=${body.nativeTransfers?.length ?? 0}`);
 
     const payoutAddresses = await loadPayoutAddresses(supabase);
 
