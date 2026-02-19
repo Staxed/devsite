@@ -39,7 +39,6 @@ export async function getTokenPrice(
   const dateStr = date.toISOString().split('T')[0];
   const supabase = supabaseClient ?? (await createClient());
 
-  // Check cache first
   const { data: cached } = await supabase
     .from('price_cache')
     .select('usd_price')
@@ -49,7 +48,6 @@ export async function getTokenPrice(
 
   if (cached) return Number(cached.usd_price);
 
-  // Fetch from CoinGecko
   let coinId = TOKEN_IDS[token];
   if (!coinId) throw new Error(`Unknown token: ${token}`);
 
@@ -79,7 +77,6 @@ export async function getTokenPrice(
     throw new Error(`No price data for ${token} on ${dateStr}`);
   }
 
-  // Cache in DB
   await supabase.from('price_cache').upsert(
     { token, date: dateStr, usd_price: usdPrice },
     { onConflict: 'token,date' }
@@ -95,7 +92,6 @@ export async function getCurrentPrice(token: string): Promise<number> {
   const dateStr = today.toISOString().split('T')[0];
   const supabase = await createClient();
 
-  // Check cache - include created_at to check staleness
   const { data: cached } = await supabase
     .from('price_cache')
     .select('usd_price, created_at')
@@ -108,10 +104,8 @@ export async function getCurrentPrice(token: string): Promise<number> {
     if (age < PRICE_TTL_MS) {
       return Number(cached.usd_price);
     }
-    // Cache is stale, refetch below
   }
 
-  // Fetch current price
   const coinId = TOKEN_IDS[token];
   if (!coinId) throw new Error(`Unknown token: ${token}`);
 
@@ -127,7 +121,6 @@ export async function getCurrentPrice(token: string): Promise<number> {
 
   if (usdPrice == null) throw new Error(`No price for ${token}`);
 
-  // Upsert with fresh created_at timestamp
   await supabase.from('price_cache').upsert(
     { token, date: dateStr, usd_price: usdPrice, created_at: new Date().toISOString() },
     { onConflict: 'token,date' }
@@ -176,7 +169,6 @@ export async function getFiatRates(): Promise<CurrencyRates> {
   const supabase = await createClient();
   const currencies = ['EUR', 'GBP', 'CAD'];
 
-  // Check cache for all three
   const { data: cached } = await supabase
     .from('price_cache')
     .select('token, usd_price')
@@ -191,8 +183,6 @@ export async function getFiatRates(): Promise<CurrencyRates> {
     return rates as unknown as CurrencyRates;
   }
 
-  // Fetch from CoinGecko (exchange rates endpoint uses BTC base)
-  // Use simple/price with vs_currencies instead
   const res = await fetch(
     `${getCoinGeckoBase()}/simple/price?ids=usd-coin&vs_currencies=eur,gbp,cad`,
     { headers: getHeaders() }
@@ -207,14 +197,12 @@ export async function getFiatRates(): Promise<CurrencyRates> {
     return getLatestCachedRates();
   }
 
-  // USDC rates give us USD -> fiat conversion rates
   const rates: CurrencyRates = {
     EUR: usdc.eur,
     GBP: usdc.gbp,
     CAD: usdc.cad,
   };
 
-  // Cache all three
   for (const [currency, rate] of Object.entries(rates)) {
     await supabase.from('price_cache').upsert(
       { token: currency, date: today, usd_price: rate },

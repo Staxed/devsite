@@ -5,7 +5,6 @@ import { getServiceClient } from '@/lib/pearls/supabase-admin';
 
 export async function POST(request: NextRequest) {
   try {
-    // Verify session
     const cookieStore = await cookies();
     const token = cookieStore.get('pearls-session')?.value;
 
@@ -46,7 +45,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Only purchases can be marked as compounded' }, { status: 400 });
     }
 
-    // Update
     const { error } = await supabase
       .from('nft_transfers')
       .update({ is_compounded })

@@ -52,7 +52,6 @@ export function calculateCompoundMonthsToBreakEven(
     remaining = totalSpentUsd - cumEarned;
     if (remaining <= 0) return month + 1;
 
-    // Compound: buy pearls with payout
     const available = monthPayout + carryover;
     const pearlsToBuy = Math.floor(available / minPearlCostUsd);
     const spent = pearlsToBuy * minPearlCostUsd;
@@ -173,10 +172,9 @@ export function findOptimalBoostersNative(
   currentBoosters: number,
   boosterCostNative: number,
   targetMultiplier: number,
-): { optimal: number; minRange: number; maxRange: number } {
+): number {
   let bestMonths = Infinity;
   let optimal = currentBoosters;
-  const results: { boosters: number; months: number | null }[] = [];
 
   for (let b = 0; b <= APR_CONFIG.maxBoosters; b++) {
     const apr = calculateAPR(b);
@@ -189,27 +187,18 @@ export function findOptimalBoostersNative(
       apr,
       minPearlCostNative,
     );
-    results.push({ boosters: b, months });
     if (months !== null && months < bestMonths) {
       bestMonths = months;
       optimal = b;
     }
   }
 
-  const validRange = results
-    .filter((r) => r.months !== null && r.months <= bestMonths * 1.02)
-    .map((r) => r.boosters);
-
-  return {
-    optimal,
-    minRange: validRange.length > 0 ? Math.min(...validRange) : optimal,
-    maxRange: validRange.length > 0 ? Math.max(...validRange) : optimal,
-  };
+  return optimal;
 }
 
 /**
  * Brute-force 0–16 boosters to find the count that minimises months-to-target
- * using the compound model. Returns optimal count and a near-optimal range.
+ * using the compound model.
  */
 export function findOptimalBoosters(
   totalSpentUsd: number,
@@ -220,10 +209,9 @@ export function findOptimalBoosters(
   currentBoosters: number,
   boosterCostPol: number,
   targetMultiplier: number,
-): { optimal: number; minRange: number; maxRange: number } {
+): number {
   let bestMonths = Infinity;
   let optimal = currentBoosters;
-  const results: { boosters: number; months: number | null }[] = [];
 
   for (let b = 0; b <= APR_CONFIG.maxBoosters; b++) {
     const apr = calculateAPR(b);
@@ -237,21 +225,11 @@ export function findOptimalBoosters(
       polPriceUsd,
       ethPriceUsd,
     );
-    results.push({ boosters: b, months });
     if (months !== null && months < bestMonths) {
       bestMonths = months;
       optimal = b;
     }
   }
 
-  // Near-optimal range: within 2% of best
-  const validRange = results
-    .filter((r) => r.months !== null && r.months <= bestMonths * 1.02)
-    .map((r) => r.boosters);
-
-  return {
-    optimal,
-    minRange: validRange.length > 0 ? Math.min(...validRange) : optimal,
-    maxRange: validRange.length > 0 ? Math.max(...validRange) : optimal,
-  };
+  return optimal;
 }

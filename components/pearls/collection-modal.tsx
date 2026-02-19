@@ -42,7 +42,6 @@ export default function CollectionModal({
   const [sections, setSections] = useState<ContractTokens[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Fetch data on mount
   useEffect(() => {
     async function fetchData() {
       const supabase = createClient();
@@ -107,7 +106,6 @@ export default function CollectionModal({
     fetchData();
   }, [walletAddress, contracts]);
 
-  // Close on Escape key
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose();
@@ -116,7 +114,6 @@ export default function CollectionModal({
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
 
-  // Prevent body scroll when open
   useEffect(() => {
     document.body.style.overflow = 'hidden';
     return () => {

@@ -72,7 +72,7 @@ export default function YieldCalculator({
         adjustedSpent, totalEarnedNativePol, effectiveHoldings, newApr, minPearlCostPol
       );
 
-      const { optimal } = findOptimalBoostersNative(
+      const optimal = findOptimalBoostersNative(
         effectiveSpent, totalEarnedNativePol, effectiveHoldings,
         minPearlCostPol, currentBoosters, boosterCostPol, tm
       );
@@ -104,7 +104,7 @@ export default function YieldCalculator({
         adjustedSpent, totalEarnedNativeEth, effectiveHoldings, newApr, minPearlCostEth
       );
 
-      const { optimal } = findOptimalBoostersNative(
+      const optimal = findOptimalBoostersNative(
         effectiveSpent, totalEarnedNativeEth, effectiveHoldings,
         minPearlCostEth, currentBoosters, boosterCostPol * polToEth, tm
       );
@@ -136,7 +136,7 @@ export default function YieldCalculator({
       adjustedSpent, totalEarnedUsd, effectiveHoldings, newApr, polPrice, ethPrice
     );
 
-    const { optimal } = findOptimalBoosters(
+    const optimal = findOptimalBoosters(
       effectiveSpent, totalEarnedUsd, effectiveHoldings, polPrice, ethPrice,
       currentBoosters, boosterCostPol, tm
     );

@@ -45,7 +45,6 @@ export async function POST(request: NextRequest) {
 
     const body = JSON.parse(rawBody);
 
-    // Skip unconfirmed transactions
     if (!body.confirmed) {
       return NextResponse.json({ status: 'skipped', reason: 'unconfirmed' });
     }

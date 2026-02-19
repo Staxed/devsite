@@ -16,7 +16,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing message or signature' }, { status: 400 });
     }
 
-    // Parse SIWE message fields
     const addressMatch = message.match(/^(0x[a-fA-F0-9]{40})/m);
     const nonceMatch = message.match(/Nonce: (.+)/);
     const chainIdMatch = message.match(/Chain ID: (\d+)/);
@@ -29,7 +28,6 @@ export async function POST(request: NextRequest) {
     const nonce = nonceMatch[1];
     const chainId = parseInt(chainIdMatch[1], 10);
 
-    // Verify nonce matches cookie
     const cookieStore = await cookies();
     const storedNonce = cookieStore.get('pearls-nonce')?.value;
 
@@ -37,10 +35,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid nonce' }, { status: 401 });
     }
 
-    // Clear nonce cookie
     cookieStore.delete('pearls-nonce');
 
-    // Verify signature using viem
     const { verifyMessage } = await import('viem');
     const valid = await verifyMessage({
       address: address as `0x${string}`,
@@ -52,7 +48,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
     }
 
-    // Create JWT session
     const token = await createSession(address, chainId);
     cookieStore.set('pearls-session', token, getSessionCookieOptions());
 

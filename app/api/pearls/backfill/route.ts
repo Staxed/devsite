@@ -34,12 +34,10 @@ export async function POST(request: NextRequest) {
       completed: boolean;
     }> = [];
 
-    // Load seller addresses from DB
     const { data: sellerRows } = await supabase.from('seller_wallets').select('address');
     const sellerAddresses = new Set((sellerRows ?? []).map((w) => w.address.toLowerCase()));
 
     if (backfillPayouts) {
-      // Load payout wallets from DB
       const { data: payoutWalletRows } = await supabase
         .from('payout_wallets')
         .select('id, address');
@@ -126,7 +124,6 @@ export async function POST(request: NextRequest) {
         }
       }
     } else {
-      // Load contracts from DB
       let contractQuery = supabase.from('contracts').select('id, chain, address, name');
       if (targetContract) {
         contractQuery = contractQuery.eq('address', targetContract);
@@ -134,7 +131,6 @@ export async function POST(request: NextRequest) {
       const { data: contracts } = await contractQuery;
 
       for (const contractRow of contracts ?? []) {
-        // Check cursor
         const { data: cursorRow } = await supabase
           .from('sync_cursors')
           .select('*')
@@ -148,7 +144,6 @@ export async function POST(request: NextRequest) {
 
         const nativeCurrency = contractRow.chain === 'polygon' ? 'POL' : 'ETH';
 
-        // Fetch one page
         const data = await getErc1155Transfers(
           contractRow.address,
           contractRow.chain,
