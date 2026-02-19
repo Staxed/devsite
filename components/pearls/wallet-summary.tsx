@@ -126,10 +126,14 @@ export default function WalletSummary({ stats, rates, polPrice, ethPrice, curren
 
   const est = estimates.get(estTab)!;
   const isCompound = est.compound;
+  const isMonthly = estTab === 'monthly';
 
-  const projectedNetUsd = netUsd + est.usd;
-  const projectedNetPol = netPol + est.pol;
-  const projectedNetEth = netEth + est.eth;
+  const projectedEarnedUsd = isMonthly ? stats.total_earned_usd : stats.total_earned_usd + est.usd;
+  const projectedEarnedPol = isMonthly ? stats.total_earned_pol : stats.total_earned_pol + est.pol;
+  const projectedEarnedEth = isMonthly ? stats.total_earned_eth : stats.total_earned_eth + est.eth;
+  const projectedNetUsd = isMonthly ? netUsd : netUsd + est.usd;
+  const projectedNetPol = isMonthly ? netPol : netPol + est.pol;
+  const projectedNetEth = isMonthly ? netEth : netEth + est.eth;
 
   function fmt(usd: number) {
     return formatCurrency(convertUsdTo(usd, currency, rates), currency);
@@ -140,15 +144,15 @@ export default function WalletSummary({ stats, rates, polPrice, ethPrice, curren
       {/* Hero stats */}
       <div className="pearls-hero-row">
         <div className="pearls-hero-stat">
-          <span className="pearls-hero-label">Current Total Value</span>
+          <span className="pearls-hero-label">Current Value</span>
           <span className="pearls-hero-value">{fmt(holdingsUsd)}</span>
         </div>
         <div className="pearls-hero-stat">
-          <span className="pearls-hero-label">Total Spent</span>
+          <span className="pearls-hero-label">Spent</span>
           <span className="pearls-hero-value">{fmt(spentExclCompUsd)}</span>
         </div>
         <div className="pearls-hero-stat">
-          <span className="pearls-hero-label">Total Compounded</span>
+          <span className="pearls-hero-label">Compounded</span>
           <span className="pearls-hero-value">{fmt(compoundedUsd)}</span>
         </div>
         <div className="pearls-hero-stat">
@@ -159,23 +163,23 @@ export default function WalletSummary({ stats, rates, polPrice, ethPrice, curren
         </div>
         <div className="pearls-hero-stat">
           <span className="pearls-hero-label">Earned</span>
-          <span className="pearls-hero-value pearls-positive">{fmt(stats.total_earned_usd)}</span>
+          <span className="pearls-hero-value pearls-positive">{fmt(projectedEarnedUsd)}</span>
         </div>
         <div className="pearls-hero-stat">
           <span className="pearls-hero-label">Effective APR</span>
           <span className="pearls-hero-value">{stats.effective_apr.toFixed(1)}%</span>
         </div>
         <div className="pearls-hero-right">
-          <div className="pearls-hero-stat">
-            <span className="pearls-hero-label">{est.label}</span>
-            <span className="pearls-hero-value pearls-stat-value-gradient">{fmt(est.usd)}</span>
-          </div>
           {isCompound && (
             <div className="pearls-hero-stat">
               <span className="pearls-hero-label">Avg. Monthly</span>
               <span className="pearls-hero-value pearls-stat-value-gradient">{fmt(est.usd / est.months)}</span>
             </div>
           )}
+          <div className="pearls-hero-stat">
+            <span className="pearls-hero-label">{est.label}</span>
+            <span className="pearls-hero-value pearls-stat-value-gradient">{fmt(est.usd)}</span>
+          </div>
         </div>
       </div>
 
@@ -221,7 +225,7 @@ export default function WalletSummary({ stats, rates, polPrice, ethPrice, curren
                 <td>{fmt(holdingsPolUsd)}</td>
                 <td>{formatPol(spentExclCompPol)}</td>
                 <td>{formatPol(compoundedPol)}</td>
-                <td className="pearls-positive">+{formatPol(stats.total_earned_pol)}</td>
+                <td className="pearls-positive">+{formatPol(projectedEarnedPol)}</td>
                 <td className={projectedNetPol >= 0 ? 'pearls-positive' : 'pearls-negative'}>
                   {formatPol(projectedNetPol)}
                 </td>
@@ -234,7 +238,7 @@ export default function WalletSummary({ stats, rates, polPrice, ethPrice, curren
                 <td>{fmt(holdingsEthUsd)}</td>
                 <td>{formatEth(spentExclCompEth)}</td>
                 <td>{formatEth(compoundedEth)}</td>
-                <td className="pearls-positive">+{formatEth(stats.total_earned_eth)}</td>
+                <td className="pearls-positive">+{formatEth(projectedEarnedEth)}</td>
                 <td className={projectedNetEth >= 0 ? 'pearls-positive' : 'pearls-negative'}>
                   {formatEth(projectedNetEth)}
                 </td>
