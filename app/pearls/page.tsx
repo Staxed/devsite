@@ -68,7 +68,7 @@ export default async function PearlsPage() {
         <div>
           <h1><span className="gradient-text">SeaLaife Pearls</span> Tracker</h1>
           <p className="pearls-intro">
-            SeaLife Pearls, by{' '}
+            SeaLaife Pearls, by{' '}
             <a href="https://fishandchipscrypto.com" target="_blank" rel="noopener noreferrer">Fish &amp; Chips Crypto</a>,
             is a yield-earning NFT project with more than 18 months on record of constantly meeting
             their payout goals of 12%+ APR.<br />
