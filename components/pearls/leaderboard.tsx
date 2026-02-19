@@ -204,14 +204,6 @@ export default function Leaderboard({ wallets, polPrice, ethPrice, walletLabels,
     return !!connectedAddress && addr.toLowerCase() === connectedAddress.toLowerCase();
   }
 
-  if (activeTab !== 'collectors' && activeWallets.length === 0) {
-    return (
-      <div className="pearls-empty">
-        <p>{activeTab !== 'all' ? 'No purchases in this period.' : 'No wallet data yet. Check back after the first backfill.'}</p>
-      </div>
-    );
-  }
-
   return (
     <div className="pearls-leaderboard">
       <div className="pearls-toolbar">
@@ -355,6 +347,10 @@ export default function Leaderboard({ wallets, polPrice, ethPrice, walletLabels,
             />
           )}
         </>
+      ) : activeWallets.length === 0 ? (
+        <div className="pearls-empty">
+          <p>{activeTab !== 'all' ? 'No purchases in this period.' : 'No wallet data yet. Check back after the first backfill.'}</p>
+        </div>
       ) : (
         <>
           <div className="pearls-table-wrap">

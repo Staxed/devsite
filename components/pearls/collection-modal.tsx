@@ -68,6 +68,10 @@ export default function CollectionModal({
                 .eq('contract_id', contract.id),
             ]);
 
+            if (metaRes.error) throw metaRes.error;
+            if (receivedRes.error) throw receivedRes.error;
+            if (sentRes.error) throw sentRes.error;
+
             const meta: TokenMeta[] = metaRes.data ?? [];
 
             // Compute net balance per token_id

@@ -43,6 +43,16 @@ export default async function DashboardPage() {
       .order('timestamp', { ascending: false }),
   ]);
 
+  const queryErrors = [purchasesResult, payoutsResult]
+    .map(r => r.error)
+    .filter(Boolean);
+  if (statsResult.error && statsResult.error.code !== 'PGRST116') {
+    queryErrors.push(statsResult.error);
+  }
+  if (queryErrors.length > 0) {
+    console.error('Dashboard query errors:', queryErrors.map(e => e!.message));
+  }
+
   const stats = statsResult.data as WalletStats | null;
   const purchases = (purchasesResult.data as NftTransfer[]) ?? [];
   const payouts = (payoutsResult.data as PayoutTransfer[]) ?? [];

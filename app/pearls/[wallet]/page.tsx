@@ -71,6 +71,17 @@ export default async function WalletPage({ params }: Props) {
       .eq('from_address', address),
   ]);
 
+  // Check for critical query errors (PGRST116 = no rows, which is OK for .single())
+  const queryErrors = [purchasesResult, salesResult, payoutsResult, tokenMetaResult, contractsResult, receivedResult, sentResult]
+    .map(r => r.error)
+    .filter(Boolean);
+  if (statsResult.error && statsResult.error.code !== 'PGRST116') {
+    queryErrors.push(statsResult.error);
+  }
+  if (queryErrors.length > 0) {
+    console.error('Wallet page query errors:', queryErrors.map(e => e!.message));
+  }
+
   const stats = statsResult.data as WalletStats | null;
   const purchases = (purchasesResult.data as NftTransfer[]) ?? [];
   const sales = (salesResult.data as NftTransfer[]) ?? [];
