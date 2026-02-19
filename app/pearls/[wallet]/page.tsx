@@ -82,6 +82,7 @@ export default async function WalletPage({ params }: Props) {
     console.error('Wallet page query errors:', queryErrors.map(e => e!.message));
   }
 
+  const statsDbError = !!(statsResult.error && statsResult.error.code !== 'PGRST116');
   const stats = statsResult.data as WalletStats | null;
   const purchases = (purchasesResult.data as NftTransfer[]) ?? [];
   const sales = (salesResult.data as NftTransfer[]) ?? [];
@@ -111,6 +112,26 @@ export default async function WalletPage({ params }: Props) {
       getLatestCachedPrice('POL'),
       getLatestCachedPrice('ETH'),
     ]);
+  }
+
+  if (statsDbError) {
+    return (
+      <div className="pearls-page">
+        <header className="pearls-header">
+          <div>
+            <h1><span className="gradient-text">Wallet</span> Error</h1>
+            <p className="pearls-subtitle">Something went wrong loading wallet data.</p>
+          </div>
+          <ConnectButton />
+        </header>
+        <div className="pearls-content">
+          <p className="pearls-empty">
+            We encountered an error loading this wallet. Please try again later.
+          </p>
+          <a href="/pearls" className="pearls-back-link">&larr; Back to Leaderboard</a>
+        </div>
+      </div>
+    );
   }
 
   if (!stats) {

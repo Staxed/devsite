@@ -33,9 +33,10 @@ export async function POST(request: NextRequest) {
     }> = [];
 
     if (backfillPayouts) {
-      const { data: payoutWalletRows } = await supabase
+      const { data: payoutWalletRows, error: payoutWalletsErr } = await supabase
         .from('payout_wallets')
         .select('id, address');
+      if (payoutWalletsErr) throw new Error(`Failed to fetch payout wallets: ${payoutWalletsErr.message}`);
 
       for (const payoutWallet of payoutWalletRows ?? []) {
         for (const chain of ['polygon', 'base'] as const) {
@@ -125,7 +126,8 @@ export async function POST(request: NextRequest) {
       if (targetContract) {
         contractQuery = contractQuery.eq('address', targetContract);
       }
-      const { data: contracts } = await contractQuery;
+      const { data: contracts, error: contractsErr } = await contractQuery;
+      if (contractsErr) throw new Error(`Failed to fetch contracts: ${contractsErr.message}`);
 
       for (const contractRow of contracts ?? []) {
         const { data: cursorRow } = await supabase
