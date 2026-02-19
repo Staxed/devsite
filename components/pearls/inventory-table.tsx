@@ -3,6 +3,7 @@ import type { SupportedCurrency } from '@/lib/pearls/config';
 import { formatNative, convertUsdTo, formatCurrency } from '@/lib/pearls/currencies';
 
 export interface InventoryItem {
+  id: string;
   name: string;
   quantity: number;
   intrinsicValue: number;
@@ -46,6 +47,7 @@ export function buildInventory(
     const contractId = key.split(':')[0];
     const intrinsicValue = tm?.intrinsic_value ?? 0;
     items.push({
+      id: key,
       name: tm?.name ?? key,
       quantity: qty,
       intrinsicValue,
@@ -101,7 +103,7 @@ export default function InventoryTable({ inventory, polPrice, ethPrice, currency
         </thead>
         <tbody>
           {inventory.map((item) => (
-            <tr key={item.name}>
+            <tr key={item.id}>
               <td>{item.name}</td>
               <td>{item.quantity}</td>
               <td>{formatNative(item.totalNativeValue, item.currency)}</td>

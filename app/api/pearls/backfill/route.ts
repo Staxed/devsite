@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
           let processed = 0;
           for (const tx of data.result) {
             const amount = Number(tx.value) / 1e18;
-            if (amount <= 0) continue;
+            if (!Number.isFinite(amount) || amount <= 0) continue;
 
             let usdValue: number | null = null;
             try {
