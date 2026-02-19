@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Transfer not found' }, { status: 404 });
     }
 
-    if (transfer.to_address !== session.address.toLowerCase()) {
+    if (!transfer.to_address || !session.address || transfer.to_address.toLowerCase() !== session.address.toLowerCase()) {
       return NextResponse.json({ error: 'Not your transfer' }, { status: 403 });
     }
 

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { verifyMessage } from 'viem';
-import { parseSiweMessage } from 'viem/siwe';
+import { createPublicClient, http } from 'viem';
+import { polygon, base } from 'viem/chains';
+import { parseSiweMessage, verifySiweMessage } from 'viem/siwe';
 import { createSession, getSessionCookieOptions } from '@/lib/pearls/auth';
 
 interface VerifyBody {
@@ -34,8 +35,17 @@ export async function POST(request: NextRequest) {
 
     cookieStore.delete('pearls-nonce');
 
-    const valid = await verifyMessage({
-      address,
+    const chainConfig = chainId === 137 ? polygon : chainId === 8453 ? base : null;
+    if (!chainConfig) {
+      return NextResponse.json({ error: 'Unsupported chain' }, { status: 400 });
+    }
+
+    const publicClient = createPublicClient({
+      chain: chainConfig,
+      transport: http(),
+    });
+
+    const valid = await verifySiweMessage(publicClient, {
       message,
       signature: signature as `0x${string}`,
     });
