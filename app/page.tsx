@@ -5,49 +5,56 @@ import Footer from "@/components/footer";
 
 export default function Home() {
   return (
-    <Shell>
-      <main id="main-content" tabIndex={-1}>
-        <section>
-          <Tag />
+    <div className="home-wrapper">
+      <Shell>
+        <main id="main-content" tabIndex={-1}>
+          <section>
+            <Tag />
 
-          <h1>
-            <span className="gradient-text">Staxed</span> - dragons, dev, and
-            experiments in one crazy brain
-          </h1>
+            <h1>
+              <span className="gradient-text">Staxed</span> - dragons, dev, and
+              experiments in one crazy brain
+            </h1>
 
-          <p className="subtitle">
-            I am a Creator blending AI, blockchain, and art to build tools,
-            dragons, and digital worlds 🐉 | Focused on automation, design,
-            imagination ... and whatever else I&apos;m breaking this week.
-          </p>
+            <p className="subtitle">
+              I am a Creator blending AI, blockchain, and art to build tools,
+              dragons, and digital worlds 🐉 | Focused on automation, design,
+              imagination ... and whatever else I&apos;m breaking this week.
+            </p>
 
-          <div className="links">
-            <a
-              className="btn btn-primary-gradient"
-              href="https://github.com/Staxed"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Projects &amp; Repos
-              <span className="sr-only"> (opens in new tab)</span>
-            </a>
-            <a
-              className="btn btn-x"
-              href="https://x.com/Staxed"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Connect on X
-              <span className="sr-only"> (opens in new tab)</span>
-            </a>
-          </div>
+            <div className="links">
+              <a
+                className="btn btn-primary-gradient"
+                href="https://github.com/Staxed"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Projects &amp; Repos
+                <span className="sr-only"> (opens in new tab)</span>
+              </a>
+              <a
+                className="btn btn-x"
+                href="https://x.com/Staxed"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Connect on X
+                <span className="sr-only"> (opens in new tab)</span>
+              </a>
+            </div>
 
-        </section>
+          </section>
 
-        <Footer />
-      </main>
+          <Footer />
+        </main>
 
-      <Avatar />
-    </Shell>
+        <Avatar />
+      </Shell>
+      <div className="pearls-link-wrap">
+        <a href="/pearls" className="pearls-link">
+          SeaLaife Pearls Tracker
+        </a>
+      </div>
+    </div>
   );
 }
