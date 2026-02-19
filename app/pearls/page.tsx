@@ -5,6 +5,8 @@ import PearlsLeaderboardView from '@/components/pearls/pearls-leaderboard-view';
 import { getCurrentPrice, getLatestCachedPrice } from '@/lib/pearls/coingecko';
 import { getWeekStart, getMonthStart, getQuarterStart, getYearStart } from '@/lib/pearls/periods';
 
+export const runtime = 'edge';
+
 export default async function PearlsPage() {
   const supabase = await createClient();
 

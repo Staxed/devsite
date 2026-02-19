@@ -8,6 +8,8 @@ import ConnectButton from '@/components/pearls/connect-button';
 import UserDashboard from '@/components/pearls/user-dashboard';
 import DashboardPurchases from '@/components/pearls/dashboard-purchases';
 
+export const runtime = 'edge';
+
 export default async function DashboardPage() {
   const cookieStore = await cookies();
   const token = cookieStore.get('pearls-session')?.value;

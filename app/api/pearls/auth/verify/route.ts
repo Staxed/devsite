@@ -5,6 +5,8 @@ import { polygon, base } from 'viem/chains';
 import { parseSiweMessage, verifySiweMessage } from 'viem/siwe';
 import { createSession, getSessionCookieOptions } from '@/lib/pearls/auth';
 
+export const runtime = 'edge';
+
 interface VerifyBody {
   message: string;
   signature: string;
