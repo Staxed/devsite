@@ -109,24 +109,35 @@ export async function getCurrentPrice(token: string): Promise<number> {
   const coinId = TOKEN_IDS[token];
   if (!coinId) throw new Error(`Unknown token: ${token}`);
 
-  const res = await fetch(
-    `${getCoinGeckoBase()}/simple/price?ids=${coinId}&vs_currencies=usd`,
-    { headers: getHeaders() }
-  );
+  const delays = [0, 1000, 2000];
+  for (let attempt = 0; attempt < delays.length; attempt++) {
+    if (delays[attempt] > 0) await new Promise((r) => setTimeout(r, delays[attempt]));
+    try {
+      const res = await fetch(
+        `${getCoinGeckoBase()}/simple/price?ids=${coinId}&vs_currencies=usd`,
+        { headers: getHeaders() }
+      );
+      if (!res.ok) throw new Error(`CoinGecko API error: ${res.status}`);
 
-  if (!res.ok) throw new Error(`CoinGecko API error: ${res.status}`);
+      const data = await res.json();
+      const usdPrice = data?.[coinId]?.usd;
+      if (usdPrice == null) throw new Error(`No price for ${token}`);
 
-  const data = await res.json();
-  const usdPrice = data?.[coinId]?.usd;
+      await supabase.from('price_cache').upsert(
+        { token, date: dateStr, usd_price: usdPrice, created_at: new Date().toISOString() },
+        { onConflict: 'token,date' }
+      );
 
-  if (usdPrice == null) throw new Error(`No price for ${token}`);
+      return usdPrice;
+    } catch {
+      if (attempt === delays.length - 1) {
+        if (cached) return Number(cached.usd_price);
+        throw new Error(`CoinGecko unavailable for ${token} after ${delays.length} attempts`);
+      }
+    }
+  }
 
-  await supabase.from('price_cache').upsert(
-    { token, date: dateStr, usd_price: usdPrice, created_at: new Date().toISOString() },
-    { onConflict: 'token,date' }
-  );
-
-  return usdPrice;
+  throw new Error(`Unreachable`);
 }
 
 export async function getLatestCachedPrice(token: string): Promise<number> {
