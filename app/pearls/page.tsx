@@ -10,7 +10,7 @@ export const runtime = 'edge';
 
 export default async function PearlsPage() {
   const supabase = await createClient();
-  const serviceDb = getServiceClient();
+  const serviceDb = process.env.SUPABASE_SERVICE_ROLE_KEY ? getServiceClient() : undefined;
 
   const [{ data: wallets }, { data: labelRows }, polPrice, ethPrice] = await Promise.all([
     supabase

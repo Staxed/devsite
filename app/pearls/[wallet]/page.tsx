@@ -34,7 +34,7 @@ export default async function WalletPage({ params }: Props) {
   }
 
   const supabase = await createClient();
-  const serviceDb = getServiceClient();
+  const serviceDb = process.env.SUPABASE_SERVICE_ROLE_KEY ? getServiceClient() : undefined;
 
   const [statsResult, purchasesResult, salesResult, payoutsResult, tokenMetaResult, contractsResult, receivedResult, sentResult] = await Promise.all([
     supabase

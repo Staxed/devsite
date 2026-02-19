@@ -26,7 +26,7 @@ export default async function DashboardPage() {
 
   const address = session.address.toLowerCase();
   const supabase = await createClient();
-  const serviceDb = getServiceClient();
+  const serviceDb = process.env.SUPABASE_SERVICE_ROLE_KEY ? getServiceClient() : undefined;
 
   const [statsResult, purchasesResult, payoutsResult] = await Promise.all([
     supabase
