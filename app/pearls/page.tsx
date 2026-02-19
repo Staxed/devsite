@@ -14,8 +14,8 @@ export default async function PearlsPage() {
       .select('*')
       .order('total_spent_excluding_compounded_usd', { ascending: false }),
     supabase.from('wallet_labels').select('address, label, is_fc'),
-    getCurrentPrice('POL').catch(() => getLatestCachedPrice('POL')),
-    getCurrentPrice('ETH').catch(() => getLatestCachedPrice('ETH')),
+    getCurrentPrice('POL').catch(() => getLatestCachedPrice('POL')).catch(() => 0),
+    getCurrentPrice('ETH').catch(() => getLatestCachedPrice('ETH')).catch(() => 0),
   ]);
 
   const walletLabels: Record<string, string> = {};

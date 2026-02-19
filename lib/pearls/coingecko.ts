@@ -77,20 +77,21 @@ export async function getTokenPrice(
     throw new Error(`No price data for ${token} on ${dateStr}`);
   }
 
-  await supabase.from('price_cache').upsert(
+  const { error: cacheErr } = await supabase.from('price_cache').upsert(
     { token, date: dateStr, usd_price: usdPrice },
     { onConflict: 'token,date' }
   );
+  if (cacheErr) console.error('Price cache upsert failed:', cacheErr.message);
 
   return usdPrice;
 }
 
 const PRICE_TTL_MS = 15 * 60 * 1000; // 15 minutes
 
-export async function getCurrentPrice(token: string): Promise<number> {
+export async function getCurrentPrice(token: string, supabaseClient?: SupabaseClient): Promise<number> {
   const today = new Date();
   const dateStr = today.toISOString().split('T')[0];
-  const supabase = await createClient();
+  const supabase = supabaseClient ?? (await createClient());
 
   const { data: cached } = await supabase
     .from('price_cache')
@@ -123,10 +124,11 @@ export async function getCurrentPrice(token: string): Promise<number> {
       const usdPrice = data?.[coinId]?.usd;
       if (usdPrice == null) throw new Error(`No price for ${token}`);
 
-      await supabase.from('price_cache').upsert(
+      const { error: cacheErr } = await supabase.from('price_cache').upsert(
         { token, date: dateStr, usd_price: usdPrice, created_at: new Date().toISOString() },
         { onConflict: 'token,date' }
       );
+      if (cacheErr) console.error('Price cache upsert failed:', cacheErr.message);
 
       return usdPrice;
     } catch {
@@ -215,10 +217,11 @@ export async function getFiatRates(): Promise<CurrencyRates> {
   };
 
   for (const [currency, rate] of Object.entries(rates)) {
-    await supabase.from('price_cache').upsert(
+    const { error: cacheErr } = await supabase.from('price_cache').upsert(
       { token: currency, date: today, usd_price: rate },
       { onConflict: 'token,date' }
     );
+    if (cacheErr) console.error(`Fiat rate cache upsert failed for ${currency}:`, cacheErr.message);
   }
 
   return rates;
