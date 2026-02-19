@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { keccak256, toHex } from 'viem';
 import { getTokenPrice } from '@/lib/pearls/coingecko';
 import { getServiceClient } from '@/lib/pearls/supabase-admin';
 
@@ -9,24 +10,13 @@ async function loadPayoutAddresses(supabase: ReturnType<typeof getServiceClient>
   return new Set((data ?? []).map((w) => w.address.toLowerCase()));
 }
 
-async function verifySignature(body: string, signature: string): Promise<boolean> {
+function verifySignature(body: string, signature: string): boolean {
   const secret = process.env.MORALIS_STREAM_SECRET;
   if (!secret) return false;
 
-  const encoder = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    'raw',
-    encoder.encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
-  );
-  const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(body));
-  const computed = Array.from(new Uint8Array(sig))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
+  const computed = keccak256(toHex(body + secret));
 
-  const target = signature.toLowerCase().replace(/^0x/, '');
+  const target = signature.toLowerCase();
   if (computed.length !== target.length) return false;
   let result = 0;
   for (let i = 0; i < computed.length; i++) {
@@ -40,7 +30,7 @@ export async function POST(request: NextRequest) {
     const rawBody = await request.text();
     const signature = request.headers.get('x-signature') ?? '';
 
-    const valid = await verifySignature(rawBody, signature);
+    const valid = verifySignature(rawBody, signature);
     if (!valid) {
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
     }
