@@ -38,6 +38,7 @@ export async function POST(request: NextRequest) {
     const body = JSON.parse(rawBody);
 
     if (!body.confirmed) {
+      console.log('Webhook skip: unconfirmed tx');
       return NextResponse.json({ status: 'skipped', reason: 'unconfirmed' });
     }
 
@@ -46,10 +47,12 @@ export async function POST(request: NextRequest) {
     const chain = chainId === '0x89' ? 'polygon' : chainId === '0x2105' ? 'base' : null;
 
     if (!chain) {
+      console.log('Webhook skip: unsupported chain', chainId);
       return NextResponse.json({ status: 'skipped', reason: 'unsupported chain' });
     }
 
     const nativeCurrency = chain === 'polygon' ? 'POL' : 'ETH';
+    console.log(`Webhook: chain=${chain}, erc1155=${body.erc1155Transfers?.length ?? 0}, native=${body.nativeTransfers?.length ?? 0}`);
 
     const payoutAddresses = await loadPayoutAddresses(supabase);
 
@@ -78,6 +81,7 @@ export async function POST(request: NextRequest) {
       const contractMap = new Map<string, { id: string }>(
         (contractRows ?? []).map((c: { id: string; address: string }) => [c.address.toLowerCase(), { id: c.id }])
       );
+      console.log(`Webhook: ${uniqueContractAddrs.length} unique contracts in payload, ${contractMap.size} matched in DB`);
 
       for (const transfer of body.erc1155Transfers) {
         const fromAddr = transfer.from_address?.toLowerCase() ?? transfer.from?.toLowerCase();
@@ -176,6 +180,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    console.log('Webhook: processing complete');
     return NextResponse.json({ status: 'ok' });
   } catch (err) {
     console.error('Webhook error:', err instanceof Error ? err.message : 'Unknown error');
