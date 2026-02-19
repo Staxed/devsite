@@ -101,9 +101,13 @@ export default function Leaderboard({ wallets, polPrice, ethPrice, walletLabels,
         }
       }
       // For contracts the wallet doesn't appear in, add their totals
+      const sampleByContract = new Map<string, CollectionStat>();
+      for (const s of collectionData) {
+        if (!sampleByContract.has(s.contract_id)) sampleByContract.set(s.contract_id, s);
+      }
       for (const c of contracts) {
         if (!contractStats[c.id]) {
-          const sample = collectionData.find(s => s.contract_id === c.id);
+          const sample = sampleByContract.get(c.id);
           if (sample) {
             allTotal += sample.total_possible;
             if (c.type === 'pearl') pearlTotal += sample.total_possible;
@@ -178,6 +182,15 @@ export default function Leaderboard({ wallets, polPrice, ethPrice, walletLabels,
   function collectorsSortIndicator(key: CollectorsSortKey) {
     if (collectorsSortKey !== key) return '';
     return collectorsSortDir === 'desc' ? ' \u25BC' : ' \u25B2';
+  }
+
+  function onActivate(handler: () => void) {
+    return (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        handler();
+      }
+    };
   }
 
   function getDisplayName(addr: string): string {
@@ -286,7 +299,7 @@ export default function Leaderboard({ wallets, polPrice, ethPrice, walletLabels,
                                 role="button"
                                 tabIndex={0}
                                 onClick={() => setModalInfo({ walletAddress: row.wallet_address, contracts: [{ id: c.id, name: c.name }], title: c.name, displayName: dn })}
-                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setModalInfo({ walletAddress: row.wallet_address, contracts: [{ id: c.id, name: c.name }], title: c.name, displayName: dn }); }}}
+                                onKeyDown={onActivate(() => setModalInfo({ walletAddress: row.wallet_address, contracts: [{ id: c.id, name: c.name }], title: c.name, displayName: dn }))}
                               >
                                 {pct}%
                               </span>
@@ -304,7 +317,7 @@ export default function Leaderboard({ wallets, polPrice, ethPrice, walletLabels,
                               title: 'All Pearls',
                               displayName: dn,
                             })}
-                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setModalInfo({ walletAddress: row.wallet_address, contracts: contracts.filter(c => c.type === 'pearl').map(c => ({ id: c.id, name: c.name })), title: 'All Pearls', displayName: dn }); }}}
+                            onKeyDown={onActivate(() => setModalInfo({ walletAddress: row.wallet_address, contracts: contracts.filter(c => c.type === 'pearl').map(c => ({ id: c.id, name: c.name })), title: 'All Pearls', displayName: dn }))}
                           >
                             {Math.round(row.pearl_pct)}%
                           </span>
@@ -320,7 +333,7 @@ export default function Leaderboard({ wallets, polPrice, ethPrice, walletLabels,
                               title: 'Total',
                               displayName: dn,
                             })}
-                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setModalInfo({ walletAddress: row.wallet_address, contracts: contracts.map(c => ({ id: c.id, name: c.name })), title: 'Total', displayName: dn }); }}}
+                            onKeyDown={onActivate(() => setModalInfo({ walletAddress: row.wallet_address, contracts: contracts.map(c => ({ id: c.id, name: c.name })), title: 'Total', displayName: dn }))}
                           >
                             {Math.round(row.total_pct)}%
                           </span>

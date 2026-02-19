@@ -312,12 +312,12 @@ export default function WalletSummary({ stats, rates, polPrice, ethPrice, curren
           />
           <div
             className="pearls-meter-fill-current"
-            style={{ width: `${breakEven}%` }}
+            style={{ width: `${Math.min(breakEven, 100)}%` }}
             role="progressbar"
-            aria-valuenow={Math.round(breakEven)}
+            aria-valuenow={Math.min(Math.round(breakEven), 100)}
             aria-valuemin={0}
             aria-valuemax={100}
-            aria-label={`Break-even progress: ${Math.round(breakEven)}%`}
+            aria-label={`Break-even progress: ${Math.min(Math.round(breakEven), 100)}%`}
           />
         </div>
       </div>

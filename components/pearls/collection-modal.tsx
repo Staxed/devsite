@@ -41,6 +41,7 @@ export default function CollectionModal({
 }: CollectionModalProps) {
   const [sections, setSections] = useState<ContractTokens[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchData() {
@@ -102,6 +103,7 @@ export default function CollectionModal({
 
         setSections(contractSections);
       } catch {
+        setError('Failed to load collection data.');
       } finally {
         setLoading(false);
       }
@@ -161,6 +163,8 @@ export default function CollectionModal({
         {/* Body */}
         {loading ? (
           <div className="pearls-modal-loading">Loading tokens…</div>
+        ) : error ? (
+          <div className="pearls-modal-loading">{error}</div>
         ) : isSingle ? (
           <div className="pearls-modal-grid">
             {sections[0]?.tokens.map((token) => (

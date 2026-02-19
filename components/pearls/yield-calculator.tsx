@@ -10,7 +10,7 @@ import {
   findOptimalBoosters,
   findOptimalBoostersNative,
 } from '@/lib/pearls/calculations';
-import { MIN_PEARL_PRICES, type BreakEvenMode } from '@/lib/pearls/config';
+import { MIN_PEARL_PRICES, APR_CONFIG, type BreakEvenMode } from '@/lib/pearls/config';
 import { formatMonths } from '@/lib/pearls/currencies';
 
 interface YieldCalculatorProps {
@@ -156,6 +156,12 @@ export default function YieldCalculator({
   const { newApr, boosterCost, additionalInvestmentUsd, totalAdditionalCost, linearMonths, compoundMonths, optimal, currentPct, compoundPct } = results;
   const aprChanged = newApr !== effectiveApr;
 
+  function formatBoosterCost(cost: number): string {
+    if (breakEvenMode === 'eth') return cost.toFixed(6);
+    if (breakEvenMode === 'pol') return Math.round(cost).toLocaleString();
+    return Math.round(cost / polPrice).toLocaleString();
+  }
+
   return (
     <div>
       {expanded && (
@@ -228,9 +234,9 @@ export default function YieldCalculator({
               <input
                 type="number"
                 min={0}
-                max={16}
+                max={APR_CONFIG.maxBoosters}
                 value={boosterCount}
-                onChange={e => setBoosterCount(Math.max(0, Math.min(16, Number(e.target.value))))}
+                onChange={e => setBoosterCount(Math.max(0, Math.min(APR_CONFIG.maxBoosters, Number(e.target.value))))}
               />
             </label>
             <label className="pearls-calc-field">
@@ -285,7 +291,7 @@ export default function YieldCalculator({
                   {additionalPol > 0 && additionalEth > 0 && ' + '}
                   {additionalEth > 0 && `${additionalEth} ETH`}
                   {(additionalPol > 0 || additionalEth > 0) && boosterCost > 0 && ' + '}
-                  {boosterCost > 0 && `${breakEvenMode === 'eth' ? boosterCost.toFixed(6) : Math.round(breakEvenMode === 'pol' ? boosterCost : boosterCost / polPrice).toLocaleString()} Boosters`}
+                  {boosterCost > 0 && `${formatBoosterCost(boosterCost)} Boosters`}
                 </span>
               )}
             </div>
