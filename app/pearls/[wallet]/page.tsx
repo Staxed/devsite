@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { getServiceClient } from '@/lib/pearls/supabase-admin';
 import { getFiatRates, getCurrentPrice, getLatestCachedPrice, getLatestCachedRates } from '@/lib/pearls/coingecko';
 import { verifySession } from '@/lib/pearls/auth';
 import type { WalletStats, NftTransfer, PayoutTransfer, CurrencyRates, TokenMetadata, Contract } from '@/lib/pearls/types';
@@ -33,6 +34,7 @@ export default async function WalletPage({ params }: Props) {
   }
 
   const supabase = await createClient();
+  const serviceDb = process.env.SUPABASE_SERVICE_ROLE_KEY ? getServiceClient() : undefined;
 
   const [statsResult, purchasesResult, salesResult, payoutsResult, tokenMetaResult, contractsResult, receivedResult, sentResult] = await Promise.all([
     supabase
@@ -104,15 +106,15 @@ export default async function WalletPage({ params }: Props) {
   let ethPrice: number;
   try {
     [rates, polPrice, ethPrice] = await Promise.all([
-      getFiatRates(),
-      getCurrentPrice('POL'),
-      getCurrentPrice('ETH'),
+      getFiatRates(serviceDb),
+      getCurrentPrice('POL', serviceDb),
+      getCurrentPrice('ETH', serviceDb),
     ]);
   } catch {
     [rates, polPrice, ethPrice] = await Promise.all([
-      getLatestCachedRates(),
-      getLatestCachedPrice('POL'),
-      getLatestCachedPrice('ETH'),
+      getLatestCachedRates(serviceDb),
+      getLatestCachedPrice('POL', serviceDb),
+      getLatestCachedPrice('ETH', serviceDb),
     ]);
   }
 
