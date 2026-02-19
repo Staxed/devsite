@@ -48,6 +48,7 @@ export async function POST(request: NextRequest) {
     const valid = await verifySiweMessage(publicClient, {
       message,
       signature: signature as `0x${string}`,
+      domain: request.headers.get('host') ?? undefined,
     });
 
     if (!valid) {

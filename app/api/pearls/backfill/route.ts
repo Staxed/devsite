@@ -1,15 +1,13 @@
+import { createHmac, timingSafeEqual as cryptoTimingSafeEqual } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { getErc1155Transfers, getWalletPayoutTransfers, getTransactionDetails } from '@/lib/pearls/moralis';
 import { getTokenPrice } from '@/lib/pearls/coingecko';
 import { getServiceClient } from '@/lib/pearls/supabase-admin';
 
-function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let result = 0;
-  for (let i = 0; i < a.length; i++) {
-    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  }
-  return result === 0;
+function safeCompare(a: string, b: string): boolean {
+  const ha = createHmac('sha256', 'backfill-auth').update(a).digest();
+  const hb = createHmac('sha256', 'backfill-auth').update(b).digest();
+  return cryptoTimingSafeEqual(ha, hb);
 }
 
 export async function POST(request: NextRequest) {
@@ -17,7 +15,7 @@ export async function POST(request: NextRequest) {
     // Verify admin secret (header only — never accept secrets in query strings)
     const secret = request.headers.get('x-admin-secret') ?? '';
     const expected = process.env.BACKFILL_ADMIN_SECRET ?? '';
-    if (!secret || !expected || !timingSafeEqual(secret, expected)) {
+    if (!secret || !expected || !safeCompare(secret, expected)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -33,9 +31,6 @@ export async function POST(request: NextRequest) {
       hasMore: boolean;
       completed: boolean;
     }> = [];
-
-    const { data: sellerRows } = await supabase.from('seller_wallets').select('address');
-    const sellerAddresses = new Set((sellerRows ?? []).map((w) => w.address.toLowerCase()));
 
     if (backfillPayouts) {
       const { data: payoutWalletRows } = await supabase

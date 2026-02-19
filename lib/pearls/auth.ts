@@ -21,6 +21,9 @@ export async function verifySession(token: string): Promise<SessionPayload | nul
   const secret = getSecret();
   try {
     const { payload } = await jwtVerify(token, secret, { issuer: 'staxed.dev', audience: 'pearls' });
+    if (typeof payload.address !== 'string' || !payload.address || typeof payload.chainId !== 'number') {
+      return null;
+    }
     return payload as unknown as SessionPayload;
   } catch {
     return null;
