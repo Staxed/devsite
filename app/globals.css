@@ -950,7 +950,9 @@ a.pearls-wallet-link.pearls-named {
 .pearls-hero-right {
   margin-left: auto;
   display: flex;
-  gap: 1.5rem;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
   text-align: right;
 }
 
