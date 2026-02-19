@@ -1,6 +1,6 @@
 'use client';
 
-import { useTransition } from 'react';
+import { useState } from 'react';
 import type { NftTransfer } from '@/lib/pearls/types';
 import { type TokenNameMap, getTokenName } from '@/lib/pearls/token-names';
 import { formatNative } from '@/lib/pearls/currencies';
@@ -13,25 +13,30 @@ interface PurchaseTableProps {
 }
 
 export default function PurchaseTable({ purchases, tokenNames, isOwner = false, onCompoundToggle }: PurchaseTableProps) {
-  const [isPending, startTransition] = useTransition();
+  const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
 
   async function toggleCompound(transferId: string, currentValue: boolean) {
-    startTransition(async () => {
-      try {
-        const res = await fetch('/api/pearls/compound', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ transfer_id: transferId, is_compounded: !currentValue }),
-        });
+    setPendingIds((prev) => new Set(prev).add(transferId));
+    try {
+      const res = await fetch('/api/pearls/compound', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ transfer_id: transferId, is_compounded: !currentValue }),
+      });
 
-        if (res.ok) {
-          onCompoundToggle?.(transferId);
-        }
-      } catch {
-        // Toggle failed silently
+      if (res.ok) {
+        onCompoundToggle?.(transferId);
       }
-    });
+    } catch {
+      // Toggle failed silently
+    } finally {
+      setPendingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(transferId);
+        return next;
+      });
+    }
   }
 
   if (purchases.length === 0) {
@@ -71,7 +76,7 @@ export default function PurchaseTable({ purchases, tokenNames, isOwner = false, 
                     type="button"
                     className={`pearls-compound-toggle ${p.is_compounded ? 'active' : ''}`}
                     onClick={() => toggleCompound(p.id, p.is_compounded)}
-                    disabled={isPending}
+                    disabled={pendingIds.has(p.id)}
                     aria-pressed={p.is_compounded}
                     aria-label={`Mark purchase as ${p.is_compounded ? 'not compounded' : 'compounded'}`}
                   >
