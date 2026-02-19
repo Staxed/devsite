@@ -70,19 +70,31 @@ export async function POST(request: NextRequest) {
         txTransferCount.set(txHash, (txTransferCount.get(txHash) ?? 0) + 1);
       }
 
+      // Batch-fetch all contracts for this chain up front
+      const uniqueContractAddrs = [
+        ...new Set(
+          body.erc1155Transfers.map((t: { contract_address?: string; contract?: string }) =>
+            (t.contract_address ?? t.contract)?.toLowerCase()
+          ).filter(Boolean)
+        ),
+      ];
+      const { data: contractRows } = await supabase
+        .from('contracts')
+        .select('id, address')
+        .eq('chain', chain)
+        .in('address', uniqueContractAddrs);
+      const contractMap = new Map<string, { id: string }>(
+        (contractRows ?? []).map((c: { id: string; address: string }) => [c.address.toLowerCase(), { id: c.id }])
+      );
+
       for (const transfer of body.erc1155Transfers) {
         const fromAddr = transfer.from_address?.toLowerCase() ?? transfer.from?.toLowerCase();
         const toAddr = transfer.to_address?.toLowerCase() ?? transfer.to?.toLowerCase();
         const contractAddr = (transfer.contract_address ?? transfer.contract)?.toLowerCase();
         const txHash = transfer.transaction_hash ?? transfer.transactionHash;
 
-        // Find matching contract
-        const { data: contract } = await supabase
-          .from('contracts')
-          .select('id')
-          .eq('address', contractAddr)
-          .eq('chain', chain)
-          .single();
+        // Find matching contract via map lookup
+        const contract = contractMap.get(contractAddr);
 
         if (!contract) continue;
 
@@ -166,7 +178,7 @@ export async function POST(request: NextRequest) {
             block_number: Number(body.block.number),
             timestamp: new Date(body.block.timestamp * 1000).toISOString(),
           },
-          { onConflict: 'tx_hash' }
+          { onConflict: 'tx_hash,to_address' }
         );
         if (payoutUpsertErr) console.error('Webhook upsert failed:', payoutUpsertErr.message);
       }
