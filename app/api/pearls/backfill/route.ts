@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
             {
               contract_id: cursorKey,
               cursor: data.cursor,
-              last_block: data.result.length > 0 ? Number(data.result[data.result.length - 1].block_number) : 0,
+              last_block: data.result.length > 0 ? Number(data.result[data.result.length - 1].block_number) : cursorRow?.last_block ?? 0,
               completed: !hasMore,
               updated_at: new Date().toISOString(),
             },
