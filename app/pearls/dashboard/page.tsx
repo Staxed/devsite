@@ -53,6 +53,8 @@ export default async function DashboardPage() {
     console.error('Dashboard query errors:', queryErrors.map(e => e!.message));
   }
 
+  const statsDbError = !!(statsResult.error && statsResult.error.code !== 'PGRST116');
+
   const stats = statsResult.data as WalletStats | null;
   const purchases = (purchasesResult.data as NftTransfer[]) ?? [];
   const payouts = (payoutsResult.data as PayoutTransfer[]) ?? [];
@@ -72,6 +74,26 @@ export default async function DashboardPage() {
       getLatestCachedPrice('POL'),
       getLatestCachedPrice('ETH'),
     ]);
+  }
+
+  if (statsDbError) {
+    return (
+      <div className="pearls-page">
+        <header className="pearls-header">
+          <div>
+            <h1><span className="gradient-text">Dashboard</span></h1>
+            <p className="pearls-subtitle">Something went wrong.</p>
+          </div>
+          <ConnectButton />
+        </header>
+        <div className="pearls-content">
+          <p className="pearls-empty">
+            We encountered an error loading your dashboard. Please try again later.
+          </p>
+          <a href="/pearls" className="pearls-back-link">&larr; Back to Leaderboard</a>
+        </div>
+      </div>
+    );
   }
 
   if (!stats) {

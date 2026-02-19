@@ -101,8 +101,11 @@ export async function POST(request: NextRequest) {
               },
               { onConflict: 'tx_hash' }
             );
-            if (upsertErr) console.error('Upsert failed:', upsertErr.message);
-            processed++;
+            if (upsertErr) {
+              console.error('Upsert failed:', upsertErr.message);
+            } else {
+              processed++;
+            }
           }
 
           const hasMore = !!data.cursor;
@@ -227,8 +230,11 @@ export async function POST(request: NextRequest) {
             },
             { onConflict: 'tx_hash,log_index' }
           );
-          if (nftUpsertErr) console.error('Upsert failed:', nftUpsertErr.message);
-          processed++;
+          if (nftUpsertErr) {
+            console.error('Upsert failed:', nftUpsertErr.message);
+          } else {
+            processed++;
+          }
         }
 
         const hasMore = !!data.cursor;
