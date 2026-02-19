@@ -1030,13 +1030,13 @@ a.pearls-wallet-link.pearls-named {
 }
 
 .pearls-est-tab:hover {
-  color: var(--color-text-primary);
+  color: var(--color-text-main);
   border-color: var(--color-text-muted);
 }
 
 .pearls-est-tab.active {
   background: rgba(255, 255, 255, 0.1);
-  color: var(--color-text-primary);
+  color: var(--color-text-main);
   border-color: var(--color-accent-gold);
 }
 

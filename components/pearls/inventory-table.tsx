@@ -59,7 +59,7 @@ export function buildInventory(
   items.sort((a, b) => {
     if (a.isBooster !== b.isBooster) return a.isBooster ? 1 : -1;
     if (a.currency !== b.currency) return a.currency === 'POL' ? -1 : 1;
-    return b.intrinsicValue - a.intrinsicValue;
+    return b.totalNativeValue - a.totalNativeValue;
   });
 
   return items;
