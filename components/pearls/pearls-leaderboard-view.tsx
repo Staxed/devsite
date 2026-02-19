@@ -1,3 +1,5 @@
+'use client';
+
 import type { WalletStats, PeriodWalletStats, TimePeriod, CollectionStat, ContractInfo } from '@/lib/pearls/types';
 import Leaderboard from './leaderboard';
 

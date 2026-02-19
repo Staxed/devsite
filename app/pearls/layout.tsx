@@ -1,5 +1,5 @@
 import { headers } from 'next/headers';
-import Web3Provider from '@/components/pearls/web3-provider';
+import Web3ProviderWrapper from '@/components/pearls/web3-provider-wrapper';
 
 export const metadata = {
   title: 'SeaLaife Pearls Tracker',
@@ -15,8 +15,8 @@ export default async function PearlsLayout({
   const cookies = headersObj.get('cookie');
 
   return (
-    <Web3Provider cookies={cookies}>
+    <Web3ProviderWrapper cookies={cookies}>
       {children}
-    </Web3Provider>
+    </Web3ProviderWrapper>
   );
 }
