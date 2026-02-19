@@ -3,6 +3,8 @@ import { cookies } from 'next/headers';
 import { verifySession } from '@/lib/pearls/auth';
 import { getServiceClient } from '@/lib/pearls/supabase-admin';
 
+export const runtime = 'edge';
+
 export async function POST(request: NextRequest) {
   try {
     const cookieStore = await cookies();

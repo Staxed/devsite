@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getTokenPrice } from '@/lib/pearls/coingecko';
 import { getServiceClient } from '@/lib/pearls/supabase-admin';
 
+export const runtime = 'edge';
+
 async function loadPayoutAddresses(supabase: ReturnType<typeof getServiceClient>): Promise<Set<string>> {
   const { data } = await supabase.from('payout_wallets').select('address');
   return new Set((data ?? []).map((w) => w.address.toLowerCase()));

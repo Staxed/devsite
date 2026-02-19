@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { verifySession } from '@/lib/pearls/auth';
 
+export const runtime = 'edge';
+
 export async function GET() {
   const cookieStore = await cookies();
   const token = cookieStore.get('pearls-session')?.value;
