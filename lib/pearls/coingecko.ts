@@ -196,33 +196,45 @@ export async function getFiatRates(): Promise<CurrencyRates> {
     return rates as unknown as CurrencyRates;
   }
 
-  const res = await fetch(
-    `${getCoinGeckoBase()}/simple/price?ids=usd-coin&vs_currencies=eur,gbp,cad`,
-    { headers: getHeaders() }
-  );
+  const delays = [0, 1000, 2000];
+  for (let attempt = 0; attempt < delays.length; attempt++) {
+    if (delays[attempt] > 0) await new Promise((r) => setTimeout(r, delays[attempt]));
+    try {
+      const res = await fetch(
+        `${getCoinGeckoBase()}/simple/price?ids=usd-coin&vs_currencies=eur,gbp,cad`,
+        { headers: getHeaders() }
+      );
 
-  if (!res.ok) throw new Error(`CoinGecko fiat rates error: ${res.status}`);
+      if (!res.ok) throw new Error(`CoinGecko fiat rates error: ${res.status}`);
 
-  const data = await res.json();
-  const usdc = data?.['usd-coin'];
+      const data = await res.json();
+      const usdc = data?.['usd-coin'];
 
-  if (!usdc?.eur || !usdc?.gbp || !usdc?.cad) {
-    return getLatestCachedRates();
+      if (!usdc?.eur || !usdc?.gbp || !usdc?.cad) {
+        return getLatestCachedRates();
+      }
+
+      const rates: CurrencyRates = {
+        EUR: usdc.eur,
+        GBP: usdc.gbp,
+        CAD: usdc.cad,
+      };
+
+      for (const [currency, rate] of Object.entries(rates)) {
+        const { error: cacheErr } = await supabase.from('price_cache').upsert(
+          { token: currency, date: today, usd_price: rate },
+          { onConflict: 'token,date' }
+        );
+        if (cacheErr) console.error(`Fiat rate cache upsert failed for ${currency}:`, cacheErr.message);
+      }
+
+      return rates;
+    } catch {
+      if (attempt === delays.length - 1) {
+        return getLatestCachedRates();
+      }
+    }
   }
 
-  const rates: CurrencyRates = {
-    EUR: usdc.eur,
-    GBP: usdc.gbp,
-    CAD: usdc.cad,
-  };
-
-  for (const [currency, rate] of Object.entries(rates)) {
-    const { error: cacheErr } = await supabase.from('price_cache').upsert(
-      { token: currency, date: today, usd_price: rate },
-      { onConflict: 'token,date' }
-    );
-    if (cacheErr) console.error(`Fiat rate cache upsert failed for ${currency}:`, cacheErr.message);
-  }
-
-  return rates;
+  return getLatestCachedRates();
 }
