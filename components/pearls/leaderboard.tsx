@@ -9,7 +9,7 @@ import CollectionModal from './collection-modal';
 type SortKey = 'total_pearls' | 'pol_pearls' | 'eth_pearls' | 'total_boosters' | 'effective_apr' | 'pol_equiv' | 'compounded_pol_equiv';
 type SortDir = 'asc' | 'desc';
 type LeaderboardTab = TimePeriod | 'collectors';
-type CollectorsSortKey = 'pearl_pct' | 'total_pct' | string;
+type CollectorsSortKey = 'pearl_pct' | 'total_pct' | (string & {});
 
 interface LeaderboardProps {
   wallets: WalletStats[];
@@ -87,6 +87,11 @@ export default function Leaderboard({ wallets, polPrice, ethPrice, walletLabels,
       };
     }
 
+    const sampleByContract = new Map<string, CollectionStat>();
+    for (const s of collectionData) {
+      if (!sampleByContract.has(s.contract_id)) sampleByContract.set(s.contract_id, s);
+    }
+
     return Object.entries(byWallet).map(([addr, contractStats]) => {
       let pearlOwned = 0, pearlTotal = 0, allOwned = 0, allTotal = 0;
       for (const c of contracts) {
@@ -101,10 +106,6 @@ export default function Leaderboard({ wallets, polPrice, ethPrice, walletLabels,
         }
       }
       // For contracts the wallet doesn't appear in, add their totals
-      const sampleByContract = new Map<string, CollectionStat>();
-      for (const s of collectionData) {
-        if (!sampleByContract.has(s.contract_id)) sampleByContract.set(s.contract_id, s);
-      }
       for (const c of contracts) {
         if (!contractStats[c.id]) {
           const sample = sampleByContract.get(c.id);
@@ -147,32 +148,34 @@ export default function Leaderboard({ wallets, polPrice, ethPrice, walletLabels,
     return row.wallet[key];
   }
 
-  const filtered = hideFc
-    ? rows.filter((r) => !fcSet.has(r.wallet.wallet_address.toLowerCase()))
-    : rows;
-
-  const sorted = [...filtered].sort((a, b) => {
-    const aVal = getValue(a, sortKey);
-    const bVal = getValue(b, sortKey);
-    return sortDir === 'desc' ? bVal - aVal : aVal - bVal;
-  });
-
-  const filteredCollectors = hideFc
-    ? collectorRows.filter((r) => !fcSet.has(r.wallet_address.toLowerCase()))
-    : collectorRows;
-
   const getCollectorVal = (row: CollectorRow, key: CollectorsSortKey): number => {
     if (key === 'pearl_pct') return row.pearl_pct;
     if (key === 'total_pct') return row.total_pct;
     const s = row.contractStats[key];
-    return s ? (s.unique_owned / s.total_possible) * 100 : 0;
+    return s && s.total_possible > 0 ? (s.unique_owned / s.total_possible) * 100 : 0;
   };
 
-  const sortedCollectors = [...filteredCollectors].sort((a, b) => {
-    const aVal = getCollectorVal(a, collectorsSortKey);
-    const bVal = getCollectorVal(b, collectorsSortKey);
-    return collectorsSortDir === 'desc' ? bVal - aVal : aVal - bVal;
-  });
+  const sorted = useMemo(() => {
+    const filtered = hideFc
+      ? rows.filter((r) => !fcSet.has(r.wallet.wallet_address.toLowerCase()))
+      : rows;
+    return [...filtered].sort((a, b) => {
+      const aVal = getValue(a, sortKey);
+      const bVal = getValue(b, sortKey);
+      return sortDir === 'desc' ? bVal - aVal : aVal - bVal;
+    });
+  }, [rows, hideFc, fcSet, sortKey, sortDir]);
+
+  const sortedCollectors = useMemo(() => {
+    const filtered = hideFc
+      ? collectorRows.filter((r) => !fcSet.has(r.wallet_address.toLowerCase()))
+      : collectorRows;
+    return [...filtered].sort((a, b) => {
+      const aVal = getCollectorVal(a, collectorsSortKey);
+      const bVal = getCollectorVal(b, collectorsSortKey);
+      return collectorsSortDir === 'desc' ? bVal - aVal : aVal - bVal;
+    });
+  }, [collectorRows, hideFc, fcSet, collectorsSortKey, collectorsSortDir]);
 
   function sortIndicator(key: SortKey) {
     if (sortKey !== key) return '';
@@ -282,7 +285,7 @@ export default function Leaderboard({ wallets, polPrice, ethPrice, walletLabels,
                         </td>
                         {contracts.map((c) => {
                           const s = row.contractStats[c.id];
-                          const pct = s ? Math.round((s.unique_owned / s.total_possible) * 100) : 0;
+                          const pct = s && s.total_possible > 0 ? Math.round((s.unique_owned / s.total_possible) * 100) : 0;
                           const pctClass = pct === 100 ? 'pearls-pct-gold' : pct === 0 ? 'pearls-pct-dim' : '';
                           return (
                             <td key={c.id}>

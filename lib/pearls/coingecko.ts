@@ -158,20 +158,25 @@ export async function getLatestCachedPrice(token: string): Promise<number> {
 
 export async function getLatestCachedRates(): Promise<CurrencyRates> {
   const supabase = await createClient();
-  const currencies = ['EUR', 'GBP', 'CAD'];
+  const currencies = ['EUR', 'GBP', 'CAD'] as const;
+
+  const results = await Promise.all(
+    currencies.map((currency) =>
+      supabase
+        .from('price_cache')
+        .select('usd_price')
+        .eq('token', currency)
+        .order('date', { ascending: false })
+        .limit(1)
+        .single()
+    )
+  );
+
   const rates: Record<string, number> = {};
-
-  for (const currency of currencies) {
-    const { data } = await supabase
-      .from('price_cache')
-      .select('usd_price')
-      .eq('token', currency)
-      .order('date', { ascending: false })
-      .limit(1)
-      .single();
-
-    if (!data) throw new Error(`No cached rate for ${currency}`);
-    rates[currency] = Number(data.usd_price);
+  for (let i = 0; i < currencies.length; i++) {
+    const { data } = results[i];
+    if (!data) throw new Error(`No cached rate for ${currencies[i]}`);
+    rates[currencies[i]] = Number(data.usd_price);
   }
 
   return rates as unknown as CurrencyRates;
