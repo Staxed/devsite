@@ -51,8 +51,9 @@ export default function Home() {
         <Avatar />
       </Shell>
       <div className="pearls-link-wrap">
-        <a href="/pearls" className="pearls-link">
+        <a href="https://aeonforge.io/projects/pearl-pulse/tracker" className="pearls-link" target="_blank" rel="noopener noreferrer">
           SeaLaife Pearls Tracker
+          <span className="sr-only"> (opens in new tab)</span>
         </a>
       </div>
     </div>
