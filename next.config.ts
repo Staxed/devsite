@@ -69,6 +69,16 @@ const nextConfig: NextConfig = {
         destination: "/accessibility",
         permanent: true,
       },
+      {
+        source: "/pearls/:path*",
+        destination: "https://aeonforge.io/projects/pearl-pulse/tracker",
+        permanent: true,
+      },
+      {
+        source: "/pearls",
+        destination: "https://aeonforge.io/projects/pearl-pulse/tracker",
+        permanent: true,
+      },
     ];
   },
 };
