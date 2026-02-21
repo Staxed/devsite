@@ -74,11 +74,6 @@ const nextConfig: NextConfig = {
         destination: "https://aeonforge.io/projects/pearl-pulse/tracker",
         permanent: true,
       },
-      {
-        source: "/pearls",
-        destination: "https://aeonforge.io/projects/pearl-pulse/tracker",
-        permanent: true,
-      },
     ];
   },
 };
