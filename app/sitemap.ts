@@ -21,11 +21,5 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "yearly",
       priority: 0.3,
     },
-    {
-      url: `${BASE_URL}/pearls`,
-      lastModified: "2026-02-17",
-      changeFrequency: "daily",
-      priority: 0.7,
-    },
   ];
 }
