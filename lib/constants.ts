@@ -1,9 +1,9 @@
 export const BASE_URL = "https://staxed.dev";
 
 // ActivityOS config
-export const GITHUB_USERNAME = "Staxed";
-export const GITHUB_ORG = "AeonForge-io";
-export const ADMIN_WALLET_ADDRESS = "0x189e78Ed23EdBDDD2E2B302c1B9111465fB87795";
+export const GITHUB_USERNAME = process.env.GITHUB_USERNAME!;
+export const GITHUB_ORG = process.env.GITHUB_ORG || "";
+export const ADMIN_WALLET_ADDRESS = process.env.ADMIN_WALLET_ADDRESS!;
 export const TIMEZONE = "America/New_York";
 
 // Discord post priority order (lower = higher priority)
