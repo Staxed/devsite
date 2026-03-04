@@ -43,3 +43,9 @@ export function getMonthStartFromTimezone(tz: string): string {
   const tzDate = new Date(d.toLocaleString("en-US", { timeZone: tz }));
   return `${tzDate.getFullYear()}-${String(tzDate.getMonth() + 1).padStart(2, "0")}-01`;
 }
+
+export function getYearStartFromTimezone(tz: string): string {
+  const d = new Date();
+  const tzDate = new Date(d.toLocaleString("en-US", { timeZone: tz }));
+  return `${tzDate.getFullYear()}-01-01`;
+}
