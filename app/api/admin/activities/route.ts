@@ -67,18 +67,24 @@ export async function PUT(request: NextRequest) {
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await request.json();
-  const { id, ...updates } = body;
+  const { id } = body;
 
   if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
 
-  if (updates.occurred_at) {
-    updates.occurred_on = toDateInTimezone(updates.occurred_at, TIMEZONE);
+  const ALLOWED_FIELDS = ["category", "kind", "value", "unit", "title", "occurred_at", "visibility"] as const;
+  const sanitized: Record<string, unknown> = {};
+  for (const field of ALLOWED_FIELDS) {
+    if (body[field] !== undefined) sanitized[field] = body[field];
+  }
+
+  if (sanitized.occurred_at) {
+    sanitized.occurred_on = toDateInTimezone(sanitized.occurred_at as string, TIMEZONE);
   }
 
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("activity_events")
-    .update(updates)
+    .update(sanitized)
     .eq("id", id)
     .eq("source", "manual")
     .select()
@@ -95,13 +101,16 @@ export async function DELETE(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const id = searchParams.get("id");
 
-  if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
+  const parsedId = id ? parseInt(id, 10) : NaN;
+  if (!id || isNaN(parsedId)) {
+    return NextResponse.json({ error: "id is required and must be a number" }, { status: 400 });
+  }
 
   const supabase = createAdminClient();
   const { error } = await supabase
     .from("activity_events")
     .delete()
-    .eq("id", Number(id))
+    .eq("id", parsedId)
     .eq("source", "manual");
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
