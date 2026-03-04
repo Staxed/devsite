@@ -37,3 +37,9 @@ export function getWeekStartFromTimezone(tz: string): string {
   tzDate.setDate(tzDate.getDate() - (day === 0 ? 6 : day - 1));
   return tzDate.toISOString().split("T")[0];
 }
+
+export function getMonthStartFromTimezone(tz: string): string {
+  const d = new Date();
+  const tzDate = new Date(d.toLocaleString("en-US", { timeZone: tz }));
+  return `${tzDate.getFullYear()}-${String(tzDate.getMonth() + 1).padStart(2, "0")}-01`;
+}

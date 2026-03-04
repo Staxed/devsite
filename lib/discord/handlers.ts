@@ -68,7 +68,7 @@ export async function handleHabitDone(options: CommandOption[]) {
   // Sub-command options are nested
   const subOptions = options[0]?.options || [];
   const name = getOption(subOptions, "name") as string;
-  const value = (getOption(subOptions, "value") as number) || 1;
+  const value = (getOption(subOptions, "value") as number) ?? 1;
 
   const supabase = createAdminClient();
 

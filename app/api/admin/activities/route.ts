@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
       source: "manual",
       category,
       kind,
-      value: value || 1,
+      value: value ?? 1,
       unit: unit || "count",
       title: title || null,
       public_summary: title || null,
