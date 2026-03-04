@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { verifyAdmin } from "@/lib/auth/admin";
 import { createAdminClient } from "@/lib/supabase/server";
 import { createAuthenticatedOctokit } from "@/lib/github/backfill";
-import { GITHUB_USERNAME, TIMEZONE } from "@/lib/constants";
+import { getSettings } from "@/lib/settings";
 import { hashRepoName, sanitizeForPrivateRepo } from "@/lib/github/sanitize";
 
 function toDateInTimezone(isoDate: string, tz: string): string {
@@ -13,6 +13,7 @@ export async function POST() {
   const admin = await verifyAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const { github_username: GITHUB_USERNAME, timezone: TIMEZONE } = await getSettings();
   const supabase = createAdminClient();
   const octokit = await createAuthenticatedOctokit();
   const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();

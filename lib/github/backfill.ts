@@ -1,6 +1,6 @@
 import { Octokit } from "octokit";
 import { createPrivateKey, createSign } from "node:crypto";
-import { GITHUB_USERNAME, GITHUB_ORG, TIMEZONE } from "@/lib/constants";
+import { getSettings } from "@/lib/settings";
 import { createAdminClient } from "@/lib/supabase/server";
 import { hashRepoName, sanitizeForPrivateRepo } from "./sanitize";
 
@@ -35,10 +35,11 @@ async function getInstallationToken(): Promise<string> {
   }
 
   // Get token from first installation (or the one matching our user/org)
+  const { github_username, github_org } = await getSettings();
   const installation = installations.find(
     (i) =>
-      i.account?.login?.toLowerCase() === GITHUB_USERNAME.toLowerCase() ||
-      i.account?.login?.toLowerCase() === GITHUB_ORG.toLowerCase()
+      i.account?.login?.toLowerCase() === github_username.toLowerCase() ||
+      (github_org && i.account?.login?.toLowerCase() === github_org.toLowerCase())
   ) || installations[0];
 
   const { data: tokenData } = await appOctokit.rest.apps.createInstallationAccessToken({
@@ -62,12 +63,13 @@ export interface DiscoveredRepo {
 }
 
 export async function discoverRepos(): Promise<DiscoveredRepo[]> {
+  const { github_username, github_org } = await getSettings();
   const octokit = await createAuthenticatedOctokit();
   const repos: DiscoveredRepo[] = [];
 
   // Personal repos
   const personalRepos = await octokit.paginate(octokit.rest.repos.listForUser, {
-    username: GITHUB_USERNAME,
+    username: github_username,
     per_page: 100,
     type: "owner",
   });
@@ -76,32 +78,34 @@ export async function discoverRepos(): Promise<DiscoveredRepo[]> {
     repos.push({
       id: repo.id,
       full_name: repo.full_name,
-      owner: repo.owner?.login || GITHUB_USERNAME,
+      owner: repo.owner?.login || github_username,
       name: repo.name,
       visibility: repo.private ? "private" : "public",
     });
   }
 
   // Org repos
-  try {
-    const orgRepos = await octokit.paginate(octokit.rest.repos.listForOrg, {
-      org: GITHUB_ORG,
-      per_page: 100,
-    });
+  if (github_org) {
+    try {
+      const orgRepos = await octokit.paginate(octokit.rest.repos.listForOrg, {
+        org: github_org,
+        per_page: 100,
+      });
 
-    for (const repo of orgRepos) {
-      if (!repos.some((r) => r.id === repo.id)) {
-        repos.push({
-          id: repo.id,
-          full_name: repo.full_name,
-          owner: repo.owner?.login || GITHUB_ORG,
-          name: repo.name,
-          visibility: repo.private ? "private" : "public",
-        });
+      for (const repo of orgRepos) {
+        if (!repos.some((r) => r.id === repo.id)) {
+          repos.push({
+            id: repo.id,
+            full_name: repo.full_name,
+            owner: repo.owner?.login || github_org,
+            name: repo.name,
+            visibility: repo.private ? "private" : "public",
+          });
+        }
       }
+    } catch {
+      // Org may not be accessible
     }
-  } catch {
-    // Org may not be accessible
   }
 
   return repos;
@@ -111,6 +115,7 @@ export async function backfillRepoCommits(
   repo: DiscoveredRepo,
   since: string
 ): Promise<number> {
+  const { github_username, timezone } = await getSettings();
   const octokit = await createAuthenticatedOctokit();
   const supabase = createAdminClient();
   let inserted = 0;
@@ -121,7 +126,7 @@ export async function backfillRepoCommits(
   const commits = await octokit.paginate(octokit.rest.repos.listCommits, {
     owner: repo.owner,
     repo: repo.name,
-    author: GITHUB_USERNAME,
+    author: github_username,
     since,
     per_page: 100,
   });
@@ -132,7 +137,7 @@ export async function backfillRepoCommits(
 
     const base = {
       occurred_at: timestamp,
-      occurred_on: toDateInTimezone(timestamp, TIMEZONE),
+      occurred_on: toDateInTimezone(timestamp, timezone),
       source: "github" as const,
       category: "code",
       kind: "commit_pushed",
@@ -178,12 +183,13 @@ export async function backfillRepoCommits(
 }
 
 export async function backfillPRs(since: string): Promise<number> {
+  const { github_username, timezone } = await getSettings();
   const octokit = await createAuthenticatedOctokit();
   const supabase = createAdminClient();
   let inserted = 0;
 
   const prs = await octokit.paginate(octokit.rest.search.issuesAndPullRequests, {
-    q: `author:${GITHUB_USERNAME} type:pr created:>=${since.split("T")[0]}`,
+    q: `author:${github_username} type:pr created:>=${since.split("T")[0]}`,
     per_page: 100,
   });
 
@@ -203,7 +209,7 @@ export async function backfillPRs(since: string): Promise<number> {
       const timestamp = pr.updated_at || pr.created_at;
       events.push({
         occurred_at: timestamp,
-        occurred_on: toDateInTimezone(timestamp, TIMEZONE),
+        occurred_on: toDateInTimezone(timestamp, timezone),
         source: "github" as const,
         category: "code",
         kind,

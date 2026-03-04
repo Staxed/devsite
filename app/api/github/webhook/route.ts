@@ -3,6 +3,7 @@ import { verifyGitHubWebhook } from "@/lib/github/verify";
 import { normalizeWebhookEvent } from "@/lib/github/normalize";
 import { createAdminClient } from "@/lib/supabase/server";
 import { postEventsToDiscord } from "@/lib/discord/notify";
+import { getSettings } from "@/lib/settings";
 import { checkAchievements } from "@/lib/achievements/engine";
 import { sendEmbeds } from "@/lib/discord/client";
 import { buildAchievementEmbed } from "@/lib/discord/embeds";
@@ -71,7 +72,8 @@ export async function POST(request: NextRequest) {
 
   // Normalize to activity events
   try {
-    const events = normalizeWebhookEvent(eventName, payload);
+    const settings = await getSettings();
+    const events = normalizeWebhookEvent(eventName, payload, settings);
 
     if (events.length > 0) {
       const { error: insertError } = await supabase
@@ -105,7 +107,7 @@ export async function POST(request: NextRequest) {
         // Check achievements and post any new ones
         const newAchievements = await checkAchievements(events);
         if (newAchievements.length > 0) {
-          const achievementEmbeds = newAchievements.map(buildAchievementEmbed);
+          const achievementEmbeds = await Promise.all(newAchievements.map(buildAchievementEmbed));
           await sendEmbeds(discordChannelId, achievementEmbeds);
         }
       } catch (discordErr) {
