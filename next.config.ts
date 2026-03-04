@@ -42,7 +42,7 @@ const nextConfig: NextConfig = {
               "img-src 'self' data: blob: https:;",
               "font-src 'self' data: https: https://fonts.gstatic.com;",
               "connect-src 'self' https:;",
-              "frame-src 'self';",
+              "frame-src 'self' https://*.walletconnect.com https://*.reown.com;",
               "frame-ancestors 'self';",
               "base-uri 'self';",
               "form-action 'self';",
