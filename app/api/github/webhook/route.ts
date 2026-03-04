@@ -27,8 +27,29 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Missing event headers" }, { status: 400 });
   }
 
-  const payload = JSON.parse(body);
   const supabase = createAdminClient();
+
+  let payload: Record<string, unknown>;
+  try {
+    payload = JSON.parse(body);
+  } catch {
+    // Store delivery with error status if possible
+    await supabase
+      .from("github_deliveries")
+      .upsert(
+        {
+          delivery_id: deliveryId,
+          event_name: eventName,
+          payload: {},
+          status: "error",
+          error: "Invalid JSON",
+          received_at: new Date().toISOString(),
+          processed_at: new Date().toISOString(),
+        },
+        { onConflict: "delivery_id" }
+      );
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  }
 
   // Store raw delivery
   const { error: deliveryError } = await supabase
