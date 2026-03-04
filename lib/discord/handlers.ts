@@ -34,10 +34,14 @@ function getOption(options: CommandOption[], name: string): string | number | un
 }
 
 export async function handleLog(options: CommandOption[]) {
-  const category = getOption(options, "category") as string;
-  const value = getOption(options, "value") as number;
-  const unit = getOption(options, "unit") as string;
+  const category = getOption(options, "category");
+  const value = getOption(options, "value");
+  const unit = getOption(options, "unit");
   const note = getOption(options, "note") as string | undefined;
+
+  if (!category || typeof category !== "string" || !unit || typeof unit !== "string" || value === undefined || typeof value !== "number") {
+    return { content: "Missing or invalid: category, value, unit." };
+  }
 
   const now = new Date().toISOString();
   const supabase = createAdminClient();
