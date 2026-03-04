@@ -7,6 +7,7 @@ import { createAppKit } from "@reown/appkit/react";
 import { WagmiAdapter } from "@reown/appkit-adapter-wagmi";
 import { mainnet } from "@reown/appkit/networks";
 import { siweConfig } from "@/lib/auth/siwe-config";
+import { BASE_URL } from "@/lib/constants";
 
 const projectId = process.env.NEXT_PUBLIC_REOWN_PROJECT_ID!;
 
@@ -28,8 +29,8 @@ createAppKit({
   metadata: {
     name: "Staxed.dev",
     description: "ActivityOS Admin",
-    url: "https://staxed.dev",
-    icons: ["https://staxed.dev/assets/StaxedDragonAvatar.jpg"],
+    url: BASE_URL,
+    icons: [`${BASE_URL}/assets/StaxedDragonAvatar.jpg`],
   },
   features: {
     analytics: false,

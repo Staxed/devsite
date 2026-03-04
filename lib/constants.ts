@@ -1,4 +1,4 @@
-export const BASE_URL = "https://staxed.dev";
+export const BASE_URL = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL!;
 
 // ActivityOS config
 export const GITHUB_USERNAME = process.env.GITHUB_USERNAME!;
