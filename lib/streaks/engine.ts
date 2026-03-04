@@ -227,8 +227,6 @@ export async function getLongestStreak(): Promise<number> {
   let current = 1;
 
   for (let i = 1; i < uniqueDates.length; i++) {
-    const expected = subtractDays(uniqueDates[i], -1); // prev day from current perspective
-    // Check if consecutive: previous date + 1 = current date
     const prevPlusOne = subtractDays(uniqueDates[i - 1], -1);
     if (prevPlusOne === uniqueDates[i]) {
       current++;

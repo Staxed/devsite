@@ -193,12 +193,19 @@ export async function backfillPRs(since: string): Promise<number> {
     per_page: 100,
   });
 
+  // Build a set of known private repo names from discovered repos
+  const discoveredRepos = await discoverRepos();
+  const privateRepoNames = new Set(
+    discoveredRepos.filter((r) => r.visibility === "private").map((r) => r.full_name)
+  );
+
   const events = [];
   for (const pr of prs) {
     const repoUrl = pr.repository_url || "";
     const repoParts = repoUrl.split("/");
     const repoFullName = `${repoParts[repoParts.length - 2]}/${repoParts[repoParts.length - 1]}`;
     const repoHash = hashRepoName(repoFullName);
+    const isPrivate = privateRepoNames.has(repoFullName);
 
     const kinds = [];
     if (pr.state === "open") kinds.push("pr_opened");
@@ -207,6 +214,7 @@ export async function backfillPRs(since: string): Promise<number> {
 
     for (const kind of kinds) {
       const timestamp = pr.updated_at || pr.created_at;
+      const actionLabel = kind === "pr_merged" ? "Merged" : kind === "pr_opened" ? "Opened" : "Closed";
       events.push({
         occurred_at: timestamp,
         occurred_on: toDateInTimezone(timestamp, timezone),
@@ -215,14 +223,14 @@ export async function backfillPRs(since: string): Promise<number> {
         kind,
         value: 1,
         unit: "count",
-        title: `${kind === "pr_merged" ? "Merged" : kind === "pr_opened" ? "Opened" : "Closed"} PR #${pr.number}: ${pr.title}`,
-        public_summary: `${kind === "pr_merged" ? "Merged" : kind === "pr_opened" ? "Opened" : "Closed"} PR in ${repoFullName}`,
-        url: pr.html_url,
+        title: `${actionLabel} PR #${pr.number}: ${pr.title}`,
+        public_summary: `${actionLabel} PR in ${repoFullName}`,
+        url: isPrivate ? null : pr.html_url,
         metadata: { pr_number: pr.number, repo: repoFullName },
         dedupe_key: `pr:${repoFullName}:${pr.number}:${kind}`,
-        repo_visibility: "public" as const,
+        repo_visibility: isPrivate ? ("private" as const) : ("public" as const),
         repo_hash: repoHash,
-        visibility: "public" as const,
+        visibility: isPrivate ? ("private" as const) : ("public" as const),
       });
     }
   }
