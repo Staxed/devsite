@@ -4,23 +4,7 @@ import { getPeriodStats, getCodingStreak } from "@/lib/streaks/engine";
 import type { DiscordEmbed } from "./client";
 import { EMBED_COLORS, KIND_EMOJI } from "./embeds";
 
-function todayInTimezone(tz: string): string {
-  return new Date().toLocaleDateString("en-CA", { timeZone: tz });
-}
-
-function yesterdayInTimezone(tz: string): string {
-  const d = new Date();
-  d.setDate(d.getDate() - 1);
-  return d.toLocaleDateString("en-CA", { timeZone: tz });
-}
-
-function getWeekStart(tz: string): string {
-  const d = new Date();
-  const tz2 = new Date(d.toLocaleString("en-US", { timeZone: tz }));
-  const day = tz2.getDay();
-  tz2.setDate(tz2.getDate() - (day === 0 ? 6 : day - 1));
-  return tz2.toISOString().split("T")[0];
-}
+import { todayInTimezone, yesterdayInTimezone, getWeekStartFromTimezone as getWeekStart } from "@/lib/dates";
 
 function getMonthStart(tz: string): string {
   const d = new Date();

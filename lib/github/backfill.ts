@@ -4,9 +4,7 @@ import { getSettings } from "@/lib/settings";
 import { createAdminClient } from "@/lib/supabase/server";
 import { hashRepoName, sanitizeForPrivateRepo } from "./sanitize";
 
-function toDateInTimezone(isoDate: string, tz: string): string {
-  return new Date(isoDate).toLocaleDateString("en-CA", { timeZone: tz });
-}
+import { toDateInTimezone } from "@/lib/dates";
 
 async function getInstallationToken(): Promise<string> {
   const appId = process.env.GITHUB_APP_ID!;

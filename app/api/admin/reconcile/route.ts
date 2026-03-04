@@ -5,9 +5,7 @@ import { createAuthenticatedOctokit } from "@/lib/github/backfill";
 import { getSettings } from "@/lib/settings";
 import { hashRepoName, sanitizeForPrivateRepo } from "@/lib/github/sanitize";
 
-function toDateInTimezone(isoDate: string, tz: string): string {
-  return new Date(isoDate).toLocaleDateString("en-CA", { timeZone: tz });
-}
+import { toDateInTimezone } from "@/lib/dates";
 
 export async function POST() {
   const admin = await verifyAdmin();

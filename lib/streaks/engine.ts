@@ -1,30 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/server";
 import { getSettings } from "@/lib/settings";
+import { todayInTimezone, yesterdayInTimezone, subtractDays, getWeekStartFromDate as getWeekStart } from "@/lib/dates";
 import type { Habit, Goal } from "@/lib/supabase/types";
-
-function todayInTimezone(tz: string): string {
-  return new Date().toLocaleDateString("en-CA", { timeZone: tz });
-}
-
-function yesterdayInTimezone(tz: string): string {
-  const d = new Date();
-  d.setDate(d.getDate() - 1);
-  return d.toLocaleDateString("en-CA", { timeZone: tz });
-}
-
-function subtractDays(dateStr: string, days: number): string {
-  const d = new Date(dateStr + "T00:00:00");
-  d.setDate(d.getDate() - days);
-  return d.toISOString().split("T")[0];
-}
-
-function getWeekStart(dateStr: string): string {
-  const d = new Date(dateStr + "T00:00:00");
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Monday start
-  d.setDate(diff);
-  return d.toISOString().split("T")[0];
-}
 
 /**
  * Count consecutive days with at least 1 commit_pushed event,

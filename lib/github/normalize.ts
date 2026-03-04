@@ -18,10 +18,7 @@ interface NormalizedEvent {
   dedupe_key: string;
 }
 
-function toDateInTimezone(isoDate: string, tz: string): string {
-  const d = new Date(isoDate);
-  return d.toLocaleDateString("en-CA", { timeZone: tz }); // YYYY-MM-DD
-}
+import { toDateInTimezone } from "@/lib/dates";
 
 function isPrivate(payload: Record<string, unknown>): boolean {
   const repo = payload.repository as Record<string, unknown> | undefined;

@@ -7,9 +7,7 @@ import {
 } from "./definitions";
 import type { Achievement } from "@/lib/supabase/types";
 
-function todayInTimezone(tz: string): string {
-  return new Date().toLocaleDateString("en-CA", { timeZone: tz });
-}
+import { todayInTimezone } from "@/lib/dates";
 
 function getMonthPeriod(tz: string): string {
   const d = new Date();

@@ -15,13 +15,7 @@ import {
 } from "./embeds";
 import type { DiscordEmbed } from "./client";
 
-function todayStr(tz: string): string {
-  return new Date().toLocaleDateString("en-CA", { timeZone: tz });
-}
-
-function toDateInTimezone(isoDate: string, tz: string): string {
-  return new Date(isoDate).toLocaleDateString("en-CA", { timeZone: tz });
-}
+import { todayInTimezone as todayStr, toDateInTimezone } from "@/lib/dates";
 
 interface CommandOption {
   name: string;
