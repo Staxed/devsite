@@ -1,10 +1,7 @@
 export const BASE_URL = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL!;
 
-// ActivityOS config
-export const GITHUB_USERNAME = process.env.GITHUB_USERNAME!;
-export const GITHUB_ORG = process.env.GITHUB_ORG || "";
+// Auth (must be env — needed before DB is reachable during auth bootstrap)
 export const ADMIN_WALLET_ADDRESS = process.env.ADMIN_WALLET_ADDRESS!;
-export const TIMEZONE = "America/New_York";
 
 // Discord post priority order (lower = higher priority)
 export const DISCORD_POST_PRIORITY: Record<string, number> = {

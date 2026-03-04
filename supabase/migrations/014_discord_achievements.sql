@@ -34,6 +34,20 @@ CREATE TABLE IF NOT EXISTS summary_posts (
   UNIQUE (summary_type, period)
 );
 
+-- App settings (key-value, editable from admin panel)
+CREATE TABLE IF NOT EXISTS app_settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Seed default settings
+INSERT INTO app_settings (key, value) VALUES
+  ('github_username', 'your_github_username'),
+  ('github_org', ''),
+  ('timezone', 'America/New_York')
+ON CONFLICT (key) DO NOTHING;
+
 -- Indexes for common queries
 CREATE INDEX IF NOT EXISTS idx_achievements_achievement_id ON achievements(achievement_id);
 CREATE INDEX IF NOT EXISTS idx_discord_posts_delivery_id ON discord_posts(delivery_id);

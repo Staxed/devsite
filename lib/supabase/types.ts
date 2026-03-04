@@ -92,6 +92,12 @@ export interface SyncRun {
   error: string | null;
 }
 
+export interface AppSetting {
+  key: string;
+  value: string;
+  updated_at: string;
+}
+
 export interface Achievement {
   id: number;
   achievement_id: string;
