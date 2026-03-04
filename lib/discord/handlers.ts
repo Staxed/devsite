@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/server";
-import { TIMEZONE } from "@/lib/constants";
+import { getSettings } from "@/lib/settings";
 import {
   getPeriodStats,
   getCodingStreak,
@@ -15,8 +15,8 @@ import {
 } from "./embeds";
 import type { DiscordEmbed } from "./client";
 
-function todayStr(): string {
-  return new Date().toLocaleDateString("en-CA", { timeZone: TIMEZONE });
+function todayStr(tz: string): string {
+  return new Date().toLocaleDateString("en-CA", { timeZone: tz });
 }
 
 function toDateInTimezone(isoDate: string, tz: string): string {
@@ -43,12 +43,13 @@ export async function handleLog(options: CommandOption[]) {
     return { content: "Missing or invalid: category, value, unit." };
   }
 
+  const { timezone } = await getSettings();
   const now = new Date().toISOString();
   const supabase = createAdminClient();
 
   const { error } = await supabase.from("activity_events").insert({
     occurred_at: now,
-    occurred_on: toDateInTimezone(now, TIMEZONE),
+    occurred_on: toDateInTimezone(now, timezone),
     source: "discord",
     category,
     kind: category,
@@ -89,10 +90,11 @@ export async function handleHabitDone(options: CommandOption[]) {
     return { content: `No active habit found matching "${name}"` };
   }
 
+  const { timezone } = await getSettings();
   const now = new Date().toISOString();
   const { error } = await supabase.from("activity_events").insert({
     occurred_at: now,
-    occurred_on: toDateInTimezone(now, TIMEZONE),
+    occurred_on: toDateInTimezone(now, timezone),
     source: "discord",
     category: habit.filters?.category || "habit",
     kind: habit.filters?.kind || habit.name.toLowerCase().replace(/\s+/g, "_"),
@@ -114,8 +116,9 @@ export async function handleHabitDone(options: CommandOption[]) {
 }
 
 export async function handleStats(options: CommandOption[]) {
+  const { timezone } = await getSettings();
   const period = getOption(options, "period") as string;
-  const today = todayStr();
+  const today = todayStr(timezone);
 
   let startDate: string;
   let label: string;
@@ -127,7 +130,7 @@ export async function handleStats(options: CommandOption[]) {
       break;
     case "week": {
       const d = new Date();
-      const tz = new Date(d.toLocaleString("en-US", { timeZone: TIMEZONE }));
+      const tz = new Date(d.toLocaleString("en-US", { timeZone: timezone }));
       const day = tz.getDay();
       tz.setDate(tz.getDate() - (day === 0 ? 6 : day - 1));
       startDate = tz.toISOString().split("T")[0];
@@ -136,14 +139,14 @@ export async function handleStats(options: CommandOption[]) {
     }
     case "month": {
       const d = new Date();
-      const tz = new Date(d.toLocaleString("en-US", { timeZone: TIMEZONE }));
+      const tz = new Date(d.toLocaleString("en-US", { timeZone: timezone }));
       startDate = `${tz.getFullYear()}-${String(tz.getMonth() + 1).padStart(2, "0")}-01`;
       label = "This Month";
       break;
     }
     case "year": {
       const d = new Date();
-      const tz = new Date(d.toLocaleString("en-US", { timeZone: TIMEZONE }));
+      const tz = new Date(d.toLocaleString("en-US", { timeZone: timezone }));
       startDate = `${tz.getFullYear()}-01-01`;
       label = "This Year";
       break;
@@ -170,21 +173,22 @@ export async function handleStats(options: CommandOption[]) {
 
 // --- Activity subcommand handlers ---
 
-function getDateRange(period: string): { startDate: string; endDate: string; label: string } {
-  const today = todayStr();
+async function getDateRange(period: string): Promise<{ startDate: string; endDate: string; label: string }> {
+  const { timezone } = await getSettings();
+  const today = todayStr(timezone);
   switch (period) {
     case "day":
       return { startDate: today, endDate: today, label: "Today" };
     case "week": {
       const d = new Date();
-      const tz = new Date(d.toLocaleString("en-US", { timeZone: TIMEZONE }));
+      const tz = new Date(d.toLocaleString("en-US", { timeZone: timezone }));
       const day = tz.getDay();
       tz.setDate(tz.getDate() - (day === 0 ? 6 : day - 1));
       return { startDate: tz.toISOString().split("T")[0], endDate: today, label: "This Week" };
     }
     case "month": {
       const d = new Date();
-      const tz = new Date(d.toLocaleString("en-US", { timeZone: TIMEZONE }));
+      const tz = new Date(d.toLocaleString("en-US", { timeZone: timezone }));
       return {
         startDate: `${tz.getFullYear()}-${String(tz.getMonth() + 1).padStart(2, "0")}-01`,
         endDate: today,
@@ -193,7 +197,7 @@ function getDateRange(period: string): { startDate: string; endDate: string; lab
     }
     case "year": {
       const d = new Date();
-      const tz = new Date(d.toLocaleString("en-US", { timeZone: TIMEZONE }));
+      const tz = new Date(d.toLocaleString("en-US", { timeZone: timezone }));
       return { startDate: `${tz.getFullYear()}-01-01`, endDate: today, label: "This Year" };
     }
     default:
@@ -203,22 +207,22 @@ function getDateRange(period: string): { startDate: string; endDate: string; lab
 
 export async function handleActivityStats(options: CommandOption[]) {
   const timeframe = (getOption(options, "timeframe") as string) || "week";
-  const { startDate, endDate, label } = getDateRange(timeframe);
+  const { startDate, endDate, label } = await getDateRange(timeframe);
   const stats = await getPeriodStats(startDate, endDate);
-  const embed = buildStatsEmbed(stats, `${startDate} to ${endDate}`, label);
+  const embed = await buildStatsEmbed(stats, `${startDate} to ${endDate}`, label);
   return { embeds: [embed] };
 }
 
 export async function handleActivityStreak() {
   const current = await getCodingStreak();
   const longest = await getLongestStreak();
-  const embed = buildStreakEmbed(current, longest);
+  const embed = await buildStreakEmbed(current, longest);
   return { embeds: [embed] };
 }
 
 export async function handleActivityRepos(options: CommandOption[]) {
   const timeframe = (getOption(options, "timeframe") as string) || "week";
-  const { startDate, endDate, label } = getDateRange(timeframe);
+  const { startDate, endDate, label } = await getDateRange(timeframe);
   const repos = await getRepoBreakdown(startDate, endDate);
 
   const sorted = Object.entries(repos).sort((a, b) => b[1] - a[1]).slice(0, 15);
@@ -242,9 +246,10 @@ export async function handleActivityRepos(options: CommandOption[]) {
 }
 
 export async function handleActivityInsights() {
-  const today = todayStr();
+  const { timezone } = await getSettings();
+  const today = todayStr(timezone);
   const d = new Date();
-  const tz = new Date(d.toLocaleString("en-US", { timeZone: TIMEZONE }));
+  const tz = new Date(d.toLocaleString("en-US", { timeZone: timezone }));
   const startDate = `${tz.getFullYear()}-${String(tz.getMonth() + 1).padStart(2, "0")}-01`;
 
   const { hourly, daily } = await getTimePatterns(startDate, today);

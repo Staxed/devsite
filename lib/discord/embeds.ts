@@ -1,6 +1,6 @@
 import type { DiscordEmbed } from "./client";
 import type { ActivityEvent, Achievement } from "@/lib/supabase/types";
-import { GITHUB_USERNAME } from "@/lib/constants";
+import { getSettings } from "@/lib/settings";
 
 // --- Color constants matching activity-bot ---
 export const EMBED_COLORS = {
@@ -52,7 +52,10 @@ export const KIND_EMOJI: Record<string, string> = {
 };
 
 const MAX_ITEMS = 10;
-const GITHUB_AVATAR = `https://github.com/${GITHUB_USERNAME}.png`;
+
+function githubAvatar(username: string): string {
+  return `https://github.com/${username}.png`;
+}
 
 // --- Helpers ---
 
@@ -103,7 +106,8 @@ function footerWithCount(count: number, label: string): { text: string } | undef
 
 // --- Summary embed ---
 
-export function buildSummaryEmbed(events: ActivityEvent[]): DiscordEmbed {
+export async function buildSummaryEmbed(events: ActivityEvent[]): Promise<DiscordEmbed> {
+  const { github_username } = await getSettings();
   const kindCounts: Record<string, number> = {};
   const repos = new Set<string>();
 
@@ -123,10 +127,10 @@ export function buildSummaryEmbed(events: ActivityEvent[]): DiscordEmbed {
     }));
 
   return {
-    title: `${GITHUB_USERNAME} on GitHub`,
+    title: `${github_username} on GitHub`,
     description: `**${events.length}** events across **${repos.size}** repo${repos.size !== 1 ? "s" : ""}`,
     color: EMBED_COLORS.SUMMARY,
-    thumbnail: { url: GITHUB_AVATAR },
+    thumbnail: { url: githubAvatar(github_username) },
     fields,
   };
 }
@@ -313,10 +317,10 @@ const KIND_GROUPS: Record<string, { builder: (events: ActivityEvent[]) => Discor
 /**
  * Groups events by kind, builds summary + per-type embeds, max 10 total.
  */
-export function buildGroupedEmbeds(events: ActivityEvent[]): DiscordEmbed[] {
+export async function buildGroupedEmbeds(events: ActivityEvent[]): Promise<DiscordEmbed[]> {
   if (events.length === 0) return [];
 
-  const embeds: DiscordEmbed[] = [buildSummaryEmbed(events)];
+  const embeds: DiscordEmbed[] = [await buildSummaryEmbed(events)];
 
   // Group events by their embed builder
   const groups = new Map<(events: ActivityEvent[]) => DiscordEmbed, { priority: number; events: ActivityEvent[] }>();
@@ -346,11 +350,12 @@ export function buildGroupedEmbeds(events: ActivityEvent[]): DiscordEmbed[] {
 
 // --- Stats / Streak / Achievement embeds ---
 
-export function buildStatsEmbed(
+export async function buildStatsEmbed(
   stats: Record<string, number>,
   period: string,
   label: string
-): DiscordEmbed {
+): Promise<DiscordEmbed> {
+  const { github_username } = await getSettings();
   const total = Object.values(stats).reduce((a, b) => a + b, 0);
 
   const fields = Object.entries(stats)
@@ -366,21 +371,22 @@ export function buildStatsEmbed(
     title: `\u{1F4CA} ${label} Stats`,
     description: `**${total}** total events for ${period}`,
     color: EMBED_COLORS.STATS,
-    thumbnail: { url: GITHUB_AVATAR },
+    thumbnail: { url: githubAvatar(github_username) },
     fields,
   };
 }
 
-export function buildStreakEmbed(
+export async function buildStreakEmbed(
   current: number,
   longest: number
-): DiscordEmbed {
+): Promise<DiscordEmbed> {
+  const { github_username } = await getSettings();
   const streakEmoji = current >= 30 ? "\u{1F48E}" : current >= 7 ? "\u{1F525}" : "\u2B50";
 
   return {
     title: `${streakEmoji} Coding Streak`,
     color: EMBED_COLORS.STREAK,
-    thumbnail: { url: GITHUB_AVATAR },
+    thumbnail: { url: githubAvatar(github_username) },
     fields: [
       { name: "Current Streak", value: `**${current}** day${current !== 1 ? "s" : ""}`, inline: true },
       { name: "Longest Streak", value: `**${longest}** day${longest !== 1 ? "s" : ""}`, inline: true },
@@ -388,12 +394,13 @@ export function buildStreakEmbed(
   };
 }
 
-export function buildAchievementEmbed(achievement: Achievement): DiscordEmbed {
+export async function buildAchievementEmbed(achievement: Achievement): Promise<DiscordEmbed> {
+  const { github_username } = await getSettings();
   return {
     title: `\u{1F389} Achievement Unlocked!`,
     description: `${achievement.emoji || "\u{1F3C6}"} **${achievement.name}**\n${achievement.description || ""}`,
     color: EMBED_COLORS.ACHIEVEMENT,
-    thumbnail: { url: GITHUB_AVATAR },
+    thumbnail: { url: githubAvatar(github_username) },
     footer: { text: `Earned ${new Date(achievement.earned_at).toLocaleDateString()}` },
   };
 }

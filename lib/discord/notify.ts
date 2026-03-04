@@ -35,7 +35,7 @@ export async function postEventsToDiscord(
   if (filteredEvents.length === 0) return;
 
   // Build embeds and send
-  const embeds = buildGroupedEmbeds(filteredEvents as ActivityEvent[]);
+  const embeds = await buildGroupedEmbeds(filteredEvents as ActivityEvent[]);
   if (embeds.length === 0) return;
 
   const messageIds = await sendEmbeds(channelId, embeds);

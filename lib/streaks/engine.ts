@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/server";
-import { TIMEZONE } from "@/lib/constants";
+import { getSettings } from "@/lib/settings";
 import type { Habit, Goal } from "@/lib/supabase/types";
 
 function todayInTimezone(tz: string): string {
@@ -31,8 +31,9 @@ function getWeekStart(dateStr: string): string {
  * ending today or yesterday (in configured timezone).
  */
 export async function getCodingStreak(): Promise<number> {
+  const { timezone } = await getSettings();
   const supabase = createAdminClient();
-  const today = todayInTimezone(TIMEZONE);
+  const today = todayInTimezone(timezone);
   const lookback = subtractDays(today, 365);
 
   const { data, error } = await supabase
@@ -53,7 +54,7 @@ export async function getCodingStreak(): Promise<number> {
   if (uniqueDates.length === 0) return 0;
 
   // Streak must start from today or yesterday
-  const yesterday = yesterdayInTimezone(TIMEZONE);
+  const yesterday = yesterdayInTimezone(timezone);
   if (uniqueDates[0] !== today && uniqueDates[0] !== yesterday) return 0;
 
   let streak = 1;
@@ -125,7 +126,8 @@ export async function evaluateHabitForDate(
  * Count consecutive periods where a habit was met.
  */
 export async function getHabitStreak(habit: Habit): Promise<number> {
-  const today = todayInTimezone(TIMEZONE);
+  const { timezone } = await getSettings();
+  const today = todayInTimezone(timezone);
   let streak = 0;
   let currentDate = today;
 
@@ -274,6 +276,7 @@ export async function getTimePatterns(
   startDate: string,
   endDate: string
 ): Promise<{ hourly: Record<number, number>; daily: Record<number, number> }> {
+  const { timezone } = await getSettings();
   const supabase = createAdminClient();
 
   const { data, error } = await supabase
@@ -289,7 +292,7 @@ export async function getTimePatterns(
 
   for (const event of data) {
     const d = new Date(event.occurred_at);
-    const tzDate = new Date(d.toLocaleString("en-US", { timeZone: TIMEZONE }));
+    const tzDate = new Date(d.toLocaleString("en-US", { timeZone: timezone }));
     const hour = tzDate.getHours();
     const day = tzDate.getDay();
     hourly[hour] = (hourly[hour] || 0) + 1;

@@ -1,10 +1,8 @@
 import { createAdminClient } from "@/lib/supabase/server";
-import { TIMEZONE, GITHUB_USERNAME } from "@/lib/constants";
+import { getSettings } from "@/lib/settings";
 import { getPeriodStats, getCodingStreak } from "@/lib/streaks/engine";
 import type { DiscordEmbed } from "./client";
 import { EMBED_COLORS, KIND_EMOJI } from "./embeds";
-
-const GITHUB_AVATAR = `https://github.com/${GITHUB_USERNAME}.png`;
 
 function todayInTimezone(tz: string): string {
   return new Date().toLocaleDateString("en-CA", { timeZone: tz });
@@ -97,7 +95,9 @@ function buildStatsFields(stats: Record<string, number>): { name: string; value:
 // --- Summary builders ---
 
 export async function buildDailySummaryEmbed(): Promise<{ embed: DiscordEmbed; total: number }> {
-  const yesterday = yesterdayInTimezone(TIMEZONE);
+  const { github_username, timezone } = await getSettings();
+  const avatarUrl = `https://github.com/${github_username}.png`;
+  const yesterday = yesterdayInTimezone(timezone);
   const stats = await getPeriodStats(yesterday, yesterday);
   const total = Object.values(stats).reduce((a, b) => a + b, 0);
   const streak = await getCodingStreak();
@@ -106,7 +106,7 @@ export async function buildDailySummaryEmbed(): Promise<{ embed: DiscordEmbed; t
     title: `\u{1F4CA} Daily Summary — ${yesterday}`,
     description: `**${total}** events | Streak: **${streak}** day${streak !== 1 ? "s" : ""}`,
     color: EMBED_COLORS.SUMMARY,
-    thumbnail: { url: GITHUB_AVATAR },
+    thumbnail: { url: avatarUrl },
     fields: buildStatsFields(stats),
     footer: { text: dailyBadge(total) },
   };
@@ -115,8 +115,10 @@ export async function buildDailySummaryEmbed(): Promise<{ embed: DiscordEmbed; t
 }
 
 export async function buildWeeklySummaryEmbed(): Promise<{ embed: DiscordEmbed; total: number }> {
-  const start = getPreviousWeekStart(TIMEZONE);
-  const end = getPreviousWeekEnd(TIMEZONE);
+  const { github_username, timezone } = await getSettings();
+  const avatarUrl = `https://github.com/${github_username}.png`;
+  const start = getPreviousWeekStart(timezone);
+  const end = getPreviousWeekEnd(timezone);
   const stats = await getPeriodStats(start, end);
   const total = Object.values(stats).reduce((a, b) => a + b, 0);
 
@@ -133,7 +135,7 @@ export async function buildWeeklySummaryEmbed(): Promise<{ embed: DiscordEmbed; 
     title: `\u{1F4C5} Weekly Summary — ${start} to ${end}`,
     description: `**${total}** events over **${activeDays}** active day${activeDays !== 1 ? "s" : ""}`,
     color: EMBED_COLORS.SUMMARY,
-    thumbnail: { url: GITHUB_AVATAR },
+    thumbnail: { url: avatarUrl },
     fields: buildStatsFields(stats),
     footer: { text: weeklyBadge(total) },
   };
@@ -142,7 +144,9 @@ export async function buildWeeklySummaryEmbed(): Promise<{ embed: DiscordEmbed; 
 }
 
 export async function buildMonthlySummaryEmbed(): Promise<{ embed: DiscordEmbed; total: number }> {
-  const { start, end, label } = getPreviousMonthRange(TIMEZONE);
+  const { github_username, timezone } = await getSettings();
+  const avatarUrl = `https://github.com/${github_username}.png`;
+  const { start, end, label } = getPreviousMonthRange(timezone);
   const stats = await getPeriodStats(start, end);
   const total = Object.values(stats).reduce((a, b) => a + b, 0);
 
@@ -150,7 +154,7 @@ export async function buildMonthlySummaryEmbed(): Promise<{ embed: DiscordEmbed;
     title: `\u{1F4CA} Monthly Summary — ${label}`,
     description: `**${total}** events`,
     color: EMBED_COLORS.SUMMARY,
-    thumbnail: { url: GITHUB_AVATAR },
+    thumbnail: { url: avatarUrl },
     fields: buildStatsFields(stats),
     footer: { text: monthlyBadge(total) },
   };
@@ -164,27 +168,28 @@ export async function buildMonthlySummaryEmbed(): Promise<{ embed: DiscordEmbed;
 export async function getSummariesToSend(): Promise<
   { type: "daily" | "weekly" | "monthly"; embed: DiscordEmbed; total: number; period: string }[]
 > {
+  const { timezone } = await getSettings();
   const summaries: { type: "daily" | "weekly" | "monthly"; embed: DiscordEmbed; total: number; period: string }[] = [];
   const d = new Date();
-  const tz = new Date(d.toLocaleString("en-US", { timeZone: TIMEZONE }));
+  const tz = new Date(d.toLocaleString("en-US", { timeZone: timezone }));
   const dayOfWeek = tz.getDay(); // 0 = Sunday
   const dayOfMonth = tz.getDate();
 
   // Always send daily
   const daily = await buildDailySummaryEmbed();
-  summaries.push({ type: "daily", ...daily, period: yesterdayInTimezone(TIMEZONE) });
+  summaries.push({ type: "daily", ...daily, period: yesterdayInTimezone(timezone) });
 
   // Weekly on Monday
   if (dayOfWeek === 1) {
     const weekly = await buildWeeklySummaryEmbed();
-    const weekStart = getPreviousWeekStart(TIMEZONE);
+    const weekStart = getPreviousWeekStart(timezone);
     summaries.push({ type: "weekly", ...weekly, period: weekStart });
   }
 
   // Monthly on the 1st
   if (dayOfMonth === 1) {
     const monthly = await buildMonthlySummaryEmbed();
-    const { start } = getPreviousMonthRange(TIMEZONE);
+    const { start } = getPreviousMonthRange(timezone);
     summaries.push({ type: "monthly", ...monthly, period: start.slice(0, 7) });
   }
 

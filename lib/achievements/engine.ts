@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/server";
-import { TIMEZONE } from "@/lib/constants";
+import { getSettings } from "@/lib/settings";
 import { getCodingStreak } from "@/lib/streaks/engine";
 import {
   ACHIEVEMENT_DEFINITIONS,
@@ -25,8 +25,9 @@ function getMonthPeriod(tz: string): string {
 export async function checkAchievements(
   newEvents: { kind: string; occurred_at: string }[]
 ): Promise<Achievement[]> {
+  const { timezone } = await getSettings();
   const supabase = createAdminClient();
-  const today = todayInTimezone(TIMEZONE);
+  const today = todayInTimezone(timezone);
 
   // Get today's events count
   const { data: todayData } = await supabase
@@ -49,7 +50,7 @@ export async function checkAchievements(
   let latestEventDay: number | null = null;
   if (newEvents.length > 0) {
     const latest = new Date(newEvents[newEvents.length - 1].occurred_at);
-    const tzDate = new Date(latest.toLocaleString("en-US", { timeZone: TIMEZONE }));
+    const tzDate = new Date(latest.toLocaleString("en-US", { timeZone: timezone }));
     latestEventHour = tzDate.getHours();
     latestEventDay = tzDate.getDay();
   }
@@ -67,7 +68,7 @@ export async function checkAchievements(
   for (const def of ACHIEVEMENT_DEFINITIONS) {
     // Special case: century_month is evaluated via monthly count
     if (def.id === "century_month") {
-      const monthPeriod = getMonthPeriod(TIMEZONE);
+      const monthPeriod = getMonthPeriod(timezone);
       const monthStart = `${monthPeriod}-01`;
       // Get last day of month
       const [y, m] = monthPeriod.split("-").map(Number);
