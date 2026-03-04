@@ -6,12 +6,6 @@ import { EMBED_COLORS, KIND_EMOJI } from "./embeds";
 
 import { todayInTimezone, yesterdayInTimezone, getWeekStartFromTimezone as getWeekStart } from "@/lib/dates";
 
-function getMonthStart(tz: string): string {
-  const d = new Date();
-  const tz2 = new Date(d.toLocaleString("en-US", { timeZone: tz }));
-  return `${tz2.getFullYear()}-${String(tz2.getMonth() + 1).padStart(2, "0")}-01`;
-}
-
 function getPreviousWeekStart(tz: string): string {
   const d = new Date();
   const tz2 = new Date(d.toLocaleString("en-US", { timeZone: tz }));

@@ -15,7 +15,7 @@ import {
 } from "./embeds";
 import type { DiscordEmbed } from "./client";
 
-import { todayInTimezone as todayStr, toDateInTimezone } from "@/lib/dates";
+import { todayInTimezone as todayStr, toDateInTimezone, getWeekStartFromTimezone, getMonthStartFromTimezone, getYearStartFromTimezone } from "@/lib/dates";
 
 interface CommandOption {
   name: string;
@@ -110,47 +110,10 @@ export async function handleHabitDone(options: CommandOption[]) {
 }
 
 export async function handleStats(options: CommandOption[]) {
-  const { timezone } = await getSettings();
-  const period = getOption(options, "period") as string;
-  const today = todayStr(timezone);
+  const period = (getOption(options, "period") as string) || "day";
+  const { startDate, endDate, label } = await getDateRange(period);
 
-  let startDate: string;
-  let label: string;
-
-  switch (period) {
-    case "day":
-      startDate = today;
-      label = "Today";
-      break;
-    case "week": {
-      const d = new Date();
-      const tz = new Date(d.toLocaleString("en-US", { timeZone: timezone }));
-      const day = tz.getDay();
-      tz.setDate(tz.getDate() - (day === 0 ? 6 : day - 1));
-      startDate = tz.toISOString().split("T")[0];
-      label = "This Week";
-      break;
-    }
-    case "month": {
-      const d = new Date();
-      const tz = new Date(d.toLocaleString("en-US", { timeZone: timezone }));
-      startDate = `${tz.getFullYear()}-${String(tz.getMonth() + 1).padStart(2, "0")}-01`;
-      label = "This Month";
-      break;
-    }
-    case "year": {
-      const d = new Date();
-      const tz = new Date(d.toLocaleString("en-US", { timeZone: timezone }));
-      startDate = `${tz.getFullYear()}-01-01`;
-      label = "This Year";
-      break;
-    }
-    default:
-      startDate = today;
-      label = "Today";
-  }
-
-  const stats = await getPeriodStats(startDate, today);
+  const stats = await getPeriodStats(startDate, endDate);
   const total = Object.values(stats).reduce((a, b) => a + b, 0);
 
   const lines = [`**${label} Stats** (${total} total events)`];
@@ -173,27 +136,12 @@ async function getDateRange(period: string): Promise<{ startDate: string; endDat
   switch (period) {
     case "day":
       return { startDate: today, endDate: today, label: "Today" };
-    case "week": {
-      const d = new Date();
-      const tz = new Date(d.toLocaleString("en-US", { timeZone: timezone }));
-      const day = tz.getDay();
-      tz.setDate(tz.getDate() - (day === 0 ? 6 : day - 1));
-      return { startDate: tz.toISOString().split("T")[0], endDate: today, label: "This Week" };
-    }
-    case "month": {
-      const d = new Date();
-      const tz = new Date(d.toLocaleString("en-US", { timeZone: timezone }));
-      return {
-        startDate: `${tz.getFullYear()}-${String(tz.getMonth() + 1).padStart(2, "0")}-01`,
-        endDate: today,
-        label: "This Month",
-      };
-    }
-    case "year": {
-      const d = new Date();
-      const tz = new Date(d.toLocaleString("en-US", { timeZone: timezone }));
-      return { startDate: `${tz.getFullYear()}-01-01`, endDate: today, label: "This Year" };
-    }
+    case "week":
+      return { startDate: getWeekStartFromTimezone(timezone), endDate: today, label: "This Week" };
+    case "month":
+      return { startDate: getMonthStartFromTimezone(timezone), endDate: today, label: "This Month" };
+    case "year":
+      return { startDate: getYearStartFromTimezone(timezone), endDate: today, label: "This Year" };
     default:
       return { startDate: today, endDate: today, label: "Today" };
   }
@@ -242,9 +190,7 @@ export async function handleActivityRepos(options: CommandOption[]) {
 export async function handleActivityInsights() {
   const { timezone } = await getSettings();
   const today = todayStr(timezone);
-  const d = new Date();
-  const tz = new Date(d.toLocaleString("en-US", { timeZone: timezone }));
-  const startDate = `${tz.getFullYear()}-${String(tz.getMonth() + 1).padStart(2, "0")}-01`;
+  const startDate = getMonthStartFromTimezone(timezone);
 
   const { hourly, daily } = await getTimePatterns(startDate, today);
 
