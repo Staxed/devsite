@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdmin } from "@/lib/auth/admin";
 import { createAdminClient } from "@/lib/supabase/server";
-import { TIMEZONE } from "@/lib/constants";
-
-function toDateInTimezone(isoDate: string, tz: string): string {
-  return new Date(isoDate).toLocaleDateString("en-CA", { timeZone: tz });
-}
+import { getSettings } from "@/lib/settings";
 
 export async function GET() {
   const admin = await verifyAdmin();
@@ -34,6 +30,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "category and kind are required" }, { status: 400 });
   }
 
+  const { timezone } = await getSettings();
   const timestamp = occurred_at || new Date().toISOString();
   const supabase = createAdminClient();
 
@@ -41,7 +38,7 @@ export async function POST(request: NextRequest) {
     .from("activity_events")
     .insert({
       occurred_at: timestamp,
-      occurred_on: toDateInTimezone(timestamp, TIMEZONE),
+      occurred_on: new Date(timestamp).toLocaleDateString("en-CA", { timeZone: timezone }),
       source: "manual",
       category,
       kind,
@@ -78,7 +75,8 @@ export async function PUT(request: NextRequest) {
   }
 
   if (sanitized.occurred_at) {
-    sanitized.occurred_on = toDateInTimezone(sanitized.occurred_at as string, TIMEZONE);
+    const { timezone } = await getSettings();
+    sanitized.occurred_on = new Date(sanitized.occurred_at as string).toLocaleDateString("en-CA", { timeZone: timezone });
   }
 
   const supabase = createAdminClient();

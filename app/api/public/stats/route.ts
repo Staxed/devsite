@@ -1,32 +1,26 @@
 import { NextResponse } from "next/server";
 import { getPeriodStats } from "@/lib/streaks/engine";
-import { TIMEZONE } from "@/lib/constants";
-
-function todayStr(): string {
-  return new Date().toLocaleDateString("en-CA", { timeZone: TIMEZONE });
-}
-
-function weekStartStr(): string {
-  const d = new Date();
-  const tz = new Date(d.toLocaleString("en-US", { timeZone: TIMEZONE }));
-  const day = tz.getDay();
-  tz.setDate(tz.getDate() - (day === 0 ? 6 : day - 1)); // Monday
-  return tz.toISOString().split("T")[0];
-}
-
-function monthStartStr(): string {
-  const d = new Date();
-  const tz = new Date(d.toLocaleString("en-US", { timeZone: TIMEZONE }));
-  return `${tz.getFullYear()}-${String(tz.getMonth() + 1).padStart(2, "0")}-01`;
-}
+import { getSettings } from "@/lib/settings";
 
 export async function GET() {
-  const today = todayStr();
+  const { timezone } = await getSettings();
+
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: timezone });
+
+  const weekD = new Date();
+  const weekTz = new Date(weekD.toLocaleString("en-US", { timeZone: timezone }));
+  const day = weekTz.getDay();
+  weekTz.setDate(weekTz.getDate() - (day === 0 ? 6 : day - 1));
+  const weekStart = weekTz.toISOString().split("T")[0];
+
+  const monthD = new Date();
+  const monthTz = new Date(monthD.toLocaleString("en-US", { timeZone: timezone }));
+  const monthStart = `${monthTz.getFullYear()}-${String(monthTz.getMonth() + 1).padStart(2, "0")}-01`;
 
   const [todayStats, weekStats, monthStats] = await Promise.all([
     getPeriodStats(today, today),
-    getPeriodStats(weekStartStr(), today),
-    getPeriodStats(monthStartStr(), today),
+    getPeriodStats(weekStart, today),
+    getPeriodStats(monthStart, today),
   ]);
 
   return NextResponse.json({ today: todayStats, week: weekStats, month: monthStats });

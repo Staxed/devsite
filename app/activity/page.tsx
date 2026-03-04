@@ -1,32 +1,25 @@
 import { createAdminClient } from "@/lib/supabase/server";
 import { getCodingStreak, getPeriodStats } from "@/lib/streaks/engine";
-import { TIMEZONE } from "@/lib/constants";
+import { getSettings } from "@/lib/settings";
 import Timeline from "@/components/activity/timeline";
 import StreakCard from "@/components/activity/streak-card";
 import PeriodStats from "@/components/activity/period-stats";
 import type { ActivityEvent } from "@/lib/supabase/types";
 
-function todayStr(): string {
-  return new Date().toLocaleDateString("en-CA", { timeZone: TIMEZONE });
-}
-
-function weekStartStr(): string {
-  const d = new Date();
-  const tz = new Date(d.toLocaleString("en-US", { timeZone: TIMEZONE }));
-  const day = tz.getDay();
-  tz.setDate(tz.getDate() - (day === 0 ? 6 : day - 1));
-  return tz.toISOString().split("T")[0];
-}
-
-function monthStartStr(): string {
-  const d = new Date();
-  const tz = new Date(d.toLocaleString("en-US", { timeZone: TIMEZONE }));
-  return `${tz.getFullYear()}-${String(tz.getMonth() + 1).padStart(2, "0")}-01`;
-}
-
 export default async function ActivityPage() {
+  const { timezone } = await getSettings();
   const supabase = createAdminClient();
-  const today = todayStr();
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: timezone });
+
+  const weekD = new Date();
+  const weekTz = new Date(weekD.toLocaleString("en-US", { timeZone: timezone }));
+  const day = weekTz.getDay();
+  weekTz.setDate(weekTz.getDate() - (day === 0 ? 6 : day - 1));
+  const weekStart = weekTz.toISOString().split("T")[0];
+
+  const monthD = new Date();
+  const monthTz = new Date(monthD.toLocaleString("en-US", { timeZone: timezone }));
+  const monthStart = `${monthTz.getFullYear()}-${String(monthTz.getMonth() + 1).padStart(2, "0")}-01`;
 
   const [
     { data: events },
@@ -42,8 +35,8 @@ export default async function ActivityPage() {
       .limit(50),
     getCodingStreak(),
     getPeriodStats(today, today),
-    getPeriodStats(weekStartStr(), today),
-    getPeriodStats(monthStartStr(), today),
+    getPeriodStats(weekStart, today),
+    getPeriodStats(monthStart, today),
   ]);
 
   // Scrub private details for public display
