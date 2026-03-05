@@ -7,14 +7,7 @@ import {
 } from "./definitions";
 import type { Achievement } from "@/lib/supabase/types";
 
-import { todayInTimezone } from "@/lib/dates";
-
-function getMonthPeriod(tz: string): string {
-  const d = new Date();
-  const year = Number(d.toLocaleDateString("en-CA", { timeZone: tz, year: "numeric" }));
-  const month = d.toLocaleDateString("en-CA", { timeZone: tz, month: "2-digit" });
-  return `${year}-${month}`;
-}
+import { todayInTimezone, getMonthPeriodFromTimezone } from "@/lib/dates";
 
 /**
  * Check all achievement definitions against current state.
@@ -66,7 +59,7 @@ export async function checkAchievements(
   for (const def of ACHIEVEMENT_DEFINITIONS) {
     // Special case: century_month is evaluated via monthly count
     if (def.id === "century_month") {
-      const monthPeriod = getMonthPeriod(timezone);
+      const monthPeriod = getMonthPeriodFromTimezone(timezone);
       const monthStart = `${monthPeriod}-01`;
       // Get last day of month
       const [y, m] = monthPeriod.split("-").map(Number);
