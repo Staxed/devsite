@@ -4,39 +4,13 @@ import { getPeriodStats, getCodingStreak } from "@/lib/streaks/engine";
 import type { DiscordEmbed } from "./client";
 import { EMBED_COLORS, KIND_EMOJI } from "./embeds";
 
-import { todayInTimezone, yesterdayInTimezone, getWeekStartFromTimezone as getWeekStart } from "@/lib/dates";
-
-function getPreviousWeekStart(tz: string): string {
-  const d = new Date();
-  const tz2 = new Date(d.toLocaleString("en-US", { timeZone: tz }));
-  const day = tz2.getDay();
-  tz2.setDate(tz2.getDate() - (day === 0 ? 6 : day - 1) - 7);
-  return tz2.toISOString().split("T")[0];
-}
-
-function getPreviousWeekEnd(tz: string): string {
-  const d = new Date();
-  const tz2 = new Date(d.toLocaleString("en-US", { timeZone: tz }));
-  const day = tz2.getDay();
-  tz2.setDate(tz2.getDate() - (day === 0 ? 6 : day - 1) - 1);
-  return tz2.toISOString().split("T")[0];
-}
-
-function getPreviousMonthRange(tz: string): { start: string; end: string; label: string } {
-  const d = new Date();
-  const tz2 = new Date(d.toLocaleString("en-US", { timeZone: tz }));
-  const year = tz2.getFullYear();
-  const month = tz2.getMonth(); // Previous month (0-indexed, so current month - 1)
-  const prevYear = month === 0 ? year - 1 : year;
-  const prevMonth = month === 0 ? 12 : month;
-  const lastDay = new Date(prevYear, prevMonth, 0).getDate();
-  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  return {
-    start: `${prevYear}-${String(prevMonth).padStart(2, "0")}-01`,
-    end: `${prevYear}-${String(prevMonth).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`,
-    label: `${monthNames[prevMonth - 1]} ${prevYear}`,
-  };
-}
+import {
+  todayInTimezone,
+  yesterdayInTimezone,
+  getPreviousWeekStartFromTimezone,
+  getPreviousWeekEndFromTimezone,
+  getPreviousMonthRangeFromTimezone,
+} from "@/lib/dates";
 
 function dailyBadge(total: number): string {
   if (total >= 10) return "\u{1F525} Productive day!";
@@ -95,8 +69,8 @@ export async function buildDailySummaryEmbed(): Promise<{ embed: DiscordEmbed; t
 export async function buildWeeklySummaryEmbed(): Promise<{ embed: DiscordEmbed; total: number }> {
   const { github_username, timezone } = await getSettings();
   const avatarUrl = `https://github.com/${github_username}.png`;
-  const start = getPreviousWeekStart(timezone);
-  const end = getPreviousWeekEnd(timezone);
+  const start = getPreviousWeekStartFromTimezone(timezone);
+  const end = getPreviousWeekEndFromTimezone(timezone);
   const stats = await getPeriodStats(start, end);
   const total = Object.values(stats).reduce((a, b) => a + b, 0);
 
@@ -124,7 +98,7 @@ export async function buildWeeklySummaryEmbed(): Promise<{ embed: DiscordEmbed; 
 export async function buildMonthlySummaryEmbed(): Promise<{ embed: DiscordEmbed; total: number }> {
   const { github_username, timezone } = await getSettings();
   const avatarUrl = `https://github.com/${github_username}.png`;
-  const { start, end, label } = getPreviousMonthRange(timezone);
+  const { start, end, label } = getPreviousMonthRangeFromTimezone(timezone);
   const stats = await getPeriodStats(start, end);
   const total = Object.values(stats).reduce((a, b) => a + b, 0);
 
@@ -160,14 +134,14 @@ export async function getSummariesToSend(): Promise<
   // Weekly on Monday
   if (dayOfWeek === 1) {
     const weekly = await buildWeeklySummaryEmbed();
-    const weekStart = getPreviousWeekStart(timezone);
+    const weekStart = getPreviousWeekStartFromTimezone(timezone);
     summaries.push({ type: "weekly", ...weekly, period: weekStart });
   }
 
   // Monthly on the 1st
   if (dayOfMonth === 1) {
     const monthly = await buildMonthlySummaryEmbed();
-    const { start } = getPreviousMonthRange(timezone);
+    const { start } = getPreviousMonthRangeFromTimezone(timezone);
     summaries.push({ type: "monthly", ...monthly, period: start.slice(0, 7) });
   }
 
