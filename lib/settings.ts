@@ -6,21 +6,13 @@ export interface AppSettings {
   timezone: string;
 }
 
-const DEFAULTS: AppSettings = {
-  github_username: "",
-  github_org: "",
-  timezone: "America/New_York",
-};
-
 let cached: AppSettings | null = null;
 let cachedAt = 0;
 const CACHE_TTL_MS = 60_000; // 1 minute
 
 /**
  * Load app settings from the database with a 1-minute in-memory cache.
- * Serverless: cache lives for the duration of the worker invocation
- * (typically one request), so the TTL mostly helps within long-running
- * local dev servers.
+ * Throws if required settings (github_username, timezone) are not configured.
  */
 export async function getSettings(): Promise<AppSettings> {
   if (cached && Date.now() - cachedAt < CACHE_TTL_MS) {
@@ -31,16 +23,27 @@ export async function getSettings(): Promise<AppSettings> {
   const { data, error } = await supabase.from("app_settings").select("key, value");
 
   if (error || !data) {
-    // If DB is unreachable, return cached or defaults
-    return cached || DEFAULTS;
+    if (cached) return cached;
+    throw new Error("Failed to load app settings from database.");
   }
 
-  const settings = { ...DEFAULTS };
+  const map: Record<string, string> = {};
   for (const row of data) {
-    if (row.key in settings) {
-      (settings as Record<string, string>)[row.key] = row.value;
-    }
+    map[row.key] = row.value;
   }
+
+  if (!map.github_username) {
+    throw new Error('Missing required setting: "github_username". Configure it in admin settings.');
+  }
+  if (!map.timezone) {
+    throw new Error('Missing required setting: "timezone". Configure it in admin settings.');
+  }
+
+  const settings: AppSettings = {
+    github_username: map.github_username,
+    github_org: map.github_org || "",
+    timezone: map.timezone,
+  };
 
   cached = settings;
   cachedAt = Date.now();
