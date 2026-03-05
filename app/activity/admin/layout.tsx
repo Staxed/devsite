@@ -9,6 +9,7 @@ const adminLinks = [
   { href: "/activity/admin/activities", label: "Activities" },
   { href: "/activity/admin/habits", label: "Habits" },
   { href: "/activity/admin/goals", label: "Goals" },
+  { href: "/activity/admin/quotes", label: "Quotes" },
   { href: "/activity/admin/backfill", label: "Backfill" },
 ];
 
