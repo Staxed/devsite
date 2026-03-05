@@ -103,7 +103,8 @@ export async function pollGitHubEvents(maxAgeHours = 12): Promise<PollResult> {
     .from("activity_events")
     .select("*")
     .in("dedupe_key", allDedupeKeys)
-    .eq("posted_to_discord", false);
+    .eq("posted_to_discord", false)
+    .order("occurred_at", { ascending: true });
   const newEvents = newRows || [];
 
   // 5. Post only new events to Discord

@@ -17,6 +17,9 @@ CREATE INDEX IF NOT EXISTS idx_quotes_is_active ON quotes (is_active);
 ALTER TABLE activity_events
   ADD COLUMN IF NOT EXISTS posted_to_discord BOOLEAN DEFAULT FALSE;
 
+-- Mark all existing events as already posted to avoid re-posting on first poll
+UPDATE activity_events SET posted_to_discord = TRUE WHERE posted_to_discord = FALSE;
+
 CREATE INDEX IF NOT EXISTS idx_activity_events_unposted
   ON activity_events (posted_to_discord) WHERE posted_to_discord = FALSE;
 
