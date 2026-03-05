@@ -6,12 +6,19 @@ import { EMBED_COLORS, KIND_EMOJI } from "./embeds";
 
 import { todayInTimezone, yesterdayInTimezone, getWeekStartFromTimezone as getWeekStart } from "@/lib/dates";
 
+function formatLocalDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 function getPreviousWeekStart(tz: string): string {
   const d = new Date();
   const tz2 = new Date(d.toLocaleString("en-US", { timeZone: tz }));
   const day = tz2.getDay();
   tz2.setDate(tz2.getDate() - (day === 0 ? 6 : day - 1) - 7);
-  return tz2.toISOString().split("T")[0];
+  return formatLocalDate(tz2);
 }
 
 function getPreviousWeekEnd(tz: string): string {
@@ -19,7 +26,7 @@ function getPreviousWeekEnd(tz: string): string {
   const tz2 = new Date(d.toLocaleString("en-US", { timeZone: tz }));
   const day = tz2.getDay();
   tz2.setDate(tz2.getDate() - (day === 0 ? 6 : day - 1) - 1);
-  return tz2.toISOString().split("T")[0];
+  return formatLocalDate(tz2);
 }
 
 function getPreviousMonthRange(tz: string): { start: string; end: string; label: string } {
