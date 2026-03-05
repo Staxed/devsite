@@ -48,4 +48,13 @@ export async function postEventsToDiscord(
     events_count: filteredEvents.length,
     posted_at: new Date().toISOString(),
   });
+
+  // Mark events as posted for recovery tracking
+  const dedupeKeys = filteredEvents.map((e) => e.dedupe_key).filter(Boolean);
+  if (dedupeKeys.length > 0) {
+    await supabase
+      .from("activity_events")
+      .update({ posted_to_discord: true })
+      .in("dedupe_key", dedupeKeys);
+  }
 }
