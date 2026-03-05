@@ -4,6 +4,7 @@ import {
   getPeriodStats,
   getCodingStreak,
   getLongestStreak,
+  getAllStreaks,
   getRepoBreakdown,
   getTimePatterns,
 } from "@/lib/streaks/engine";
@@ -156,9 +157,8 @@ export async function handleActivityStats(options: CommandOption[]) {
 }
 
 export async function handleActivityStreak() {
-  const current = await getCodingStreak();
-  const longest = await getLongestStreak();
-  const embed = await buildStreakEmbed(current, longest);
+  const [streaks, longest] = await Promise.all([getAllStreaks(), getLongestStreak()]);
+  const embed = await buildStreakEmbed(streaks, longest);
   return { embeds: [embed] };
 }
 
