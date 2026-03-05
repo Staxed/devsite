@@ -14,7 +14,7 @@ import { todayInTimezone, getWeekStartFromTimezone, getMonthStartFromTimezone, g
  * Returns newly earned achievements (already inserted into DB).
  */
 export async function checkAchievements(
-  newEvents: { kind: string; occurred_at: string; metadata?: Record<string, unknown> }[]
+  newEvents: { kind: string; occurred_at: string; title?: string | null; metadata?: Record<string, unknown> }[]
 ): Promise<Achievement[]> {
   const { timezone } = await getSettings();
   const supabase = createAdminClient();
@@ -75,8 +75,7 @@ export async function checkAchievements(
   let longestCommitMessage = 0;
   for (const e of newEvents) {
     if (e.kind === "commit_pushed") {
-      const title = (e.metadata?.title as string) || "";
-      const message = (e.metadata?.message as string) || title;
+      const message = e.title || "";
       if (message.length > longestCommitMessage) {
         longestCommitMessage = message.length;
       }
