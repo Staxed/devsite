@@ -1,40 +1,65 @@
 import { createAdminClient } from "@/lib/supabase/server";
 import { getSettings } from "@/lib/settings";
-import { getCodingStreak } from "@/lib/streaks/engine";
+import { getCodingStreak, getWeeklyStreak, getMonthlyStreak } from "@/lib/streaks/engine";
 import {
   ACHIEVEMENT_DEFINITIONS,
   type AchievementContext,
 } from "./definitions";
 import type { Achievement } from "@/lib/supabase/types";
 
-import { todayInTimezone, getMonthPeriodFromTimezone } from "@/lib/dates";
+import { todayInTimezone, getWeekStartFromTimezone, getMonthStartFromTimezone, getMonthPeriodFromTimezone } from "@/lib/dates";
 
 /**
  * Check all achievement definitions against current state.
  * Returns newly earned achievements (already inserted into DB).
  */
 export async function checkAchievements(
-  newEvents: { kind: string; occurred_at: string }[]
+  newEvents: { kind: string; occurred_at: string; metadata?: Record<string, unknown> }[]
 ): Promise<Achievement[]> {
   const { timezone } = await getSettings();
   const supabase = createAdminClient();
   const today = todayInTimezone(timezone);
+  const weekStart = getWeekStartFromTimezone(timezone);
+  const monthStart = getMonthStartFromTimezone(timezone);
+  const monthPeriod = getMonthPeriodFromTimezone(timezone);
 
-  // Get today's events count
+  // Get today's events
   const { data: todayData } = await supabase
     .from("activity_events")
     .select("kind, occurred_at")
     .eq("occurred_on", today);
-
   const todayEvents = todayData || [];
+
+  // Get this week's events
+  const { data: weekData } = await supabase
+    .from("activity_events")
+    .select("kind, occurred_on")
+    .gte("occurred_on", weekStart)
+    .lte("occurred_on", today);
+  const weekEvents = weekData || [];
+
+  // Get this month's events
+  const { data: monthData } = await supabase
+    .from("activity_events")
+    .select("kind, occurred_on")
+    .gte("occurred_on", monthStart)
+    .lte("occurred_on", today);
+  const monthEvents = monthData || [];
 
   // Get total event count
   const { count: totalEvents } = await supabase
     .from("activity_events")
     .select("*", { count: "exact", head: true });
 
-  // Get current streak
-  const currentStreak = await getCodingStreak();
+  // Month PR count
+  const monthPRCount = monthEvents.filter((e) => e.kind === "pr_opened").length;
+
+  // Get streaks
+  const [currentStreak, weeklyStreak, monthlyStreak] = await Promise.all([
+    getCodingStreak(),
+    getWeeklyStreak(),
+    getMonthlyStreak(),
+  ]);
 
   // Determine latest event time details
   let latestEventHour: number | null = null;
@@ -46,12 +71,30 @@ export async function checkAchievements(
     latestEventDay = tzDate.getDay();
   }
 
+  // Find longest commit message from new events
+  let longestCommitMessage = 0;
+  for (const e of newEvents) {
+    if (e.kind === "commit_pushed") {
+      const title = (e.metadata?.title as string) || "";
+      const message = (e.metadata?.message as string) || title;
+      if (message.length > longestCommitMessage) {
+        longestCommitMessage = message.length;
+      }
+    }
+  }
+
   const context: AchievementContext = {
     todayEvents,
     currentStreak,
     totalEvents: totalEvents || 0,
     latestEventHour,
     latestEventDay,
+    weekEvents,
+    monthEvents,
+    monthPRCount,
+    longestCommitMessage,
+    weeklyStreak,
+    monthlyStreak,
   };
 
   const newAchievements: Achievement[] = [];
@@ -59,22 +102,19 @@ export async function checkAchievements(
   for (const def of ACHIEVEMENT_DEFINITIONS) {
     // Special case: century_month is evaluated via monthly count
     if (def.id === "century_month") {
-      const monthPeriod = getMonthPeriodFromTimezone(timezone);
-      const monthStart = `${monthPeriod}-01`;
-      // Get last day of month
+      const cmMonthStart = `${monthPeriod}-01`;
       const [y, m] = monthPeriod.split("-").map(Number);
       const lastDay = new Date(y, m, 0).getDate();
-      const monthEnd = `${monthPeriod}-${String(lastDay).padStart(2, "0")}`;
+      const cmMonthEnd = `${monthPeriod}-${String(lastDay).padStart(2, "0")}`;
 
       const { count: monthCount } = await supabase
         .from("activity_events")
         .select("*", { count: "exact", head: true })
-        .gte("occurred_on", monthStart)
-        .lte("occurred_on", monthEnd);
+        .gte("occurred_on", cmMonthStart)
+        .lte("occurred_on", cmMonthEnd);
 
       if (!monthCount || monthCount < 100) continue;
 
-      // Check if already earned for this month
       const { data: existing } = await supabase
         .from("achievements")
         .select("id")
@@ -108,8 +148,12 @@ export async function checkAchievements(
     let period: string;
     if (def.type === "milestone") {
       period = "all-time";
+    } else if (def.period === "weekly") {
+      period = weekStart; // dedup on week start date
+    } else if (def.period === "monthly") {
+      period = monthPeriod; // dedup on YYYY-MM
     } else {
-      period = today; // repeatable = daily
+      period = today; // daily (default)
     }
 
     // Check if already earned
