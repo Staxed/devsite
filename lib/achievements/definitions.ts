@@ -78,8 +78,7 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     description: "100+ events in a calendar month",
     type: "repeatable",
     period: "monthly",
-    // Evaluated separately in engine via monthly count
-    evaluate: () => false,
+    evaluate: (ctx) => ctx.monthEvents.length >= 100,
   },
   {
     id: "streak_keeper",

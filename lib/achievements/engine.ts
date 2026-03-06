@@ -100,48 +100,6 @@ export async function checkAchievements(
   const newAchievements: Achievement[] = [];
 
   for (const def of ACHIEVEMENT_DEFINITIONS) {
-    // Special case: century_month is evaluated via monthly count
-    if (def.id === "century_month") {
-      const cmMonthStart = `${monthPeriod}-01`;
-      const [y, m] = monthPeriod.split("-").map(Number);
-      const lastDay = new Date(y, m, 0).getDate();
-      const cmMonthEnd = `${monthPeriod}-${String(lastDay).padStart(2, "0")}`;
-
-      const { count: monthCount } = await supabase
-        .from("activity_events")
-        .select("*", { count: "exact", head: true })
-        .gte("occurred_on", cmMonthStart)
-        .lte("occurred_on", cmMonthEnd);
-
-      if (!monthCount || monthCount < 100) continue;
-
-      const { data: existing } = await supabase
-        .from("achievements")
-        .select("id")
-        .eq("achievement_id", def.id)
-        .eq("period", monthPeriod)
-        .maybeSingle();
-
-      if (existing) continue;
-
-      const { data: inserted } = await supabase
-        .from("achievements")
-        .insert({
-          achievement_id: def.id,
-          name: def.name,
-          emoji: def.emoji,
-          description: def.description,
-          period: monthPeriod,
-          earned_at: new Date().toISOString(),
-          metadata: { month_count: monthCount },
-        })
-        .select()
-        .single();
-
-      if (inserted) newAchievements.push(inserted as Achievement);
-      continue;
-    }
-
     if (!def.evaluate(context)) continue;
 
     // Determine period for dedup

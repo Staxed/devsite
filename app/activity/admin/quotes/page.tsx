@@ -31,7 +31,7 @@ export default function QuotesPage() {
     e.preventDefault();
     if (!text.trim()) return;
 
-    if (editingId) {
+    if (editingId !== null) {
       await fetch("/api/admin/quotes", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
