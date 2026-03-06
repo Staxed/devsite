@@ -2,7 +2,6 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { getSettings } from "@/lib/settings";
 import {
   getPeriodStats,
-  getCodingStreak,
   getLongestStreak,
   getAllStreaks,
   getRepoBreakdown,
