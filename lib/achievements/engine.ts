@@ -61,12 +61,15 @@ export async function checkAchievements(
     getMonthlyStreak(),
   ]);
 
-  // Collect hours and days of week for all new events (for time-based achievements)
+  // Collect hours and days of week only from today's new events
+  // (avoids misfiring time-based achievements from multi-day polling batches)
   const newEventHours: number[] = [];
   const newEventDays: number[] = [];
   for (const e of newEvents) {
     const d = new Date(e.occurred_at);
     const tzDate = new Date(d.toLocaleString("en-US", { timeZone: timezone }));
+    const eventDate = `${tzDate.getFullYear()}-${String(tzDate.getMonth() + 1).padStart(2, "0")}-${String(tzDate.getDate()).padStart(2, "0")}`;
+    if (eventDate !== today) continue;
     newEventHours.push(tzDate.getHours());
     newEventDays.push(tzDate.getDay());
   }

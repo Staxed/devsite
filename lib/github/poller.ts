@@ -115,6 +115,14 @@ export async function pollGitHubEvents(maxAgeHours = 12): Promise<PollResult> {
   let posted = false;
 
   if (newEvents.length > 0) {
+    // Mark all new events as posted first to prevent recovery from double-posting
+    // if Discord send succeeds but a later step fails
+    const ids = newEvents.map((e) => e.id);
+    await supabase
+      .from("activity_events")
+      .update({ posted_to_discord: true })
+      .in("id", ids);
+
     try {
       if (channelId) {
         const pollRunId = `poll:${new Date().toISOString()}`;
@@ -138,20 +146,13 @@ export async function pollGitHubEvents(maxAgeHours = 12): Promise<PollResult> {
             posted = true;
           }
         }
-      }
 
-      // Mark all new events as posted (including non-postable ones)
-      const ids = newEvents.map((e) => e.id);
-      await supabase
-        .from("activity_events")
-        .update({ posted_to_discord: true })
-        .in("id", ids);
-
-      // Check achievements on new events
-      const newAchievements = await checkAchievements(newEvents);
-      if (channelId && newAchievements.length > 0) {
-        const achievementEmbeds = await Promise.all(newAchievements.map(buildAchievementEmbed));
-        await sendEmbeds(channelId, achievementEmbeds);
+        // Check achievements on new events
+        const newAchievements = await checkAchievements(newEvents);
+        if (newAchievements.length > 0) {
+          const achievementEmbeds = await Promise.all(newAchievements.map(buildAchievementEmbed));
+          await sendEmbeds(channelId, achievementEmbeds);
+        }
       }
     } catch (err) {
       console.error("Discord posting failed during poll:", err);
