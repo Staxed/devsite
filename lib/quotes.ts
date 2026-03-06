@@ -22,6 +22,7 @@ export async function getRandomQuote(): Promise<string | null> {
     .from("quotes")
     .select("text, author")
     .eq("is_active", true)
+    .order("id")
     .range(offset, offset)
     .limit(1)
     .single();

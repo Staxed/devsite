@@ -71,15 +71,16 @@ export async function checkAchievements(
     latestEventDay = tzDate.getDay();
   }
 
-  // Find longest commit message from new events
+  // Find longest commit message from today's commits (query DB for resilience)
   let longestCommitMessage = 0;
-  for (const e of newEvents) {
-    if (e.kind === "commit_pushed") {
-      const message = e.title || "";
-      if (message.length > longestCommitMessage) {
-        longestCommitMessage = message.length;
-      }
-    }
+  const { data: todayCommits } = await supabase
+    .from("activity_events")
+    .select("title")
+    .eq("occurred_on", today)
+    .eq("kind", "commit_pushed");
+  for (const c of todayCommits || []) {
+    const len = (c.title || "").length;
+    if (len > longestCommitMessage) longestCommitMessage = len;
   }
 
   const context: AchievementContext = {
