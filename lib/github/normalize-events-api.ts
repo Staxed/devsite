@@ -99,7 +99,18 @@ export function normalizeEventsApiResponse(
       case "PushEvent": {
         const commits = (payload.commits as Array<Record<string, unknown>>) || [];
         for (const commit of commits) {
+          // Skip non-distinct commits (brought in by merges, not authored by pusher)
+          if (commit.distinct === false) continue;
+
           const authorName = (commit.author as Record<string, unknown>)?.name as string || "";
+          const authorEmail = ((commit.author as Record<string, unknown>)?.email as string) || "";
+
+          // Filter by author: match GitHub username in noreply email or author name
+          const lowerUser = GITHUB_USERNAME.toLowerCase();
+          const emailMatch = authorEmail.toLowerCase().includes(lowerUser);
+          const nameMatch = authorName.toLowerCase() === lowerUser;
+          if (!emailMatch && !nameMatch) continue;
+
           const sha = commit.sha as string;
           const message = ((commit.message as string) || "").split("\n")[0];
 
