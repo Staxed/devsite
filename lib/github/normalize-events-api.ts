@@ -99,7 +99,7 @@ export function normalizeEventsApiResponse(
       case "PushEvent": {
         const commits = (payload.commits as Array<Record<string, unknown>>) || [];
         for (const commit of commits) {
-          const authorEmail = (commit.author as Record<string, unknown>)?.name as string || "";
+          const authorName = (commit.author as Record<string, unknown>)?.name as string || "";
           const sha = commit.sha as string;
           const message = ((commit.message as string) || "").split("\n")[0];
 
@@ -109,7 +109,7 @@ export function normalizeEventsApiResponse(
             `Pushed to ${repoFullName}`,
             event.public ? `https://github.com/${repoFullName}/commit/${sha}` : null,
             `commit:${repoFullName}:${sha}`,
-            { sha, author_name: authorEmail }
+            { sha, author_name: authorName }
           ));
         }
         break;

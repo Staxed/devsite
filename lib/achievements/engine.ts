@@ -61,14 +61,14 @@ export async function checkAchievements(
     getMonthlyStreak(),
   ]);
 
-  // Determine latest event time details
-  let latestEventHour: number | null = null;
-  let latestEventDay: number | null = null;
-  if (newEvents.length > 0) {
-    const latest = new Date(newEvents[newEvents.length - 1].occurred_at);
-    const tzDate = new Date(latest.toLocaleString("en-US", { timeZone: timezone }));
-    latestEventHour = tzDate.getHours();
-    latestEventDay = tzDate.getDay();
+  // Collect hours and days of week for all new events (for time-based achievements)
+  const newEventHours: number[] = [];
+  const newEventDays: number[] = [];
+  for (const e of newEvents) {
+    const d = new Date(e.occurred_at);
+    const tzDate = new Date(d.toLocaleString("en-US", { timeZone: timezone }));
+    newEventHours.push(tzDate.getHours());
+    newEventDays.push(tzDate.getDay());
   }
 
   // Find longest commit message from today's commits (query DB for resilience)
@@ -87,8 +87,8 @@ export async function checkAchievements(
     todayEvents,
     currentStreak,
     totalEvents: totalEvents || 0,
-    latestEventHour,
-    latestEventDay,
+    newEventHours,
+    newEventDays,
     weekEvents,
     monthEvents,
     monthPRCount,

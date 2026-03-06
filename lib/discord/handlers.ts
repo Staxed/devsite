@@ -53,6 +53,8 @@ export async function handleLog(options: CommandOption[]) {
     public_summary: `${category}: ${value} ${unit}`,
     visibility: "public",
     metadata: { logged_via: "discord" },
+    dedupe_key: `discord:log:${category}:${now}`,
+    posted_to_discord: true,
   });
 
   if (error) {
@@ -98,6 +100,8 @@ export async function handleHabitDone(options: CommandOption[]) {
     public_summary: `${habit.name}: ${value} ${habit.target_unit}`,
     visibility: habit.visibility,
     metadata: { habit_id: habit.id, logged_via: "discord" },
+    dedupe_key: `discord:habit:${habit.id}:${now}`,
+    posted_to_discord: true,
   });
 
   if (error) {

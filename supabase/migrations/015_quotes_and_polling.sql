@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS quotes (
 );
 
 CREATE INDEX IF NOT EXISTS idx_quotes_is_active ON quotes (is_active);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_quotes_text_unique ON quotes (text);
 
 -- Track whether events have been posted to Discord (for recovery)
 ALTER TABLE activity_events
@@ -146,4 +147,5 @@ INSERT INTO quotes (text, author) VALUES
   ('Every expert was once a beginner.', 'Helen Hayes'),
   ('Success is not final, failure is not fatal: It is the courage to continue that counts.', 'Winston Churchill'),
   ('The only limit to our realization of tomorrow will be our doubts of today.', 'Franklin D. Roosevelt'),
-  ('Code never lies, comments sometimes do.', 'Ron Jeffries');
+  ('Code never lies, comments sometimes do.', 'Ron Jeffries')
+ON CONFLICT (text) DO NOTHING;

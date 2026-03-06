@@ -16,10 +16,10 @@ export interface AchievementContext {
   currentStreak: number;
   /** All-time total event count */
   totalEvents: number;
-  /** Hour of latest event (0-23) in user timezone */
-  latestEventHour: number | null;
-  /** Day of week of latest event (0=Sun, 6=Sat) */
-  latestEventDay: number | null;
+  /** Hours of all new events (0-23) in user timezone */
+  newEventHours: number[];
+  /** Days of week of all new events (0=Sun, 6=Sat) */
+  newEventDays: number[];
   /** Events for the current week */
   weekEvents: { kind: string; occurred_on: string }[];
   /** Events for the current month with dates */
@@ -43,7 +43,7 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     description: "Coded between midnight and 5 AM",
     type: "repeatable",
     evaluate: (ctx) =>
-      ctx.latestEventHour !== null && ctx.latestEventHour >= 0 && ctx.latestEventHour < 5,
+      ctx.newEventHours.some((h) => h >= 0 && h < 5),
   },
   {
     id: "early_bird",
@@ -52,7 +52,7 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     description: "Coded between 5 AM and 7 AM",
     type: "repeatable",
     evaluate: (ctx) =>
-      ctx.latestEventHour !== null && ctx.latestEventHour >= 5 && ctx.latestEventHour < 7,
+      ctx.newEventHours.some((h) => h >= 5 && h < 7),
   },
   {
     id: "daily_dozen",
@@ -69,7 +69,7 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     description: "Coded on a weekend",
     type: "repeatable",
     evaluate: (ctx) =>
-      ctx.latestEventDay !== null && (ctx.latestEventDay === 0 || ctx.latestEventDay === 6),
+      ctx.newEventDays.some((d) => d === 0 || d === 6),
   },
   {
     id: "century_month",
@@ -111,8 +111,9 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
       const commitDays = new Set<number>();
       for (const e of ctx.weekEvents) {
         if (e.kind === "commit_pushed") {
-          const d = new Date(e.occurred_on + "T00:00:00");
-          commitDays.add(d.getDay());
+          // Use UTC noon to avoid timezone rollover issues
+          const d = new Date(e.occurred_on + "T12:00:00Z");
+          commitDays.add(d.getUTCDay());
         }
       }
       // Mon=1..Fri=5

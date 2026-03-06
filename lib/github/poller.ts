@@ -93,9 +93,12 @@ export async function pollGitHubEvents(maxAgeHours = 12): Promise<PollResult> {
   const allDedupeKeys = normalized.map((e) => e.dedupe_key);
   for (let i = 0; i < normalized.length; i += 100) {
     const batch = normalized.slice(i, i + 100);
-    await supabase
+    const { error: upsertError } = await supabase
       .from("activity_events")
       .upsert(batch, { onConflict: "dedupe_key", ignoreDuplicates: true });
+    if (upsertError) {
+      console.error("Failed to upsert events batch:", upsertError);
+    }
   }
 
   // 4. Find actually new (unposted) events from this batch
@@ -107,31 +110,33 @@ export async function pollGitHubEvents(maxAgeHours = 12): Promise<PollResult> {
     .order("occurred_at", { ascending: true });
   const newEvents = newRows || [];
 
-  // 5. Post only new events to Discord
+  // 5. Post only new events to Discord and mark as posted
   const channelId = process.env.DISCORD_CHANNEL_ID;
   let posted = false;
 
-  if (channelId && newEvents.length > 0) {
+  if (newEvents.length > 0) {
     try {
-      const pollRunId = `poll:${new Date().toISOString()}`;
+      if (channelId) {
+        const pollRunId = `poll:${new Date().toISOString()}`;
 
-      // Filter events based on config
-      const postable = newEvents.filter((e) => shouldPostEvent(e.kind));
-      if (postable.length > 0) {
-        const embeds = await buildGroupedEmbeds(postable as ActivityEvent[]);
-        if (embeds.length > 0) {
-          const messageIds = await sendEmbeds(channelId, embeds);
+        // Filter events based on config
+        const postable = newEvents.filter((e) => shouldPostEvent(e.kind));
+        if (postable.length > 0) {
+          const embeds = await buildGroupedEmbeds(postable as ActivityEvent[]);
+          if (embeds.length > 0) {
+            const messageIds = await sendEmbeds(channelId, embeds);
 
-          // Record the post
-          await supabase.from("discord_posts").insert({
-            delivery_id: pollRunId,
-            channel_id: channelId,
-            message_id: messageIds[0] || null,
-            events_count: postable.length,
-            posted_at: new Date().toISOString(),
-          });
+            // Record the post
+            await supabase.from("discord_posts").insert({
+              delivery_id: pollRunId,
+              channel_id: channelId,
+              message_id: messageIds[0] || null,
+              events_count: postable.length,
+              posted_at: new Date().toISOString(),
+            });
 
-          posted = true;
+            posted = true;
+          }
         }
       }
 
@@ -144,7 +149,7 @@ export async function pollGitHubEvents(maxAgeHours = 12): Promise<PollResult> {
 
       // Check achievements on new events
       const newAchievements = await checkAchievements(newEvents);
-      if (newAchievements.length > 0) {
+      if (channelId && newAchievements.length > 0) {
         const achievementEmbeds = await Promise.all(newAchievements.map(buildAchievementEmbed));
         await sendEmbeds(channelId, achievementEmbeds);
       }
@@ -168,14 +173,17 @@ async function recoverUnpostedEvents(): Promise<number> {
 
   const supabase = createAdminClient();
 
-  // Find unposted events from the last 24 hours
+  // Find unposted events from the last 24 hours, but at least 5 minutes old
+  // (to avoid racing with the current poll cycle's own posting)
   const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const recentCutoff = new Date(Date.now() - 5 * 60 * 1000).toISOString();
 
   const { data: unposted } = await supabase
     .from("activity_events")
     .select("*")
     .eq("posted_to_discord", false)
     .gte("occurred_at", cutoff)
+    .lte("occurred_at", recentCutoff)
     .order("occurred_at", { ascending: true });
 
   if (!unposted || unposted.length === 0) return 0;
