@@ -66,8 +66,11 @@ function fetchFromCsv(): QuoteRow[] {
     if (match) {
       return { text: match[1].trim(), author: match[2].trim() || null };
     }
-    // Simple comma split
+    // Simple comma split fallback
     const parts = line.split(",");
+    if (parts.length === 1) {
+      return { text: parts[0].trim(), author: null };
+    }
     const text = parts.slice(0, -1).join(",").trim();
     const author = parts[parts.length - 1].trim() || null;
     return { text, author };
