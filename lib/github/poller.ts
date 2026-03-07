@@ -70,7 +70,7 @@ export async function pollGitHubEvents(maxAgeHours = 12): Promise<PollResult> {
   const rawEvents = await fetchGitHubEvents(maxAgeHours);
 
   // 2. Normalize
-  const normalized = normalizeEventsApiResponse(
+  const normalized = await normalizeEventsApiResponse(
     rawEvents as unknown as Array<{
       id: string;
       type: string;

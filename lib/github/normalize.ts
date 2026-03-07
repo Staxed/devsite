@@ -35,18 +35,18 @@ function getRepoVisibility(payload: Record<string, unknown>): "public" | "privat
   return isPrivate(payload) ? "private" : "public";
 }
 
-export function normalizeWebhookEvent(
+export async function normalizeWebhookEvent(
   eventName: string,
   payload: Record<string, unknown>,
   settings: { github_username: string; timezone: string }
-): NormalizedEvent[] {
+): Promise<NormalizedEvent[]> {
   const GITHUB_USERNAME = settings.github_username;
   const TIMEZONE = settings.timezone;
   const events: NormalizedEvent[] = [];
   const repoFullName = getRepoFullName(payload);
   const repoVis = getRepoVisibility(payload);
   const isPrivateRepo = repoVis === "private";
-  const repoHash = hashRepoName(repoFullName);
+  const repoHash = await hashRepoName(repoFullName);
 
   switch (eventName) {
     case "push": {

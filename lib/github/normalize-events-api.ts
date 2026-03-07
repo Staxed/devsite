@@ -37,13 +37,20 @@ interface GitHubEvent {
   created_at: string;
 }
 
-export function normalizeEventsApiResponse(
+export async function normalizeEventsApiResponse(
   events: GitHubEvent[],
   settings: { github_username: string; timezone: string }
-): NormalizedEvent[] {
+): Promise<NormalizedEvent[]> {
   const result: NormalizedEvent[] = [];
   const GITHUB_USERNAME = settings.github_username;
   const TIMEZONE = settings.timezone;
+
+  // Pre-compute repo hashes
+  const repoNames = [...new Set(events.map((e) => e.repo.name))];
+  const repoHashes = new Map<string, string>();
+  for (const name of repoNames) {
+    repoHashes.set(name, await hashRepoName(name));
+  }
 
   for (const event of events) {
     // Only process events by the configured user
@@ -52,7 +59,7 @@ export function normalizeEventsApiResponse(
     const repoFullName = event.repo.name;
     const isPrivateRepo = !event.public;
     const repoVis: "public" | "private" = isPrivateRepo ? "private" : "public";
-    const repoHash = hashRepoName(repoFullName);
+    const repoHash = repoHashes.get(repoFullName)!;
     const timestamp = event.created_at;
     const occurredOn = toDateInTimezone(timestamp, TIMEZONE);
 
