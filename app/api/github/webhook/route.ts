@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
   const eventName = request.headers.get("x-github-event");
   const deliveryId = request.headers.get("x-github-delivery");
 
-  if (!verifyGitHubWebhook(body, signature, secret)) {
+  if (!(await verifyGitHubWebhook(body, signature, secret))) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
   // Normalize to activity events
   try {
     const settings = await getSettings();
-    const events = normalizeWebhookEvent(eventName, payload, settings);
+    const events = await normalizeWebhookEvent(eventName, payload, settings);
 
     if (events.length > 0) {
       const { error: insertError } = await supabase

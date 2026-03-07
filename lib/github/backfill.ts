@@ -1,27 +1,52 @@
 import { Octokit } from "octokit";
-import { createPrivateKey, createSign } from "node:crypto";
 import { getSettings } from "@/lib/settings";
 import { createAdminClient } from "@/lib/supabase/server";
 import { hashRepoName, sanitizeForPrivateRepo } from "./sanitize";
 
 import { toDateInTimezone } from "@/lib/dates";
 
+function base64UrlEncode(data: ArrayBuffer | Uint8Array): string {
+  const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function pemToArrayBuffer(pem: string): ArrayBuffer {
+  const lines = pem.split("\n").filter((l) => !l.startsWith("-----"));
+  const binary = atob(lines.join(""));
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes.buffer;
+}
+
 async function getInstallationToken(): Promise<string> {
   const appId = process.env.GITHUB_APP_ID!;
   const privateKeyBase64 = process.env.GITHUB_APP_PRIVATE_KEY!;
-  const privateKeyPem = Buffer.from(privateKeyBase64, "base64").toString("utf-8");
+  const privateKeyPem = atob(privateKeyBase64);
 
-  // Create JWT
+  // Create JWT using Web Crypto API
   const now = Math.floor(Date.now() / 1000);
-  const header = Buffer.from(JSON.stringify({ alg: "RS256", typ: "JWT" })).toString("base64url");
-  const payload = Buffer.from(
-    JSON.stringify({ iat: now - 60, exp: now + 600, iss: appId })
-  ).toString("base64url");
+  const encoder = new TextEncoder();
+  const header = base64UrlEncode(encoder.encode(JSON.stringify({ alg: "RS256", typ: "JWT" })));
+  const payload = base64UrlEncode(
+    encoder.encode(JSON.stringify({ iat: now - 60, exp: now + 600, iss: appId }))
+  );
 
-  const key = createPrivateKey(privateKeyPem);
-  const sign = createSign("RSA-SHA256");
-  sign.update(`${header}.${payload}`);
-  const signature = sign.sign(key, "base64url");
+  const key = await crypto.subtle.importKey(
+    "pkcs8",
+    pemToArrayBuffer(privateKeyPem),
+    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+
+  const sigData = await crypto.subtle.sign(
+    "RSASSA-PKCS1-v1_5",
+    key,
+    encoder.encode(`${header}.${payload}`)
+  );
+  const signature = base64UrlEncode(sigData);
   const jwt = `${header}.${payload}.${signature}`;
 
   // Get installations
@@ -119,7 +144,7 @@ export async function backfillRepoCommits(
   let inserted = 0;
 
   const isPrivateRepo = repo.visibility === "private";
-  const repoHash = hashRepoName(repo.full_name);
+  const repoHash = await hashRepoName(repo.full_name);
 
   const commits = await octokit.paginate(octokit.rest.repos.listCommits, {
     owner: repo.owner,
@@ -202,7 +227,7 @@ export async function backfillPRs(since: string): Promise<number> {
     const repoUrl = pr.repository_url || "";
     const repoParts = repoUrl.split("/");
     const repoFullName = `${repoParts[repoParts.length - 2]}/${repoParts[repoParts.length - 1]}`;
-    const repoHash = hashRepoName(repoFullName);
+    const repoHash = await hashRepoName(repoFullName);
     const isPrivate = privateRepoNames.has(repoFullName);
 
     const kinds = [];

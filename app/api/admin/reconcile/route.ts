@@ -38,7 +38,7 @@ export async function POST() {
 
       const isPrivateRepo = repo.visibility === "private";
       const repoFullName = `${repo.owner}/${repo.name}`;
-      const repoHash = hashRepoName(repoFullName);
+      const repoHash = await hashRepoName(repoFullName);
 
       const events = commits.map((commit) => {
         const timestamp = commit.commit.author?.date || new Date().toISOString();
