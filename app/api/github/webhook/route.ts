@@ -1,3 +1,5 @@
+export const runtime = "edge";
+
 import { NextRequest, NextResponse } from "next/server";
 import { verifyGitHubWebhook } from "@/lib/github/verify";
 import { normalizeWebhookEvent } from "@/lib/github/normalize";

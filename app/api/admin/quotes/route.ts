@@ -1,3 +1,5 @@
+export const runtime = "edge";
+
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdmin } from "@/lib/auth/admin";
 import { createAdminClient } from "@/lib/supabase/server";
