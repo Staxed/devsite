@@ -13,11 +13,62 @@ function base64UrlEncode(data: ArrayBuffer | Uint8Array): string {
 }
 
 function pemToArrayBuffer(pem: string): ArrayBuffer {
-  const lines = pem.split("\n").filter((l) => !l.startsWith("-----"));
+  const lines = pem.split("\n").filter((l) => !l.startsWith("-----") && l.trim());
   const binary = atob(lines.join(""));
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
   return bytes.buffer;
+}
+
+/**
+ * Wrap a PKCS#1 RSA private key DER in a PKCS#8 envelope.
+ * GitHub App keys are PKCS#1 (BEGIN RSA PRIVATE KEY), but
+ * crypto.subtle.importKey("pkcs8") requires PKCS#8 format.
+ */
+function pkcs1ToPkcs8(pkcs1Der: ArrayBuffer): ArrayBuffer {
+  const pkcs1Bytes = new Uint8Array(pkcs1Der);
+
+  // PKCS#8 wraps PKCS#1 with:
+  // SEQUENCE {
+  //   INTEGER 0
+  //   SEQUENCE { OID rsaEncryption, NULL }
+  //   OCTET STRING { <pkcs1 DER> }
+  // }
+  const rsaOid = new Uint8Array([
+    0x30, 0x0d, 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86,
+    0xf7, 0x0d, 0x01, 0x01, 0x01, 0x05, 0x00,
+  ]);
+
+  // Encode the OCTET STRING wrapping the PKCS#1 key
+  const octetString = wrapAsn1(0x04, pkcs1Bytes);
+  // Version INTEGER 0
+  const version = new Uint8Array([0x02, 0x01, 0x00]);
+
+  // Combine into SEQUENCE
+  const inner = new Uint8Array(version.length + rsaOid.length + octetString.length);
+  inner.set(version, 0);
+  inner.set(rsaOid, version.length);
+  inner.set(octetString, version.length + rsaOid.length);
+
+  return wrapAsn1(0x30, inner).buffer as ArrayBuffer;
+}
+
+function wrapAsn1(tag: number, content: Uint8Array): Uint8Array {
+  const len = content.length;
+  let header: Uint8Array;
+  if (len < 0x80) {
+    header = new Uint8Array([tag, len]);
+  } else if (len < 0x100) {
+    header = new Uint8Array([tag, 0x81, len]);
+  } else if (len < 0x10000) {
+    header = new Uint8Array([tag, 0x82, (len >> 8) & 0xff, len & 0xff]);
+  } else {
+    header = new Uint8Array([tag, 0x83, (len >> 16) & 0xff, (len >> 8) & 0xff, len & 0xff]);
+  }
+  const result = new Uint8Array(header.length + content.length);
+  result.set(header, 0);
+  result.set(content, header.length);
+  return result;
 }
 
 async function getInstallationToken(): Promise<string> {
@@ -33,9 +84,13 @@ async function getInstallationToken(): Promise<string> {
     encoder.encode(JSON.stringify({ iat: now - 60, exp: now + 600, iss: appId }))
   );
 
+  // GitHub App keys are PKCS#1; convert to PKCS#8 for Web Crypto API
+  const pkcs1Der = pemToArrayBuffer(privateKeyPem);
+  const pkcs8Der = pkcs1ToPkcs8(pkcs1Der);
+
   const key = await crypto.subtle.importKey(
     "pkcs8",
-    pemToArrayBuffer(privateKeyPem),
+    pkcs8Der,
     { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
     false,
     ["sign"]

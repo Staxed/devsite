@@ -11,7 +11,7 @@ export async function verifyGitHubWebhook(
     encoder.encode(secret),
     { name: "HMAC", hash: "SHA-256" },
     false,
-    ["sign"]
+    ["sign", "verify"]
   );
 
   const sig = await crypto.subtle.sign("HMAC", key, encoder.encode(payload));
@@ -19,12 +19,15 @@ export async function verifyGitHubWebhook(
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("")}`;
 
-  if (expected.length !== signature.length) return false;
+  // Use double-HMAC for timing-safe comparison:
+  // HMAC both strings with a random key, then compare the MACs.
+  // crypto.subtle.verify is guaranteed constant-time.
+  const compareKey = await crypto.subtle.generateKey(
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign", "verify"]
+  );
 
-  // Constant-time comparison
-  let mismatch = 0;
-  for (let i = 0; i < expected.length; i++) {
-    mismatch |= expected.charCodeAt(i) ^ signature.charCodeAt(i);
-  }
-  return mismatch === 0;
+  const expectedMac = await crypto.subtle.sign("HMAC", compareKey, encoder.encode(expected));
+  return crypto.subtle.verify("HMAC", compareKey, expectedMac, encoder.encode(signature));
 }
