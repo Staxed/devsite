@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { createAdminClient } from "@/lib/supabase/server";
 import { getCodingStreak, getPeriodStats } from "@/lib/streaks/engine";
 import { getSettings } from "@/lib/settings";
