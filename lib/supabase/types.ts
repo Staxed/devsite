@@ -128,3 +128,11 @@ export interface SummaryPost {
   events_count: number;
   posted_at: string;
 }
+
+export interface Quote {
+  id: number;
+  text: string;
+  author: string | null;
+  is_active: boolean;
+  created_at: string;
+}

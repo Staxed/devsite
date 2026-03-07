@@ -1,6 +1,7 @@
 import type { DiscordEmbed } from "./client";
 import type { ActivityEvent, Achievement } from "@/lib/supabase/types";
 import { getSettings } from "@/lib/settings";
+import { getRandomQuote } from "@/lib/quotes";
 
 // --- Color constants matching activity-bot ---
 export const EMBED_COLORS = {
@@ -126,12 +127,15 @@ export async function buildSummaryEmbed(events: ActivityEvent[]): Promise<Discor
       inline: true,
     }));
 
+  const quote = await getRandomQuote();
+
   return {
     title: `${github_username} on GitHub`,
     description: `**${events.length}** events across **${repos.size}** repo${repos.size !== 1 ? "s" : ""}`,
     color: EMBED_COLORS.SUMMARY,
     thumbnail: { url: githubAvatar(github_username) },
     fields,
+    ...(quote ? { footer: { text: quote } } : {}),
   };
 }
 
@@ -377,19 +381,22 @@ export async function buildStatsEmbed(
 }
 
 export async function buildStreakEmbed(
-  current: number,
+  streaks: { daily: number; weekly: number; monthly: number; yearly: number },
   longest: number
 ): Promise<DiscordEmbed> {
   const { github_username } = await getSettings();
-  const streakEmoji = current >= 30 ? "\u{1F48E}" : current >= 7 ? "\u{1F525}" : "\u2B50";
+  const streakEmoji = streaks.daily >= 30 ? "\u{1F48E}" : streaks.daily >= 7 ? "\u{1F525}" : "\u2B50";
 
   return {
-    title: `${streakEmoji} Coding Streak`,
+    title: `${streakEmoji} Coding Streaks`,
     color: EMBED_COLORS.STREAK,
     thumbnail: { url: githubAvatar(github_username) },
     fields: [
-      { name: "Current Streak", value: `**${current}** day${current !== 1 ? "s" : ""}`, inline: true },
-      { name: "Longest Streak", value: `**${longest}** day${longest !== 1 ? "s" : ""}`, inline: true },
+      { name: "Daily Streak", value: `**${streaks.daily}** day${streaks.daily !== 1 ? "s" : ""}`, inline: true },
+      { name: "Weekly Streak", value: `**${streaks.weekly}** week${streaks.weekly !== 1 ? "s" : ""}`, inline: true },
+      { name: "Monthly Streak", value: `**${streaks.monthly}** month${streaks.monthly !== 1 ? "s" : ""}`, inline: true },
+      { name: "Yearly Streak", value: `**${streaks.yearly}** year${streaks.yearly !== 1 ? "s" : ""}`, inline: true },
+      { name: "Longest Daily", value: `**${longest}** day${longest !== 1 ? "s" : ""}`, inline: true },
     ],
   };
 }

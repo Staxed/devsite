@@ -2,8 +2,8 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { getSettings } from "@/lib/settings";
 import {
   getPeriodStats,
-  getCodingStreak,
   getLongestStreak,
+  getAllStreaks,
   getRepoBreakdown,
   getTimePatterns,
 } from "@/lib/streaks/engine";
@@ -53,6 +53,8 @@ export async function handleLog(options: CommandOption[]) {
     public_summary: `${category}: ${value} ${unit}`,
     visibility: "public",
     metadata: { logged_via: "discord" },
+    dedupe_key: `discord:log:${category}:${now}`,
+    posted_to_discord: true,
   });
 
   if (error) {
@@ -98,6 +100,8 @@ export async function handleHabitDone(options: CommandOption[]) {
     public_summary: `${habit.name}: ${value} ${habit.target_unit}`,
     visibility: habit.visibility,
     metadata: { habit_id: habit.id, logged_via: "discord" },
+    dedupe_key: `discord:habit:${habit.id}:${now}`,
+    posted_to_discord: true,
   });
 
   if (error) {
@@ -156,9 +160,8 @@ export async function handleActivityStats(options: CommandOption[]) {
 }
 
 export async function handleActivityStreak() {
-  const current = await getCodingStreak();
-  const longest = await getLongestStreak();
-  const embed = await buildStreakEmbed(current, longest);
+  const [streaks, longest] = await Promise.all([getAllStreaks(), getLongestStreak()]);
+  const embed = await buildStreakEmbed(streaks, longest);
   return { embeds: [embed] };
 }
 

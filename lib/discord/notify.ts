@@ -30,6 +30,16 @@ export async function postEventsToDiscord(
     return;
   }
 
+  // Mark ALL events in this delivery as posted up front
+  // so non-postable events don't get picked up by recovery
+  const allDedupeKeys = events.map((e) => e.dedupe_key).filter(Boolean);
+  if (allDedupeKeys.length > 0) {
+    await supabase
+      .from("activity_events")
+      .update({ posted_to_discord: true })
+      .in("dedupe_key", allDedupeKeys);
+  }
+
   // Filter events based on event type config
   const filteredEvents = events.filter((e) => shouldPostEvent(e.kind));
   if (filteredEvents.length === 0) return;

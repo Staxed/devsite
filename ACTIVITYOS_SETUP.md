@@ -16,7 +16,7 @@ You already have a Supabase project with `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PU
 
 ### Run the Migrations
 
-Apply both ActivityOS migrations to create all 10 tables:
+Apply all three ActivityOS migrations to create 12 tables:
 
 ```bash
 # Option A: Using Supabase CLI (if linked)
@@ -28,11 +28,13 @@ supabase db push
 # Click "Run"
 # Then paste: supabase/migrations/014_discord_achievements.sql
 # Click "Run"
+# Then paste: supabase/migrations/015_quotes_and_polling.sql
+# Click "Run"
 ```
 
 **Verify:** In the Table Editor, you should see these tables:
 - `github_deliveries`
-- `activity_events`
+- `activity_events` (includes `posted_to_discord` column)
 - `habits`
 - `goals`
 - `tracked_repos`
@@ -41,6 +43,22 @@ supabase db push
 - `achievements`
 - `discord_posts`
 - `summary_posts`
+- `app_settings`
+- `quotes`
+
+### Migrate Quotes from Activity-Bot (Optional)
+
+If migrating from the original activity-bot, you can import existing quotes:
+
+```bash
+# From old PostgreSQL database
+OLD_DB_URL=postgresql://user:pass@host:5432/dbname npx tsx scripts/migrate-quotes.ts
+
+# From CSV file (columns: text, author)
+QUOTES_CSV=quotes.csv npx tsx scripts/migrate-quotes.ts
+```
+
+The migration script skips duplicates automatically. The 015 migration seeds 118 programming quotes by default.
 
 ---
 
@@ -227,6 +245,19 @@ This will automatically send:
 - **Weekly summary** — every Monday (for the previous week)
 - **Monthly summary** — on the 1st of each month (for the previous month)
 
+### GitHub Polling Cron
+
+Set up a second cron job to poll GitHub for events every 30-60 minutes:
+
+```
+POST https://staxed.dev/api/cron/poll-github
+Header: x-cron-secret: YOUR_CRON_SECRET
+```
+
+This is a complement to webhooks — it catches events that webhooks may miss and enables:
+- **Event grouping** — batches events from each polling run into a single Discord message
+- **Unposted event recovery** — finds events that were stored but not posted to Discord
+
 ### GitHub Actions Example
 
 Create `.github/workflows/daily-summary.yml`:
@@ -245,6 +276,25 @@ jobs:
       - name: Send summary
         run: |
           curl -sf -X POST https://staxed.dev/api/cron/summaries \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}"
+```
+
+Create `.github/workflows/poll-github.yml`:
+
+```yaml
+name: Poll GitHub
+on:
+  schedule:
+    - cron: '*/30 * * * *'  # Every 30 minutes
+  workflow_dispatch:
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Poll GitHub events
+        run: |
+          curl -sf -X POST https://staxed.dev/api/cron/poll-github \
             -H "x-cron-secret: ${{ secrets.CRON_SECRET }}"
 ```
 
@@ -331,6 +381,11 @@ npm run dev
 Visit:
 - `http://localhost:3000/activity` — Public dashboard (will be empty until data flows in)
 - `http://localhost:3000/activity/admin` — Admin panel (requires wallet connection)
+  - `/activity/admin/activities` — View/manage activity events
+  - `/activity/admin/habits` — Manage habits
+  - `/activity/admin/goals` — Manage goals
+  - `/activity/admin/quotes` — Manage programming quotes
+  - `/activity/admin/backfill` — Backfill historical data from GitHub
 
 ### Testing Without Wallet Auth
 
@@ -416,6 +471,20 @@ Verify a daily summary embed appears in your Discord channel. If it's a Monday, 
 ### J. Test Achievements
 Push 12+ commits in a single day to trigger the "Daily Dozen" achievement. An achievement embed should post to Discord automatically.
 
+### K. Test GitHub Polling
+```bash
+curl -X POST https://staxed.dev/api/cron/poll-github \
+  -H "x-cron-secret: YOUR_CRON_SECRET"
+```
+
+Verify: recent GitHub events appear in `activity_events` and get posted as a grouped batch to Discord. Any previously unposted events will also be recovered.
+
+### L. Manage Quotes
+1. Visit `https://staxed.dev/activity/admin/quotes`
+2. The 015 migration seeds 118 quotes — you can add, edit, disable, or delete quotes
+3. Quotes appear as footer text on activity summary embeds and daily/weekly/monthly summaries
+4. To import quotes from the old activity-bot database, see "Migrate Quotes from Activity-Bot" in section 1
+
 ---
 
 ## 11. Ongoing Operations
@@ -462,12 +531,13 @@ Additional filters available:
 ```
 Public Visitor → /activity (server-rendered, no auth)
                   ↓
-              Supabase (activity_events, habits, goals, achievements)
+              Supabase (activity_events, habits, goals, achievements, quotes)
                   ↑
 GitHub Webhooks → /api/github/webhook → normalize → upsert → Discord post + achievements
-Discord Bot   → /api/discord/interactions → handle → upsert/respond with embeds
-Admin (SIWE)  → /activity/admin/* → /api/admin/* → upsert
-Cron          → /api/cron/summaries → daily/weekly/monthly embeds → Discord
+GitHub Polling  → /api/cron/poll-github → Events API → normalize → upsert → grouped Discord post + recovery
+Discord Bot     → /api/discord/interactions → handle → upsert/respond with embeds
+Admin (SIWE)    → /activity/admin/* → /api/admin/* → upsert
+Cron            → /api/cron/summaries → daily/weekly/monthly embeds (with quotes) → Discord
 
 Backfill: Admin → /api/admin/backfill → GitHub API → upsert
 Reconcile: Admin → /api/admin/reconcile → GitHub API → upsert (gap-fill)
@@ -502,20 +572,32 @@ Reconcile: Admin → /api/admin/reconcile → GitHub API → upsert (gap-fill)
 | `/habit done` | Mark a habit as done |
 | `/stats` | View period stats (plain text) |
 | `/activity stats` | Detailed stats with rich embed |
-| `/activity streak` | Current + longest coding streak |
+| `/activity streak` | Daily, weekly, monthly, yearly + longest streak |
 | `/activity repos` | Per-repo activity breakdown |
 | `/activity insights` | Time-of-day and day-of-week patterns |
 | `/activity badges` | List earned achievements |
 
-### Achievements (12)
+### Achievements (30)
 
-**Repeatable:**
-- Night Owl, Early Bird, Daily Dozen, Weekend Warrior, Century Month
+**Repeatable — Daily:**
+- Night Owl, Early Bird, Daily Dozen, Weekend Warrior, Streak Keeper, Commit Poet
 
-**Milestone (Streak):**
+**Repeatable — Weekly:**
+- Weekday Grind (commits Mon-Fri), Productive Week (25+ events)
+
+**Repeatable — Monthly:**
+- Century Month (100+ events), PR Machine (10+ PRs), Consistency King (20+ active days)
+
+**Milestone — Daily Streak:**
 - Fire Starter (7d), Lightning Bolt (30d), Diamond (100d), Legendary (365d)
 
-**Milestone (Totals):**
+**Milestone — Weekly Streak:**
+- Weekly Consistent (4wk), Weekly Quarter (13wk)
+
+**Milestone — Monthly Streak:**
+- Monthly Tri (3mo), Monthly Half (6mo), Monthly Annual (12mo)
+
+**Milestone — Totals:**
 - Century Club (100), Sharpshooter (500), Rocket Ship (1000)
 
 ### Key Design Decisions
@@ -528,3 +610,8 @@ Reconcile: Admin → /api/admin/reconcile → GitHub API → upsert (gap-fill)
 - **All dates in America/New_York** — consistent streak/stat calculations
 - **Event filtering is post-storage** — all events stored in DB regardless of Discord posting filters
 - **Discord posting is best-effort** — webhook always returns 200 even if Discord API fails
+- **Polling complements webhooks** — both sources dedupe via `dedupe_key`, polling catches missed events
+- **Unposted event recovery** — `posted_to_discord` column tracks posting status; recovery runs each poll cycle
+- **Quotes in embed footers** — random programming quote added to activity and summary embeds
+- **Achievement periods** — daily (default), weekly (dedup by week start), monthly (dedup by YYYY-MM), milestone (all-time)
+- **Four streak types** — daily (commit-based), weekly/monthly/yearly (any event)

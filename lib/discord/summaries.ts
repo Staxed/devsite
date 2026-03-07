@@ -3,6 +3,7 @@ import { getSettings } from "@/lib/settings";
 import { getPeriodStats, getCodingStreak } from "@/lib/streaks/engine";
 import type { DiscordEmbed } from "./client";
 import { EMBED_COLORS, KIND_EMOJI } from "./embeds";
+import { getRandomQuote } from "@/lib/quotes";
 
 import {
   todayInTimezone,
@@ -53,6 +54,10 @@ export async function buildDailySummaryEmbed(): Promise<{ embed: DiscordEmbed; t
   const stats = await getPeriodStats(yesterday, yesterday);
   const total = Object.values(stats).reduce((a, b) => a + b, 0);
   const streak = await getCodingStreak();
+  const quote = await getRandomQuote();
+
+  const footerParts = [dailyBadge(total)];
+  if (quote) footerParts.push(quote);
 
   const embed: DiscordEmbed = {
     title: `\u{1F4CA} Daily Summary — ${yesterday}`,
@@ -60,7 +65,7 @@ export async function buildDailySummaryEmbed(): Promise<{ embed: DiscordEmbed; t
     color: EMBED_COLORS.SUMMARY,
     thumbnail: { url: avatarUrl },
     fields: buildStatsFields(stats),
-    footer: { text: dailyBadge(total) },
+    footer: { text: footerParts.join(" | ") },
   };
 
   return { embed, total };
@@ -73,6 +78,7 @@ export async function buildWeeklySummaryEmbed(): Promise<{ embed: DiscordEmbed; 
   const end = getPreviousWeekEndFromTimezone(timezone);
   const stats = await getPeriodStats(start, end);
   const total = Object.values(stats).reduce((a, b) => a + b, 0);
+  const quote = await getRandomQuote();
 
   // Count active days
   const supabase = createAdminClient();
@@ -83,13 +89,16 @@ export async function buildWeeklySummaryEmbed(): Promise<{ embed: DiscordEmbed; 
     .lte("occurred_on", end);
   const activeDays = new Set(data?.map((e) => e.occurred_on)).size;
 
+  const footerParts = [weeklyBadge(total)];
+  if (quote) footerParts.push(quote);
+
   const embed: DiscordEmbed = {
     title: `\u{1F4C5} Weekly Summary — ${start} to ${end}`,
     description: `**${total}** events over **${activeDays}** active day${activeDays !== 1 ? "s" : ""}`,
     color: EMBED_COLORS.SUMMARY,
     thumbnail: { url: avatarUrl },
     fields: buildStatsFields(stats),
-    footer: { text: weeklyBadge(total) },
+    footer: { text: footerParts.join(" | ") },
   };
 
   return { embed, total };
@@ -101,6 +110,10 @@ export async function buildMonthlySummaryEmbed(): Promise<{ embed: DiscordEmbed;
   const { start, end, label } = getPreviousMonthRangeFromTimezone(timezone);
   const stats = await getPeriodStats(start, end);
   const total = Object.values(stats).reduce((a, b) => a + b, 0);
+  const quote = await getRandomQuote();
+
+  const footerParts = [monthlyBadge(total)];
+  if (quote) footerParts.push(quote);
 
   const embed: DiscordEmbed = {
     title: `\u{1F4CA} Monthly Summary — ${label}`,
@@ -108,7 +121,7 @@ export async function buildMonthlySummaryEmbed(): Promise<{ embed: DiscordEmbed;
     color: EMBED_COLORS.SUMMARY,
     thumbnail: { url: avatarUrl },
     fields: buildStatsFields(stats),
-    footer: { text: monthlyBadge(total) },
+    footer: { text: footerParts.join(" | ") },
   };
 
   return { embed, total };
