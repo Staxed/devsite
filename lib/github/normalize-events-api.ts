@@ -223,6 +223,8 @@ export function normalizeEventsApiResponse(
       case "CreateEvent": {
         const refType = payload.ref_type as string;
         const ref = payload.ref as string;
+        // Skip repository creation events (ref is null, not a branch or tag)
+        if (refType === "repository") break;
         const kind = refType === "tag" ? "tag_created" : "branch_created";
 
         result.push(makeEvent(
