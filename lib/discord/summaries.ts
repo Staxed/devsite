@@ -3,47 +3,15 @@ import { getSettings } from "@/lib/settings";
 import { getPeriodStats, getCodingStreak } from "@/lib/streaks/engine";
 import type { DiscordEmbed } from "./client";
 import { EMBED_COLORS, KIND_EMOJI } from "./embeds";
+import { getRandomQuote } from "@/lib/quotes";
 
-import { todayInTimezone, yesterdayInTimezone, getWeekStartFromTimezone as getWeekStart } from "@/lib/dates";
-
-function formatLocalDate(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-function getPreviousWeekStart(tz: string): string {
-  const d = new Date();
-  const tz2 = new Date(d.toLocaleString("en-US", { timeZone: tz }));
-  const day = tz2.getDay();
-  tz2.setDate(tz2.getDate() - (day === 0 ? 6 : day - 1) - 7);
-  return formatLocalDate(tz2);
-}
-
-function getPreviousWeekEnd(tz: string): string {
-  const d = new Date();
-  const tz2 = new Date(d.toLocaleString("en-US", { timeZone: tz }));
-  const day = tz2.getDay();
-  tz2.setDate(tz2.getDate() - (day === 0 ? 6 : day - 1) - 1);
-  return formatLocalDate(tz2);
-}
-
-function getPreviousMonthRange(tz: string): { start: string; end: string; label: string } {
-  const d = new Date();
-  const tz2 = new Date(d.toLocaleString("en-US", { timeZone: tz }));
-  const year = tz2.getFullYear();
-  const month = tz2.getMonth(); // Previous month (0-indexed, so current month - 1)
-  const prevYear = month === 0 ? year - 1 : year;
-  const prevMonth = month === 0 ? 12 : month;
-  const lastDay = new Date(prevYear, prevMonth, 0).getDate();
-  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  return {
-    start: `${prevYear}-${String(prevMonth).padStart(2, "0")}-01`,
-    end: `${prevYear}-${String(prevMonth).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`,
-    label: `${monthNames[prevMonth - 1]} ${prevYear}`,
-  };
-}
+import {
+  todayInTimezone,
+  yesterdayInTimezone,
+  getPreviousWeekStartFromTimezone,
+  getPreviousWeekEndFromTimezone,
+  getPreviousMonthRangeFromTimezone,
+} from "@/lib/dates";
 
 function dailyBadge(total: number): string {
   if (total >= 10) return "\u{1F525} Productive day!";
@@ -86,6 +54,10 @@ export async function buildDailySummaryEmbed(): Promise<{ embed: DiscordEmbed; t
   const stats = await getPeriodStats(yesterday, yesterday);
   const total = Object.values(stats).reduce((a, b) => a + b, 0);
   const streak = await getCodingStreak();
+  const quote = await getRandomQuote();
+
+  const footerParts = [dailyBadge(total)];
+  if (quote) footerParts.push(quote);
 
   const embed: DiscordEmbed = {
     title: `\u{1F4CA} Daily Summary — ${yesterday}`,
@@ -93,7 +65,7 @@ export async function buildDailySummaryEmbed(): Promise<{ embed: DiscordEmbed; t
     color: EMBED_COLORS.SUMMARY,
     thumbnail: { url: avatarUrl },
     fields: buildStatsFields(stats),
-    footer: { text: dailyBadge(total) },
+    footer: { text: footerParts.join(" | ") },
   };
 
   return { embed, total };
@@ -102,10 +74,11 @@ export async function buildDailySummaryEmbed(): Promise<{ embed: DiscordEmbed; t
 export async function buildWeeklySummaryEmbed(): Promise<{ embed: DiscordEmbed; total: number }> {
   const { github_username, timezone } = await getSettings();
   const avatarUrl = `https://github.com/${github_username}.png`;
-  const start = getPreviousWeekStart(timezone);
-  const end = getPreviousWeekEnd(timezone);
+  const start = getPreviousWeekStartFromTimezone(timezone);
+  const end = getPreviousWeekEndFromTimezone(timezone);
   const stats = await getPeriodStats(start, end);
   const total = Object.values(stats).reduce((a, b) => a + b, 0);
+  const quote = await getRandomQuote();
 
   // Count active days
   const supabase = createAdminClient();
@@ -116,13 +89,16 @@ export async function buildWeeklySummaryEmbed(): Promise<{ embed: DiscordEmbed; 
     .lte("occurred_on", end);
   const activeDays = new Set(data?.map((e) => e.occurred_on)).size;
 
+  const footerParts = [weeklyBadge(total)];
+  if (quote) footerParts.push(quote);
+
   const embed: DiscordEmbed = {
     title: `\u{1F4C5} Weekly Summary — ${start} to ${end}`,
     description: `**${total}** events over **${activeDays}** active day${activeDays !== 1 ? "s" : ""}`,
     color: EMBED_COLORS.SUMMARY,
     thumbnail: { url: avatarUrl },
     fields: buildStatsFields(stats),
-    footer: { text: weeklyBadge(total) },
+    footer: { text: footerParts.join(" | ") },
   };
 
   return { embed, total };
@@ -131,9 +107,13 @@ export async function buildWeeklySummaryEmbed(): Promise<{ embed: DiscordEmbed; 
 export async function buildMonthlySummaryEmbed(): Promise<{ embed: DiscordEmbed; total: number }> {
   const { github_username, timezone } = await getSettings();
   const avatarUrl = `https://github.com/${github_username}.png`;
-  const { start, end, label } = getPreviousMonthRange(timezone);
+  const { start, end, label } = getPreviousMonthRangeFromTimezone(timezone);
   const stats = await getPeriodStats(start, end);
   const total = Object.values(stats).reduce((a, b) => a + b, 0);
+  const quote = await getRandomQuote();
+
+  const footerParts = [monthlyBadge(total)];
+  if (quote) footerParts.push(quote);
 
   const embed: DiscordEmbed = {
     title: `\u{1F4CA} Monthly Summary — ${label}`,
@@ -141,7 +121,7 @@ export async function buildMonthlySummaryEmbed(): Promise<{ embed: DiscordEmbed;
     color: EMBED_COLORS.SUMMARY,
     thumbnail: { url: avatarUrl },
     fields: buildStatsFields(stats),
-    footer: { text: monthlyBadge(total) },
+    footer: { text: footerParts.join(" | ") },
   };
 
   return { embed, total };
@@ -167,14 +147,14 @@ export async function getSummariesToSend(): Promise<
   // Weekly on Monday
   if (dayOfWeek === 1) {
     const weekly = await buildWeeklySummaryEmbed();
-    const weekStart = getPreviousWeekStart(timezone);
+    const weekStart = getPreviousWeekStartFromTimezone(timezone);
     summaries.push({ type: "weekly", ...weekly, period: weekStart });
   }
 
   // Monthly on the 1st
   if (dayOfMonth === 1) {
     const monthly = await buildMonthlySummaryEmbed();
-    const { start } = getPreviousMonthRange(timezone);
+    const { start } = getPreviousMonthRangeFromTimezone(timezone);
     summaries.push({ type: "monthly", ...monthly, period: start.slice(0, 7) });
   }
 

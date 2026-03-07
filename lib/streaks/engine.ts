@@ -217,6 +217,165 @@ export async function getLongestStreak(): Promise<number> {
 }
 
 /**
+ * Count consecutive weeks (ISO weeks, Mon-Sun) with at least 1 event,
+ * ending at the current or previous week.
+ */
+export async function getWeeklyStreak(): Promise<number> {
+  const { timezone } = await getSettings();
+  const supabase = createAdminClient();
+  const today = todayInTimezone(timezone);
+
+  // Fetch all event dates from the last ~3 years
+  const lookback = subtractDays(today, 1095);
+  const { data, error } = await supabase
+    .from("activity_events")
+    .select("occurred_on")
+    .gte("occurred_on", lookback)
+    .lte("occurred_on", today);
+
+  if (error || !data || data.length === 0) return 0;
+
+  // Group dates by ISO week (week start = Monday)
+  const weeks = new Set<string>();
+  for (const e of data) {
+    weeks.add(getWeekStart(e.occurred_on));
+  }
+
+  // Sort descending
+  const sortedWeeks = [...weeks].sort((a, b) => b.localeCompare(a));
+  if (sortedWeeks.length === 0) return 0;
+
+  // Current week start
+  const currentWeekStart = getWeekStart(today);
+  const previousWeekStart = subtractDays(currentWeekStart, 7);
+
+  // Streak must start from current or previous week
+  if (sortedWeeks[0] !== currentWeekStart && sortedWeeks[0] !== previousWeekStart) return 0;
+
+  let streak = 1;
+  for (let i = 1; i < sortedWeeks.length; i++) {
+    const expected = subtractDays(sortedWeeks[i - 1], 7);
+    if (sortedWeeks[i] === expected) {
+      streak++;
+    } else {
+      break;
+    }
+  }
+
+  return streak;
+}
+
+/**
+ * Count consecutive months with at least 1 event,
+ * ending at the current or previous month.
+ */
+export async function getMonthlyStreak(): Promise<number> {
+  const { timezone } = await getSettings();
+  const supabase = createAdminClient();
+  const today = todayInTimezone(timezone);
+
+  const lookback = subtractDays(today, 1825); // ~5 years
+  const { data, error } = await supabase
+    .from("activity_events")
+    .select("occurred_on")
+    .gte("occurred_on", lookback)
+    .lte("occurred_on", today);
+
+  if (error || !data || data.length === 0) return 0;
+
+  // Group by YYYY-MM
+  const months = new Set<string>();
+  for (const e of data) {
+    months.add(e.occurred_on.slice(0, 7)); // YYYY-MM
+  }
+
+  const sortedMonths = [...months].sort((a, b) => b.localeCompare(a));
+  if (sortedMonths.length === 0) return 0;
+
+  // Current month and previous month
+  const currentMonth = today.slice(0, 7);
+  const prevDate = new Date(currentMonth + "-15");
+  prevDate.setMonth(prevDate.getMonth() - 1);
+  const previousMonth = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, "0")}`;
+
+  if (sortedMonths[0] !== currentMonth && sortedMonths[0] !== previousMonth) return 0;
+
+  let streak = 1;
+  for (let i = 1; i < sortedMonths.length; i++) {
+    const prev = new Date(sortedMonths[i - 1] + "-15");
+    prev.setMonth(prev.getMonth() - 1);
+    const expected = `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, "0")}`;
+    if (sortedMonths[i] === expected) {
+      streak++;
+    } else {
+      break;
+    }
+  }
+
+  return streak;
+}
+
+/**
+ * Count consecutive years with at least 1 event,
+ * ending at the current or previous year.
+ */
+export async function getYearlyStreak(): Promise<number> {
+  const { timezone } = await getSettings();
+  const supabase = createAdminClient();
+  const today = todayInTimezone(timezone);
+
+  const { data, error } = await supabase
+    .from("activity_events")
+    .select("occurred_on")
+    .lte("occurred_on", today);
+
+  if (error || !data || data.length === 0) return 0;
+
+  const years = new Set<string>();
+  for (const e of data) {
+    years.add(e.occurred_on.slice(0, 4));
+  }
+
+  const sortedYears = [...years].sort((a, b) => b.localeCompare(a));
+  if (sortedYears.length === 0) return 0;
+
+  const currentYear = today.slice(0, 4);
+  const previousYear = String(Number(currentYear) - 1);
+
+  if (sortedYears[0] !== currentYear && sortedYears[0] !== previousYear) return 0;
+
+  let streak = 1;
+  for (let i = 1; i < sortedYears.length; i++) {
+    const expected = String(Number(sortedYears[i - 1]) - 1);
+    if (sortedYears[i] === expected) {
+      streak++;
+    } else {
+      break;
+    }
+  }
+
+  return streak;
+}
+
+/**
+ * Convenience wrapper to get all streak types at once.
+ */
+export async function getAllStreaks(): Promise<{
+  daily: number;
+  weekly: number;
+  monthly: number;
+  yearly: number;
+}> {
+  const [daily, weekly, monthly, yearly] = await Promise.all([
+    getCodingStreak(),
+    getWeeklyStreak(),
+    getMonthlyStreak(),
+    getYearlyStreak(),
+  ]);
+  return { daily, weekly, monthly, yearly };
+}
+
+/**
  * Get per-repo activity breakdown for a date range.
  */
 export async function getRepoBreakdown(
