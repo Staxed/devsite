@@ -52,6 +52,17 @@ function excludedMatcher(patterns: string[]): (event: ActivityEvent) => boolean 
   };
 }
 
+export function partitionExcluded(
+  events: ActivityEvent[],
+  patterns: string[]
+): { visible: ActivityEvent[]; excluded: ActivityEvent[] } {
+  const isExcluded = excludedMatcher(patterns);
+  return {
+    visible: events.filter((e) => !isExcluded(e)),
+    excluded: events.filter(isExcluded),
+  };
+}
+
 function redactedLine(events: ActivityEvent[]): string {
   const repos = new Set(events.map(repoOf));
   return `Active in ${repos.size} redacted repos · ${events.length} events`;

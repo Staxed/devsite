@@ -1,7 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/server";
 import { getSettings } from "@/lib/settings";
 import { todayInTimezone, yesterdayInTimezone, subtractDays, getWeekStartFromDate as getWeekStart } from "@/lib/dates";
-import type { Habit, Goal } from "@/lib/supabase/types";
+import type { ActivityEvent, Habit, Goal } from "@/lib/supabase/types";
 
 /**
  * Count consecutive days with at least 1 commit_pushed event,
@@ -376,31 +376,23 @@ export async function getAllStreaks(): Promise<{
 }
 
 /**
- * Get per-repo activity breakdown for a date range.
+ * GitHub events in a date range, for the repos breakdown.
  */
-export async function getRepoBreakdown(
+export async function getGithubEventsInRange(
   startDate: string,
   endDate: string
-): Promise<Record<string, number>> {
+): Promise<ActivityEvent[]> {
   const supabase = createAdminClient();
 
   const { data, error } = await supabase
     .from("activity_events")
-    .select("metadata, value")
+    .select("*")
     .eq("source", "github")
     .gte("occurred_on", startDate)
     .lte("occurred_on", endDate);
 
-  if (error || !data) return {};
-
-  const repos: Record<string, number> = {};
-  for (const event of data) {
-    const repo = (event.metadata as Record<string, unknown>)?.repo as string;
-    if (repo) {
-      repos[repo] = (repos[repo] || 0) + (Number(event.value) || 0);
-    }
-  }
-  return repos;
+  if (error || !data) return [];
+  return data as ActivityEvent[];
 }
 
 /**
