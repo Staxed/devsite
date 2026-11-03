@@ -53,6 +53,18 @@ describe("interactions owner lock", () => {
     expect((await call("habit", { dm: OWNER })).data.content).toBe("habit done");
   });
 
+  it("throws naming DISCORD_OWNER_ID when it is unset", async () => {
+    delete process.env.DISCORD_OWNER_ID;
+    await expect(call("log", { guild: OWNER })).rejects.toThrow("DISCORD_OWNER_ID");
+    expect(handlers.handleLog).not.toHaveBeenCalled();
+  });
+
+  it("refuses a caller with no id", async () => {
+    const res = await call("log", {});
+    expect(res.data.flags).toBe(64);
+    expect(handlers.handleLog).not.toHaveBeenCalled();
+  });
+
   it("leaves /stats open to everyone", async () => {
     expect((await call("stats", { guild: "222" })).data.content).toBe("stats");
   });

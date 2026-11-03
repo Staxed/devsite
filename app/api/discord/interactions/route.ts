@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { InteractionType, InteractionResponseType } from "discord-interactions";
+import { InteractionType, InteractionResponseType, InteractionResponseFlags } from "discord-interactions";
 import { verifyDiscordRequest } from "@/lib/discord/verify";
 import {
   handleLog,
@@ -13,7 +13,6 @@ import {
 } from "@/lib/discord/handlers";
 
 const OWNER_ONLY_COMMANDS = new Set(["log", "habit"]);
-const EPHEMERAL = 64;
 
 export async function POST(request: NextRequest) {
   const body = await request.text();
@@ -43,11 +42,15 @@ export async function POST(request: NextRequest) {
 
     // member.user is set in a guild, user in a DM.
     const callerId = (interaction.member?.user ?? interaction.user)?.id;
-    if (OWNER_ONLY_COMMANDS.has(name) && callerId !== process.env.DISCORD_OWNER_ID) {
-      return NextResponse.json({
-        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-        data: { content: `Only the owner can use /${name}.`, flags: EPHEMERAL },
-      });
+    if (OWNER_ONLY_COMMANDS.has(name)) {
+      const ownerId = process.env.DISCORD_OWNER_ID;
+      if (!ownerId) throw new Error("DISCORD_OWNER_ID is not set");
+      if (!callerId || callerId !== ownerId) {
+        return NextResponse.json({
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+          data: { content: `Only the owner can use /${name}.`, flags: InteractionResponseFlags.EPHEMERAL },
+        });
+      }
     }
 
     let response;
