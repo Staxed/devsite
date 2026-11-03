@@ -2,6 +2,8 @@
 
 Everything you need to do to get ActivityOS running, from external service setup through deployment.
 
+Prefer the interactive wizard: run `scripts/setup-activityos.sh`. It walks every manual step below in order (Discord, Cloudflare secrets, Supabase SQL, GitHub token and webhook, backfill).
+
 ---
 
 ## 1. Supabase — Database Setup

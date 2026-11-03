@@ -18,6 +18,10 @@ put_secret() {
   read -r -s -p "$name: " value
   printf '\n'
   if [ -z "$value" ]; then
+    if [ "${ALLOW_SKIP:-}" = "1" ]; then
+      say "$name skipped; set it later (step 7)."
+      return 0
+    fi
     say "$name is empty; aborting." >&2
     exit 1
   fi
@@ -46,10 +50,21 @@ say "Each value is piped into wrangler secret put."
 say "Use the Stixed bot's values for DISCORD_APP_ID, DISCORD_PUBLIC_KEY and DISCORD_BOT_TOKEN."
 say "DISCORD_CHANNEL_ID is the Aeon Forge activity channel (1437115510558036115)."
 say "DISCORD_OWNER_ID is your Discord user id (Developer Mode on, right-click yourself, Copy User ID)."
-say "GITHUB_EVENTS_TOKEN comes from step 7; if you have it already, paste it now, otherwise come back to it after step 7."
+say "GITHUB_EVENTS_TOKEN comes from step 7; if you have it already, paste it now, otherwise press Enter to skip it and set it in step 7."
 say "CRON_SECRET is any long random string."
+say "wrangler targets the Worker named in wrangler.jsonc: $(grep -m1 '"name"' wrangler.jsonc)."
+say "That Worker must be the production one (staxed.dev), not the test instance."
+read -r -p "Is this the production Worker? Type yes to continue: " target_ok
+if [ "$target_ok" != "yes" ]; then
+  say "Aborting; point wrangler at production (e.g. --env or --name) and rerun." >&2
+  exit 1
+fi
 for name in DISCORD_APP_ID DISCORD_PUBLIC_KEY DISCORD_BOT_TOKEN DISCORD_CHANNEL_ID DISCORD_OWNER_ID GITHUB_EVENTS_TOKEN CRON_SECRET; do
-  put_secret "$name"
+  if [ "$name" = "GITHUB_EVENTS_TOKEN" ]; then
+    ALLOW_SKIP=1 put_secret "$name"
+  else
+    put_secret "$name"
+  fi
 done
 printf 'true' | npx wrangler secret put CRON_ENABLED
 say "CRON_ENABLED=true set on production only; never set it on the test instance."
