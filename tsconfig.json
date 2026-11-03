@@ -37,6 +37,7 @@
   ],
   "exclude": [
     "node_modules",
+    // worker.ts imports .open-next/worker.js, which exists only after a build; its logic lives in lib/cron/scheduled.ts, which is checked.
     "worker.ts"
   ]
 }

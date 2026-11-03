@@ -221,82 +221,30 @@ Registered 4 commands:
 
 ---
 
-## 6. Cron — Scheduled Summaries
+## 6. Cron — Scheduled Polling and Summaries
 
-Generate a secret for the cron endpoint:
+Scheduling runs inside the Cloudflare Worker: `wrangler.jsonc` declares the cron trigger `*/30 * * * *`, and the worker entry (`worker.ts`) calls the endpoints itself. Do not set up an external scheduler (cron-job.org, QStash, GitHub Actions); it would run everything twice.
+
+Generate a secret for the cron endpoints:
 
 ```bash
 openssl rand -hex 20
 ```
 
-Save the output as `CRON_SECRET`.
+Save the output as `CRON_SECRET`, and set it with `wrangler secret put CRON_SECRET`.
 
-Set up a daily cron job (using cron-job.org, Upstash QStash, or GitHub Actions) to hit:
+The scheduled work does nothing unless `CRON_ENABLED` is `true`. Set `CRON_ENABLED=true` on production only; the test instance leaves it unset and never polls or posts.
 
-```
-POST https://staxed.dev/api/cron/summaries
-Header: x-cron-secret: YOUR_CRON_SECRET
-```
+Every tick calls `POST /api/cron/poll-github`. The tick between 09:00 and 09:29 America/New_York also calls `POST /api/cron/summaries` (DST-safe; a repeated call is harmless). Both send the `x-cron-secret` header.
 
-**Schedule:** Daily at 09:00 ET (13:00 UTC)
-
-This will automatically send:
+Summaries send:
 - **Daily summary** — every day (for the previous day)
 - **Weekly summary** — every Monday (for the previous week)
 - **Monthly summary** — on the 1st of each month (for the previous month)
 
-### GitHub Polling Cron
-
-Set up a second cron job to poll GitHub for events every 30-60 minutes:
-
-```
-POST https://staxed.dev/api/cron/poll-github
-Header: x-cron-secret: YOUR_CRON_SECRET
-```
-
-This is a complement to webhooks — it catches events that webhooks may miss and enables:
+The poll is a complement to webhooks — it catches events that webhooks may miss and enables:
 - **Event grouping** — batches events from each polling run into a single Discord message
 - **Unposted event recovery** — finds events that were stored but not posted to Discord
-
-### GitHub Actions Example
-
-Create `.github/workflows/daily-summary.yml`:
-
-```yaml
-name: Daily Summary
-on:
-  schedule:
-    - cron: '0 13 * * *'  # 09:00 ET (13:00 UTC)
-  workflow_dispatch:       # Allow manual trigger
-
-jobs:
-  summary:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Send summary
-        run: |
-          curl -sf -X POST https://staxed.dev/api/cron/summaries \
-            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}"
-```
-
-Create `.github/workflows/poll-github.yml`:
-
-```yaml
-name: Poll GitHub
-on:
-  schedule:
-    - cron: '*/30 * * * *'  # Every 30 minutes
-  workflow_dispatch:
-
-jobs:
-  poll:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Poll GitHub events
-        run: |
-          curl -sf -X POST https://staxed.dev/api/cron/poll-github \
-            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}"
-```
 
 ---
 
