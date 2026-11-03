@@ -4,6 +4,29 @@ import { getSettings } from "@/lib/settings";
 import { todayInTimezone, yesterdayInTimezone, subtractDays, getWeekStartFromDate as getWeekStart } from "@/lib/dates";
 import type { ActivityEvent, Habit, Goal } from "@/lib/supabase/types";
 
+type DatedEvent = Pick<ActivityEvent, "kind" | "occurred_on">;
+
+/** Consecutive days with a commit_pushed event ending at `today` or the day before it; later events are ignored. */
+export function codingStreakAsOf(events: DatedEvent[], today: string): number {
+  const uniqueDates = [
+    ...new Set(
+      events
+        .filter((e) => e.kind === "commit_pushed" && e.occurred_on <= today && e.occurred_on >= subtractDays(today, 365))
+        .map((e) => e.occurred_on)
+    ),
+  ].sort((a, b) => b.localeCompare(a));
+
+  if (uniqueDates.length === 0) return 0;
+  if (uniqueDates[0] !== today && uniqueDates[0] !== subtractDays(today, 1)) return 0;
+
+  let streak = 1;
+  for (let i = 1; i < uniqueDates.length; i++) {
+    if (uniqueDates[i] !== subtractDays(uniqueDates[i - 1], 1)) break;
+    streak++;
+  }
+  return streak;
+}
+
 /**
  * Count consecutive days with at least 1 commit_pushed event,
  * ending today or yesterday (in configured timezone).
@@ -11,32 +34,7 @@ import type { ActivityEvent, Habit, Goal } from "@/lib/supabase/types";
 export async function getCodingStreak(store: ActivityStore = createSupabaseStore()): Promise<number> {
   const { timezone } = await getSettings();
   const today = todayInTimezone(timezone);
-  const lookback = subtractDays(today, 365);
-
-  const data = (await store.eventsInRange(lookback, today)).filter((e) => e.kind === "commit_pushed");
-
-  // Get unique dates
-  const uniqueDates = [...new Set(data.map((e) => e.occurred_on))].sort(
-    (a, b) => b.localeCompare(a) // descending
-  );
-
-  if (uniqueDates.length === 0) return 0;
-
-  // Streak must start from today or yesterday
-  const yesterday = yesterdayInTimezone(timezone);
-  if (uniqueDates[0] !== today && uniqueDates[0] !== yesterday) return 0;
-
-  let streak = 1;
-  for (let i = 1; i < uniqueDates.length; i++) {
-    const expected = subtractDays(uniqueDates[i - 1], 1);
-    if (uniqueDates[i] === expected) {
-      streak++;
-    } else {
-      break;
-    }
-  }
-
-  return streak;
+  return codingStreakAsOf(await store.eventsInRange(subtractDays(today, 365), today), today);
 }
 
 /**
@@ -201,6 +199,52 @@ export async function getLongestStreak(): Promise<number> {
   return longest;
 }
 
+function previousMonth(month: string): string {
+  const prev = new Date(month + "-15");
+  prev.setMonth(prev.getMonth() - 1);
+  return `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, "0")}`;
+}
+
+/** Consecutive ISO weeks (Mon-Sun) with an event, ending at the week of `today` or the one before; later events are ignored. */
+export function weeklyStreakAsOf(events: Pick<ActivityEvent, "occurred_on">[], today: string): number {
+  const weeks = new Set<string>();
+  for (const e of events) {
+    if (e.occurred_on <= today) weeks.add(getWeekStart(e.occurred_on));
+  }
+  const sortedWeeks = [...weeks].sort((a, b) => b.localeCompare(a));
+  if (sortedWeeks.length === 0) return 0;
+
+  const currentWeekStart = getWeekStart(today);
+  if (sortedWeeks[0] !== currentWeekStart && sortedWeeks[0] !== subtractDays(currentWeekStart, 7)) return 0;
+
+  let streak = 1;
+  for (let i = 1; i < sortedWeeks.length; i++) {
+    if (sortedWeeks[i] !== subtractDays(sortedWeeks[i - 1], 7)) break;
+    streak++;
+  }
+  return streak;
+}
+
+/** Consecutive months with an event, ending at the month of `today` or the one before; later events are ignored. */
+export function monthlyStreakAsOf(events: Pick<ActivityEvent, "occurred_on">[], today: string): number {
+  const months = new Set<string>();
+  for (const e of events) {
+    if (e.occurred_on <= today) months.add(e.occurred_on.slice(0, 7));
+  }
+  const sortedMonths = [...months].sort((a, b) => b.localeCompare(a));
+  if (sortedMonths.length === 0) return 0;
+
+  const currentMonth = today.slice(0, 7);
+  if (sortedMonths[0] !== currentMonth && sortedMonths[0] !== previousMonth(currentMonth)) return 0;
+
+  let streak = 1;
+  for (let i = 1; i < sortedMonths.length; i++) {
+    if (sortedMonths[i] !== previousMonth(sortedMonths[i - 1])) break;
+    streak++;
+  }
+  return streak;
+}
+
 /**
  * Count consecutive weeks (ISO weeks, Mon-Sun) with at least 1 event,
  * ending at the current or previous week.
@@ -208,41 +252,7 @@ export async function getLongestStreak(): Promise<number> {
 export async function getWeeklyStreak(store: ActivityStore = createSupabaseStore()): Promise<number> {
   const { timezone } = await getSettings();
   const today = todayInTimezone(timezone);
-
-  // Fetch all event dates from the last ~3 years
-  const lookback = subtractDays(today, 1095);
-  const data = await store.eventsInRange(lookback, today);
-
-  if (data.length === 0) return 0;
-
-  // Group dates by ISO week (week start = Monday)
-  const weeks = new Set<string>();
-  for (const e of data) {
-    weeks.add(getWeekStart(e.occurred_on));
-  }
-
-  // Sort descending
-  const sortedWeeks = [...weeks].sort((a, b) => b.localeCompare(a));
-  if (sortedWeeks.length === 0) return 0;
-
-  // Current week start
-  const currentWeekStart = getWeekStart(today);
-  const previousWeekStart = subtractDays(currentWeekStart, 7);
-
-  // Streak must start from current or previous week
-  if (sortedWeeks[0] !== currentWeekStart && sortedWeeks[0] !== previousWeekStart) return 0;
-
-  let streak = 1;
-  for (let i = 1; i < sortedWeeks.length; i++) {
-    const expected = subtractDays(sortedWeeks[i - 1], 7);
-    if (sortedWeeks[i] === expected) {
-      streak++;
-    } else {
-      break;
-    }
-  }
-
-  return streak;
+  return weeklyStreakAsOf(await store.eventsInRange(subtractDays(today, 1095), today), today);
 }
 
 /**
@@ -252,42 +262,7 @@ export async function getWeeklyStreak(store: ActivityStore = createSupabaseStore
 export async function getMonthlyStreak(store: ActivityStore = createSupabaseStore()): Promise<number> {
   const { timezone } = await getSettings();
   const today = todayInTimezone(timezone);
-
-  const lookback = subtractDays(today, 1825); // ~5 years
-  const data = await store.eventsInRange(lookback, today);
-
-  if (data.length === 0) return 0;
-
-  // Group by YYYY-MM
-  const months = new Set<string>();
-  for (const e of data) {
-    months.add(e.occurred_on.slice(0, 7)); // YYYY-MM
-  }
-
-  const sortedMonths = [...months].sort((a, b) => b.localeCompare(a));
-  if (sortedMonths.length === 0) return 0;
-
-  // Current month and previous month
-  const currentMonth = today.slice(0, 7);
-  const prevDate = new Date(currentMonth + "-15");
-  prevDate.setMonth(prevDate.getMonth() - 1);
-  const previousMonth = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, "0")}`;
-
-  if (sortedMonths[0] !== currentMonth && sortedMonths[0] !== previousMonth) return 0;
-
-  let streak = 1;
-  for (let i = 1; i < sortedMonths.length; i++) {
-    const prev = new Date(sortedMonths[i - 1] + "-15");
-    prev.setMonth(prev.getMonth() - 1);
-    const expected = `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, "0")}`;
-    if (sortedMonths[i] === expected) {
-      streak++;
-    } else {
-      break;
-    }
-  }
-
-  return streak;
+  return monthlyStreakAsOf(await store.eventsInRange(subtractDays(today, 1825), today), today);
 }
 
 /**
