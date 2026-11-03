@@ -1,4 +1,4 @@
-import { createAdminClient } from "@/lib/supabase/server";
+import type { ActivityStore } from "@/lib/activity/store";
 import { getSettings } from "@/lib/settings";
 import { getCodingStreak, getWeeklyStreak, getMonthlyStreak } from "@/lib/streaks/engine";
 import {
@@ -14,51 +14,30 @@ import { todayInTimezone, getWeekStartFromTimezone, getMonthStartFromTimezone, g
  * Returns newly earned achievements (already inserted into DB).
  */
 export async function checkAchievements(
+  store: ActivityStore,
   newEvents: { kind: string; occurred_at: string; title?: string | null; metadata?: Record<string, unknown> }[]
 ): Promise<Achievement[]> {
   const { timezone } = await getSettings();
-  const supabase = createAdminClient();
   const today = todayInTimezone(timezone);
   const weekStart = getWeekStartFromTimezone(timezone);
   const monthStart = getMonthStartFromTimezone(timezone);
   const monthPeriod = getMonthPeriodFromTimezone(timezone);
 
-  // Get today's events
-  const { data: todayData } = await supabase
-    .from("activity_events")
-    .select("kind, occurred_at")
-    .eq("occurred_on", today);
-  const todayEvents = todayData || [];
-
-  // Get this week's events
-  const { data: weekData } = await supabase
-    .from("activity_events")
-    .select("kind, occurred_on")
-    .gte("occurred_on", weekStart)
-    .lte("occurred_on", today);
-  const weekEvents = weekData || [];
-
-  // Get this month's events
-  const { data: monthData } = await supabase
-    .from("activity_events")
-    .select("kind, occurred_on")
-    .gte("occurred_on", monthStart)
-    .lte("occurred_on", today);
-  const monthEvents = monthData || [];
-
-  // Get total event count
-  const { count: totalEvents } = await supabase
-    .from("activity_events")
-    .select("*", { count: "exact", head: true });
+  // A week can start before the month does, so read from whichever starts first
+  const windowEvents = await store.eventsInRange(weekStart < monthStart ? weekStart : monthStart, today);
+  const weekEvents = windowEvents.filter((e) => e.occurred_on >= weekStart);
+  const monthEvents = windowEvents.filter((e) => e.occurred_on >= monthStart);
+  const todayEvents = windowEvents.filter((e) => e.occurred_on === today);
+  const totalEvents = await store.countEvents();
 
   // Month PR count
   const monthPRCount = monthEvents.filter((e) => e.kind === "pr_opened").length;
 
   // Get streaks
   const [currentStreak, weeklyStreak, monthlyStreak] = await Promise.all([
-    getCodingStreak(),
-    getWeeklyStreak(),
-    getMonthlyStreak(),
+    getCodingStreak(store),
+    getWeeklyStreak(store),
+    getMonthlyStreak(store),
   ]);
 
   // Collect hours and days of week only from today's new events
@@ -74,14 +53,9 @@ export async function checkAchievements(
     newEventDays.push(tzDate.getDay());
   }
 
-  // Find longest commit message from today's commits (query DB for resilience)
+  // Find longest commit message from today's commits
   let longestCommitMessage = 0;
-  const { data: todayCommits } = await supabase
-    .from("activity_events")
-    .select("title")
-    .eq("occurred_on", today)
-    .eq("kind", "commit_pushed");
-  for (const c of todayCommits || []) {
+  for (const c of todayEvents.filter((e) => e.kind === "commit_pushed")) {
     const len = (c.title || "").length;
     if (len > longestCommitMessage) longestCommitMessage = len;
   }
@@ -89,7 +63,7 @@ export async function checkAchievements(
   const context: AchievementContext = {
     todayEvents,
     currentStreak,
-    totalEvents: totalEvents || 0,
+    totalEvents,
     newEventHours,
     newEventDays,
     weekEvents,
@@ -117,31 +91,17 @@ export async function checkAchievements(
       period = today; // daily (default)
     }
 
-    // Check if already earned
-    const { data: existing } = await supabase
-      .from("achievements")
-      .select("id")
-      .eq("achievement_id", def.id)
-      .eq("period", period)
-      .maybeSingle();
+    const inserted = await store.recordAchievement({
+      achievement_id: def.id,
+      name: def.name,
+      emoji: def.emoji,
+      description: def.description,
+      period,
+      earned_at: new Date().toISOString(),
+      metadata: {},
+    });
 
-    if (existing) continue;
-
-    const { data: inserted } = await supabase
-      .from("achievements")
-      .insert({
-        achievement_id: def.id,
-        name: def.name,
-        emoji: def.emoji,
-        description: def.description,
-        period,
-        earned_at: new Date().toISOString(),
-        metadata: {},
-      })
-      .select()
-      .single();
-
-    if (inserted) newAchievements.push(inserted as Achievement);
+    if (inserted) newAchievements.push(inserted);
   }
 
   return newAchievements;

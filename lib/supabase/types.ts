@@ -26,6 +26,7 @@ export interface ActivityEvent {
   url: string | null;
   metadata: Record<string, unknown>;
   dedupe_key: string | null;
+  posted_to_discord?: boolean;
   created_at: string;
 }
 
