@@ -3,7 +3,9 @@
  * Fetches events from the GitHub Events API and normalizes them.
  */
 
-import { createAuthenticatedOctokit } from "./backfill";
+import { Octokit } from "octokit";
+import { enrichEvents } from "./enrich-events";
+import type { GitHubEvent as RawGitHubEvent } from "./normalize-events-api";
 import { normalizeEventsApiResponse } from "./normalize-events-api";
 import { getSettings } from "@/lib/settings";
 import { createSupabaseStore, type ActivityStore } from "@/lib/activity/store";
@@ -21,13 +23,13 @@ interface PollResult {
  * Filters to events within the given time window.
  */
 async function fetchGitHubEvents(
+  octokit: Octokit,
   maxAgeHours: number
-): Promise<Record<string, unknown>[]> {
+): Promise<RawGitHubEvent[]> {
   const settings = await getSettings();
-  const octokit = await createAuthenticatedOctokit();
   const cutoff = new Date(Date.now() - maxAgeHours * 60 * 60 * 1000);
 
-  const allEvents: Record<string, unknown>[] = [];
+  const allEvents: RawGitHubEvent[] = [];
 
   // Fetch up to 10 pages (300 events max from Events API)
   for (let page = 1; page <= 10; page++) {
@@ -46,7 +48,7 @@ async function fetchGitHubEvents(
         foundOld = true;
         break;
       }
-      allEvents.push(event as unknown as Record<string, unknown>);
+      allEvents.push(event as unknown as RawGitHubEvent);
     }
 
     if (foundOld) break;
@@ -65,19 +67,12 @@ export async function pollGitHubEvents(
   const settings = await getSettings();
   const channelId = process.env.DISCORD_CHANNEL_ID;
 
-  const rawEvents = await fetchGitHubEvents(maxAgeHours);
-  const normalized = await normalizeEventsApiResponse(
-    rawEvents as unknown as Array<{
-      id: string;
-      type: string;
-      actor: { login: string };
-      repo: { name: string };
-      payload: Record<string, unknown>;
-      public: boolean;
-      created_at: string;
-    }>,
-    settings
-  );
+  const token = process.env.GITHUB_EVENTS_TOKEN;
+  if (!token) throw new Error("GITHUB_EVENTS_TOKEN is not set; the poll reads Staxed's events with it");
+  const octokit = new Octokit({ auth: token });
+
+  const rawEvents = await fetchGitHubEvents(octokit, maxAgeHours);
+  const normalized = await normalizeEventsApiResponse(await enrichEvents(octokit, rawEvents), settings);
 
   const before = await store.countEvents();
   await store.upsertEvents(normalized);

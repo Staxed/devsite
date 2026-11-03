@@ -27,7 +27,7 @@ interface NormalizedEvent {
   dedupe_key: string;
 }
 
-interface GitHubEvent {
+export interface GitHubEvent {
   id: string;
   type: string;
   actor: { login: string };
@@ -111,12 +111,14 @@ export async function normalizeEventsApiResponse(
 
           const authorName = (commit.author as Record<string, unknown>)?.name as string || "";
           const authorEmail = ((commit.author as Record<string, unknown>)?.email as string) || "";
+          const authorLogin = ((commit.author as Record<string, unknown>)?.login as string) || "";
 
           // Filter by author: match GitHub username in noreply email or author name
           const lowerUser = GITHUB_USERNAME.toLowerCase();
           const emailMatch = authorEmail.toLowerCase().includes(lowerUser);
           const nameMatch = authorName.toLowerCase() === lowerUser;
-          if (!emailMatch && !nameMatch) continue;
+          const loginMatch = authorLogin.toLowerCase() === lowerUser;
+          if (!emailMatch && !nameMatch && !loginMatch) continue;
 
           const sha = commit.sha as string;
           const message = ((commit.message as string) || "").split("\n")[0];
