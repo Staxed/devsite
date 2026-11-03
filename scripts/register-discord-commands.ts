@@ -3,6 +3,9 @@
  *   npx tsx scripts/register-discord-commands.ts
  *
  * Requires DISCORD_APP_ID and DISCORD_BOT_TOKEN env vars.
+ *
+ * With --clear, overwrites the app's commands with an empty list
+ * (use it to strip the commands off the Forge Bot app).
  */
 
 import { COMMANDS } from "../lib/discord/commands";
@@ -15,6 +18,7 @@ if (!APP_ID || !BOT_TOKEN) {
   process.exit(1);
 }
 
+const clear = process.argv.includes("--clear");
 const url = `https://discord.com/api/v10/applications/${APP_ID}/commands`;
 
 async function register() {
@@ -24,7 +28,7 @@ async function register() {
       Authorization: `Bot ${BOT_TOKEN}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(COMMANDS),
+    body: JSON.stringify(clear ? [] : COMMANDS),
   });
 
   if (!res.ok) {
@@ -34,6 +38,10 @@ async function register() {
   }
 
   const data = await res.json();
+  if (clear) {
+    console.log("Cleared all commands");
+    return;
+  }
   console.log(`Registered ${data.length} commands:`);
   for (const cmd of data) {
     console.log(`  /${cmd.name} — ${cmd.description}`);
