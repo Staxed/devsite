@@ -79,7 +79,9 @@ export async function pollGitHubEvents(
     settings
   );
 
+  const before = await store.countEvents();
   await store.upsertEvents(normalized);
+  const stored = (await store.countEvents()) - before;
 
   let posted = false;
   if (channelId && normalized.length > 0) {
@@ -93,7 +95,7 @@ export async function pollGitHubEvents(
 
   const recovered = channelId ? await recoverUnpostedEvents(store, channelId) : 0;
 
-  return { fetched: rawEvents.length, newEvents: normalized.length, posted, recovered };
+  return { fetched: rawEvents.length, newEvents: stored, posted, recovered };
 }
 
 /**

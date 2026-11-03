@@ -116,14 +116,23 @@ export function createSupabaseStore(): ActivityStore {
     },
 
     async eventsInRange(fromDate, toDate) {
-      const { data, error } = await supabase
-        .from("activity_events")
-        .select("*")
-        .gte("occurred_on", fromDate)
-        .lte("occurred_on", toDate)
-        .order("occurred_at", { ascending: true });
-      if (error) fail("read events", error);
-      return data as ActivityEvent[];
+      // Page through the range: Supabase caps a single response at 1000 rows.
+      const pageSize = 1000;
+      const rows: ActivityEvent[] = [];
+      for (let from = 0; ; from += pageSize) {
+        const { data, error } = await supabase
+          .from("activity_events")
+          .select("*")
+          .gte("occurred_on", fromDate)
+          .lte("occurred_on", toDate)
+          .order("occurred_at", { ascending: true })
+          .order("id", { ascending: true })
+          .range(from, from + pageSize - 1);
+        if (error) fail("read events", error);
+        const page = data as ActivityEvent[];
+        rows.push(...page);
+        if (page.length < pageSize) return rows;
+      }
     },
 
     async countEvents() {

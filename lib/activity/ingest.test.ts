@@ -162,6 +162,25 @@ describe("summaries", () => {
 });
 
 describe("achievements", () => {
+  it("posts no achievement embed when the poll's achievements are already recorded", async () => {
+    const store = createMemoryStore();
+    await pollGitHubEvents(store);
+    const achievementEmbeds = () => discordMessages.filter((m) => JSON.stringify(m).includes("Achievement Unlocked"));
+    // Pre-record whatever the first poll earned, then post a fresh event through the same path
+    const before = achievementEmbeds().length;
+    githubEvents = [
+      {
+        id: "2", type: "PushEvent", actor: { login: "Staxed" }, repo: { name: REPO }, public: true,
+        created_at: COMMIT_TIME,
+        payload: { commits: [{ sha: "def456", message: "Second feature", distinct: true, author: { name: "Staxed", email: "staxed@users.noreply.github.com" } }] },
+      },
+    ];
+    await pollGitHubEvents(store);
+
+    expect(JSON.stringify(discordMessages)).toContain("Second feature");
+    expect(achievementEmbeds()).toHaveLength(before);
+  });
+
   it("does not return an achievement that is already recorded", async () => {
     const store = createMemoryStore();
     await store.upsertEvents([
