@@ -1,6 +1,6 @@
 import type { DiscordEmbed } from "./client";
 import type { ActivityEvent, Achievement } from "@/lib/supabase/types";
-import { discordText } from "@/lib/activity/view";
+import { discordText, partitionExcluded, redactedLine } from "@/lib/activity/view";
 import { getSettings } from "@/lib/settings";
 import { getRandomQuote } from "@/lib/quotes";
 
@@ -313,12 +313,16 @@ const KIND_GROUPS: Record<string, { builder: (events: ActivityEvent[]) => Discor
 export async function buildGroupedEmbeds(events: ActivityEvent[]): Promise<DiscordEmbed[]> {
   if (events.length === 0) return [];
 
+  const { excluded_repos } = await getSettings();
+  const { visible, excluded } = partitionExcluded(events, excluded_repos);
+
+  // Counts include excluded events; only their detail is withheld.
   const embeds: DiscordEmbed[] = [await buildSummaryEmbed(events)];
 
   // Group events by their embed builder
   const groups = new Map<(events: ActivityEvent[]) => DiscordEmbed, { priority: number; events: ActivityEvent[] }>();
 
-  for (const event of events) {
+  for (const event of visible) {
     const config = KIND_GROUPS[event.kind];
     if (!config) continue;
 
@@ -333,9 +337,18 @@ export async function buildGroupedEmbeds(events: ActivityEvent[]): Promise<Disco
   // Sort by priority and build embeds
   const sorted = [...groups.entries()].sort((a, b) => a[1].priority - b[1].priority);
 
+  // Reserve the last slot for the redacted line when excluded events exist.
+  const limit = excluded.length > 0 ? 9 : 10;
   for (const [builder, { events: groupEvents }] of sorted) {
-    if (embeds.length >= 10) break;
+    if (embeds.length >= limit) break;
     embeds.push(builder(groupEvents));
+  }
+
+  if (excluded.length > 0) {
+    embeds.push({
+      description: redactedLine(excluded),
+      color: EMBED_COLORS.SUMMARY,
+    });
   }
 
   return embeds;

@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { createAdminClient } from "@/lib/supabase/server";
 import { getCodingStreak, getPeriodStats } from "@/lib/streaks/engine";
-import { scrubPrivateEvent } from "@/lib/activity/view";
+import { timelineRows } from "@/lib/activity/view";
 import { getSettings } from "@/lib/settings";
 import { todayInTimezone, getWeekStartFromTimezone, getMonthStartFromTimezone } from "@/lib/dates";
 import Timeline from "@/components/activity/timeline";
@@ -11,7 +11,7 @@ import PeriodStats from "@/components/activity/period-stats";
 import type { ActivityEvent } from "@/lib/supabase/types";
 
 export default async function ActivityPage() {
-  const { timezone } = await getSettings();
+  const { timezone, excluded_repos } = await getSettings();
   const supabase = createAdminClient();
   const today = todayInTimezone(timezone);
   const weekStart = getWeekStartFromTimezone(timezone);
@@ -35,8 +35,7 @@ export default async function ActivityPage() {
     getPeriodStats(monthStart, today),
   ]);
 
-  // Scrub private details for public display
-  const publicEvents: ActivityEvent[] = ((events as ActivityEvent[]) || []).map(scrubPrivateEvent);
+  const rows = timelineRows((events as ActivityEvent[]) || [], excluded_repos);
 
   return (
     <main id="main-content" tabIndex={-1} className="activity-main">
@@ -49,7 +48,7 @@ export default async function ActivityPage() {
 
       <section className="activity-timeline-section">
         <h2 className="activity-section-title">Recent Activity</h2>
-        <Timeline events={publicEvents} />
+        <Timeline rows={rows} />
       </section>
     </main>
   );
