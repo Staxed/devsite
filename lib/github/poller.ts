@@ -8,7 +8,7 @@ import { enrichEvents } from "./enrich-events";
 import type { GitHubEvent as RawGitHubEvent } from "./normalize-events-api";
 import { normalizeEventsApiResponse } from "./normalize-events-api";
 import { getSettings } from "@/lib/settings";
-import { createSupabaseStore, type ActivityStore } from "@/lib/activity/store";
+import { createSupabaseStore, insertNewEvents, type ActivityStore } from "@/lib/activity/store";
 import { claimAndPostEvents } from "@/lib/discord/notify";
 
 interface PollResult {
@@ -74,9 +74,7 @@ export async function pollGitHubEvents(
   const rawEvents = await fetchGitHubEvents(octokit, maxAgeHours);
   const normalized = await normalizeEventsApiResponse(await enrichEvents(octokit, rawEvents), settings);
 
-  const before = await store.countEvents();
-  await store.upsertEvents(normalized);
-  const stored = (await store.countEvents()) - before;
+  const stored = await insertNewEvents(store, normalized);
 
   let posted = false;
   if (channelId && normalized.length > 0) {

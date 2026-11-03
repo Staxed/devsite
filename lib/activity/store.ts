@@ -42,6 +42,13 @@ export interface ActivityStore {
   recordDiscordPost(post: DiscordPostRecord): Promise<void>;
 }
 
+/** Upsert events and return how many rows were new. */
+export async function insertNewEvents(store: ActivityStore, events: NewEvent[]): Promise<number> {
+  const before = await store.countEvents();
+  await store.upsertEvents(events);
+  return (await store.countEvents()) - before;
+}
+
 // Postgres unique_violation
 const UNIQUE_VIOLATION = "23505";
 
