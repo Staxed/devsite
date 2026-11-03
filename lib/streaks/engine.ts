@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/server";
+import { createSupabaseStore, type ActivityStore } from "@/lib/activity/store";
 import { getSettings } from "@/lib/settings";
 import { todayInTimezone, yesterdayInTimezone, subtractDays, getWeekStartFromDate as getWeekStart } from "@/lib/dates";
 import type { ActivityEvent, Habit, Goal } from "@/lib/supabase/types";
@@ -7,21 +8,12 @@ import type { ActivityEvent, Habit, Goal } from "@/lib/supabase/types";
  * Count consecutive days with at least 1 commit_pushed event,
  * ending today or yesterday (in configured timezone).
  */
-export async function getCodingStreak(): Promise<number> {
+export async function getCodingStreak(store: ActivityStore = createSupabaseStore()): Promise<number> {
   const { timezone } = await getSettings();
-  const supabase = createAdminClient();
   const today = todayInTimezone(timezone);
   const lookback = subtractDays(today, 365);
 
-  const { data, error } = await supabase
-    .from("activity_events")
-    .select("occurred_on")
-    .eq("kind", "commit_pushed")
-    .gte("occurred_on", lookback)
-    .lte("occurred_on", today)
-    .order("occurred_on", { ascending: false });
-
-  if (error || !data) return 0;
+  const data = (await store.eventsInRange(lookback, today)).filter((e) => e.kind === "commit_pushed");
 
   // Get unique dates
   const uniqueDates = [...new Set(data.map((e) => e.occurred_on))].sort(
@@ -164,17 +156,10 @@ export async function getGoalProgress(
  */
 export async function getPeriodStats(
   startDate: string,
-  endDate: string
+  endDate: string,
+  store: ActivityStore = createSupabaseStore()
 ): Promise<Record<string, number>> {
-  const supabase = createAdminClient();
-
-  const { data, error } = await supabase
-    .from("activity_events")
-    .select("kind, value")
-    .gte("occurred_on", startDate)
-    .lte("occurred_on", endDate);
-
-  if (error || !data) return {};
+  const data = await store.eventsInRange(startDate, endDate);
 
   const stats: Record<string, number> = {};
   for (const event of data) {
@@ -220,20 +205,15 @@ export async function getLongestStreak(): Promise<number> {
  * Count consecutive weeks (ISO weeks, Mon-Sun) with at least 1 event,
  * ending at the current or previous week.
  */
-export async function getWeeklyStreak(): Promise<number> {
+export async function getWeeklyStreak(store: ActivityStore = createSupabaseStore()): Promise<number> {
   const { timezone } = await getSettings();
-  const supabase = createAdminClient();
   const today = todayInTimezone(timezone);
 
   // Fetch all event dates from the last ~3 years
   const lookback = subtractDays(today, 1095);
-  const { data, error } = await supabase
-    .from("activity_events")
-    .select("occurred_on")
-    .gte("occurred_on", lookback)
-    .lte("occurred_on", today);
+  const data = await store.eventsInRange(lookback, today);
 
-  if (error || !data || data.length === 0) return 0;
+  if (data.length === 0) return 0;
 
   // Group dates by ISO week (week start = Monday)
   const weeks = new Set<string>();
@@ -269,19 +249,14 @@ export async function getWeeklyStreak(): Promise<number> {
  * Count consecutive months with at least 1 event,
  * ending at the current or previous month.
  */
-export async function getMonthlyStreak(): Promise<number> {
+export async function getMonthlyStreak(store: ActivityStore = createSupabaseStore()): Promise<number> {
   const { timezone } = await getSettings();
-  const supabase = createAdminClient();
   const today = todayInTimezone(timezone);
 
   const lookback = subtractDays(today, 1825); // ~5 years
-  const { data, error } = await supabase
-    .from("activity_events")
-    .select("occurred_on")
-    .gte("occurred_on", lookback)
-    .lte("occurred_on", today);
+  const data = await store.eventsInRange(lookback, today);
 
-  if (error || !data || data.length === 0) return 0;
+  if (data.length === 0) return 0;
 
   // Group by YYYY-MM
   const months = new Set<string>();

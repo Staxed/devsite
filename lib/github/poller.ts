@@ -6,12 +6,8 @@
 import { createAuthenticatedOctokit } from "./backfill";
 import { normalizeEventsApiResponse } from "./normalize-events-api";
 import { getSettings } from "@/lib/settings";
-import { createAdminClient } from "@/lib/supabase/server";
-import { shouldPostEvent } from "@/lib/constants";
-import { buildGroupedEmbeds, buildAchievementEmbed } from "@/lib/discord/embeds";
-import { sendEmbeds } from "@/lib/discord/client";
-import { checkAchievements } from "@/lib/achievements/engine";
-import type { ActivityEvent } from "@/lib/supabase/types";
+import { createSupabaseStore, type ActivityStore } from "@/lib/activity/store";
+import { claimAndPostEvents } from "@/lib/discord/notify";
 
 interface PollResult {
   fetched: number;
@@ -62,14 +58,14 @@ async function fetchGitHubEvents(
 /**
  * Main polling function. Fetches events, normalizes, upserts, posts to Discord.
  */
-export async function pollGitHubEvents(maxAgeHours = 12): Promise<PollResult> {
+export async function pollGitHubEvents(
+  store: ActivityStore = createSupabaseStore(),
+  maxAgeHours = 12
+): Promise<PollResult> {
   const settings = await getSettings();
-  const supabase = createAdminClient();
+  const channelId = process.env.DISCORD_CHANNEL_ID;
 
-  // 1. Fetch events from GitHub
   const rawEvents = await fetchGitHubEvents(maxAgeHours);
-
-  // 2. Normalize
   const normalized = await normalizeEventsApiResponse(
     rawEvents as unknown as Array<{
       id: string;
@@ -83,147 +79,41 @@ export async function pollGitHubEvents(maxAgeHours = 12): Promise<PollResult> {
     settings
   );
 
-  if (normalized.length === 0) {
-    // Still check for unposted events even if no new ones
-    const recovered = await recoverUnpostedEvents();
-    return { fetched: rawEvents.length, newEvents: 0, posted: false, recovered };
-  }
+  const before = await store.countEvents();
+  await store.upsertEvents(normalized);
+  const stored = (await store.countEvents()) - before;
 
-  // 3. Upsert to activity_events (deduped via dedupe_key)
-  const allDedupeKeys = normalized.map((e) => e.dedupe_key);
-  for (let i = 0; i < normalized.length; i += 100) {
-    const batch = normalized.slice(i, i + 100);
-    const { error: upsertError } = await supabase
-      .from("activity_events")
-      .upsert(batch, { onConflict: "dedupe_key", ignoreDuplicates: true });
-    if (upsertError) {
-      console.error("Failed to upsert events batch:", upsertError);
-    }
-  }
-
-  // 4. Find actually new (unposted) events from this batch
-  const { data: newRows } = await supabase
-    .from("activity_events")
-    .select("*")
-    .in("dedupe_key", allDedupeKeys)
-    .eq("posted_to_discord", false)
-    .order("occurred_at", { ascending: true });
-  const newEvents = newRows || [];
-
-  // 5. Post only new events to Discord and mark as posted
-  const channelId = process.env.DISCORD_CHANNEL_ID;
   let posted = false;
-
-  if (newEvents.length > 0) {
-    // Mark all new events as posted first to prevent recovery from double-posting
-    // if Discord send succeeds but a later step fails
-    const ids = newEvents.map((e) => e.id);
-    await supabase
-      .from("activity_events")
-      .update({ posted_to_discord: true })
-      .in("id", ids);
-
+  if (channelId && normalized.length > 0) {
     try {
-      if (channelId) {
-        const pollRunId = `poll:${new Date().toISOString()}`;
-
-        // Filter events based on config
-        const postable = newEvents.filter((e) => shouldPostEvent(e.kind));
-        if (postable.length > 0) {
-          const embeds = await buildGroupedEmbeds(postable as ActivityEvent[]);
-          if (embeds.length > 0) {
-            const messageIds = await sendEmbeds(channelId, embeds);
-
-            // Record the post
-            await supabase.from("discord_posts").insert({
-              delivery_id: pollRunId,
-              channel_id: channelId,
-              message_id: messageIds[0] || null,
-              events_count: postable.length,
-              posted_at: new Date().toISOString(),
-            });
-
-            posted = true;
-          }
-        }
-
-        // Check achievements on new events
-        const newAchievements = await checkAchievements(newEvents);
-        if (newAchievements.length > 0) {
-          const achievementEmbeds = await Promise.all(newAchievements.map(buildAchievementEmbed));
-          await sendEmbeds(channelId, achievementEmbeds);
-        }
-      }
+      const pollRunId = `poll:${new Date().toISOString()}`;
+      posted = (await claimAndPostEvents(store, channelId, normalized.map((e) => e.dedupe_key), pollRunId)) > 0;
     } catch (err) {
       console.error("Discord posting failed during poll:", err);
     }
   }
 
-  // 5. Recover any unposted events
-  const recovered = await recoverUnpostedEvents();
+  const recovered = channelId ? await recoverUnpostedEvents(store, channelId) : 0;
 
-  return { fetched: rawEvents.length, newEvents: newEvents.length, posted, recovered };
+  return { fetched: rawEvents.length, newEvents: stored, posted, recovered };
 }
 
 /**
- * Find events that were stored but never posted to Discord, and post them.
+ * Post events that were stored but never claimed (for example when the process died
+ * between storing and posting). Claiming first means events the webhook or this poll
+ * already claimed are never posted again.
  */
-async function recoverUnpostedEvents(): Promise<number> {
-  const channelId = process.env.DISCORD_CHANNEL_ID;
-  if (!channelId) return 0;
-
-  const supabase = createAdminClient();
-
-  // Find unposted events from the last 24 hours, but at least 5 minutes old
-  // (to avoid racing with the current poll cycle's own posting)
+async function recoverUnpostedEvents(store: ActivityStore, channelId: string): Promise<number> {
+  // At least 5 minutes old, to avoid racing with a path that is about to claim them
   const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const recentCutoff = new Date(Date.now() - 5 * 60 * 1000).toISOString();
 
-  const { data: unposted } = await supabase
-    .from("activity_events")
-    .select("*")
-    .eq("posted_to_discord", false)
-    .gte("occurred_at", cutoff)
-    .lte("occurred_at", recentCutoff)
-    .order("occurred_at", { ascending: true });
-
-  if (!unposted || unposted.length === 0) return 0;
-
-  // Filter based on event type config
-  const postable = unposted.filter((e) => shouldPostEvent(e.kind));
-  if (postable.length === 0) {
-    // Mark non-postable events as "posted" so they don't get re-checked
-    const ids = unposted.map((e) => e.id);
-    await supabase
-      .from("activity_events")
-      .update({ posted_to_discord: true })
-      .in("id", ids);
-    return 0;
-  }
+  const unposted = await store.findUnpostedEvents(cutoff, recentCutoff);
+  const dedupeKeys = unposted.flatMap((e) => (e.dedupe_key ? [e.dedupe_key] : []));
+  if (dedupeKeys.length === 0) return 0;
 
   try {
-    const embeds = await buildGroupedEmbeds(postable as ActivityEvent[]);
-    if (embeds.length > 0) {
-      const recoveryId = `recovery:${new Date().toISOString()}`;
-      const messageIds = await sendEmbeds(channelId, embeds);
-
-      await supabase.from("discord_posts").insert({
-        delivery_id: recoveryId,
-        channel_id: channelId,
-        message_id: messageIds[0] || null,
-        events_count: postable.length,
-        posted_at: new Date().toISOString(),
-      });
-    }
-
-    // Mark all as posted
-    const ids = unposted.map((e) => e.id);
-    await supabase
-      .from("activity_events")
-      .update({ posted_to_discord: true })
-      .in("id", ids);
-
-    return postable.length;
+    return await claimAndPostEvents(store, channelId, dedupeKeys, `recovery:${new Date().toISOString()}`);
   } catch (err) {
     console.error("Recovery posting failed:", err);
     return 0;

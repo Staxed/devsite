@@ -1,61 +1,45 @@
-import { createAdminClient } from "@/lib/supabase/server";
+import type { ActivityStore } from "@/lib/activity/store";
 import { sendEmbeds } from "./client";
-import { buildGroupedEmbeds } from "./embeds";
+import { buildGroupedEmbeds, buildAchievementEmbed } from "./embeds";
+import { checkAchievements } from "@/lib/achievements/engine";
 import { shouldPostEvent } from "@/lib/constants";
-import type { ActivityEvent } from "@/lib/supabase/types";
 
 /**
- * Post normalized events to a Discord channel.
- * Checks discord_posts table to prevent duplicate posts for the same delivery.
- * Discord posting is best-effort — errors are logged but don't fail the caller.
+ * Claim the given events (dedupe keys) and post only the ones this call claimed,
+ * then post any achievements this call recorded.
+ *
+ * The claim happens before the send and a failed send is not retried, so racing
+ * paths (webhook, poll, recovery) post each event once. Returns how many events were posted.
  */
-export async function postEventsToDiscord(
+export async function claimAndPostEvents(
+  store: ActivityStore,
   channelId: string,
-  events: ActivityEvent[],
+  dedupeKeys: string[],
   deliveryId: string
-): Promise<void> {
-  if (events.length === 0) return;
+): Promise<number> {
+  const claimed = await store.claimEvents(dedupeKeys);
+  if (claimed.length === 0) return 0;
 
-  const supabase = createAdminClient();
-
-  // Check for duplicate delivery
-  const { data: existing } = await supabase
-    .from("discord_posts")
-    .select("id")
-    .eq("delivery_id", deliveryId)
-    .maybeSingle();
-
-  if (existing) {
-    console.log(`Discord post already sent for delivery ${deliveryId}`);
-    return;
+  const postable = claimed.filter((e) => shouldPostEvent(e.kind));
+  let posted = 0;
+  if (postable.length > 0) {
+    const embeds = await buildGroupedEmbeds(postable);
+    if (embeds.length > 0) {
+      const messageIds = await sendEmbeds(channelId, embeds);
+      await store.recordDiscordPost({
+        delivery_id: deliveryId,
+        channel_id: channelId,
+        message_id: messageIds[0] || null,
+        events_count: postable.length,
+      });
+      posted = postable.length;
+    }
   }
 
-  // Mark ALL events in this delivery as posted up front
-  // so non-postable events don't get picked up by recovery
-  const allDedupeKeys = events.map((e) => e.dedupe_key).filter(Boolean);
-  if (allDedupeKeys.length > 0) {
-    await supabase
-      .from("activity_events")
-      .update({ posted_to_discord: true })
-      .in("dedupe_key", allDedupeKeys);
+  const newAchievements = await checkAchievements(store, claimed);
+  if (newAchievements.length > 0) {
+    await sendEmbeds(channelId, await Promise.all(newAchievements.map(buildAchievementEmbed)));
   }
 
-  // Filter events based on event type config
-  const filteredEvents = events.filter((e) => shouldPostEvent(e.kind));
-  if (filteredEvents.length === 0) return;
-
-  // Build embeds and send
-  const embeds = await buildGroupedEmbeds(filteredEvents as ActivityEvent[]);
-  if (embeds.length === 0) return;
-
-  const messageIds = await sendEmbeds(channelId, embeds);
-
-  // Record the post to prevent duplicates
-  await supabase.from("discord_posts").insert({
-    delivery_id: deliveryId,
-    channel_id: channelId,
-    message_id: messageIds[0] || null,
-    events_count: filteredEvents.length,
-    posted_at: new Date().toISOString(),
-  });
+  return posted;
 }
