@@ -14,10 +14,6 @@ vi.mock("@/lib/supabase/server", () => {
   });
   return { createAdminClient: () => chain };
 });
-vi.mock("@/lib/github/backfill", async () => {
-  const { Octokit } = await import("octokit");
-  return { createAuthenticatedOctokit: async () => new Octokit({ request: { fetch: (...args: Parameters<typeof fetch>) => fetch(...args) } }) };
-});
 
 import { pollGitHubEvents } from "@/lib/github/poller";
 import { handleGitHubWebhook } from "@/lib/github/webhook";
@@ -32,6 +28,18 @@ const WEBHOOK_SECRET = "hook-secret";
 
 let discordMessages: unknown[];
 let githubEvents: unknown[];
+// compare/commit lookups by head sha; a missing entry answers 404
+let restCommits: Record<string, unknown[]>;
+
+const restCommit = (sha: string, message: string, login = "Staxed", email = "staxed@users.noreply.github.com") => ({
+  sha,
+  commit: { message, author: { name: login, email } },
+  author: { login },
+});
+const slimPush = (id: string, before: string, head: string) => ({
+  id, type: "PushEvent", actor: { login: "Staxed" }, repo: { name: REPO }, public: true, created_at: COMMIT_TIME,
+  payload: { before, head },
+});
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
@@ -39,18 +47,10 @@ beforeEach(() => {
   process.env.DISCORD_CHANNEL_ID = "chan";
   process.env.DISCORD_BOT_TOKEN = "bot";
   process.env.GITHUB_WEBHOOK_SECRET = WEBHOOK_SECRET;
+  process.env.GITHUB_EVENTS_TOKEN = "pat";
   discordMessages = [];
-  githubEvents = [
-    {
-      id: "1",
-      type: "PushEvent",
-      actor: { login: "Staxed" },
-      repo: { name: REPO },
-      public: true,
-      created_at: COMMIT_TIME,
-      payload: { commits: [{ sha: SHA, message: "Add feature", distinct: true, author: { name: "Staxed", email: "staxed@users.noreply.github.com" } }] },
-    },
-  ];
+  githubEvents = [slimPush("1", "b0", SHA)];
+  restCommits = { [SHA]: [restCommit(SHA, "Add feature")] };
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -61,6 +61,12 @@ beforeEach(() => {
       }
       if (url.includes("api.github.com") && url.includes("/events")) {
         return Response.json(url.includes("page=1") ? githubEvents : []);
+      }
+      const rest = url.match(/\/repos\/[^/]+\/[^/]+\/(?:compare\/[^.]+\.\.\.|commits\/)(\w+)/);
+      if (rest) {
+        const found = restCommits[rest[1]];
+        if (!found) return new Response("boom", { status: 404 });
+        return Response.json(url.includes("/compare/") ? { commits: found } : found[0]);
       }
       throw new Error(`Unexpected fetch ${url}`);
     })
@@ -145,6 +151,52 @@ describe("posting once across webhook and poll", () => {
   });
 });
 
+describe("pushes through the Events API", () => {
+  const commitRows = (store: ReturnType<typeof createMemoryStore>) => store.events.filter((e) => e.kind === "commit_pushed");
+
+  it("stores a commit row per compare commit and posts once", async () => {
+    const store = createMemoryStore();
+    githubEvents = [slimPush("1", "b0", "h2")];
+    restCommits = { h2: [restCommit("c1", "First"), restCommit("c2", "Second")] };
+
+    await pollGitHubEvents(store);
+
+    expect(commitRows(store).map((e) => e.dedupe_key).sort()).toEqual([`commit:${REPO}:c1`, `commit:${REPO}:c2`]);
+    expect(discordMessages).toHaveLength(1);
+  });
+
+  it("fetches the head commit when a new branch has an all-zero before", async () => {
+    const store = createMemoryStore();
+    githubEvents = [slimPush("1", "0".repeat(40), "h3")];
+    restCommits = { h3: [restCommit("h3", "Branch start")] };
+
+    await pollGitHubEvents(store);
+
+    expect(commitRows(store).map((e) => e.dedupe_key)).toEqual([`commit:${REPO}:h3`]);
+  });
+
+  it("drops commits not authored by Staxed", async () => {
+    const store = createMemoryStore();
+    githubEvents = [slimPush("1", "b0", "h4")];
+    restCommits = { h4: [restCommit("c1", "Mine"), restCommit("c2", "Theirs", "other", "other@example.com")] };
+
+    await pollGitHubEvents(store);
+
+    expect(commitRows(store).map((e) => e.dedupe_key)).toEqual([`commit:${REPO}:c1`]);
+  });
+
+  it("skips only the event whose REST lookup fails", async () => {
+    const store = createMemoryStore();
+    githubEvents = [slimPush("1", "b0", "broken"), slimPush("2", "b1", "good")];
+    restCommits = { good: [restCommit("g1", "Good commit")] };
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await pollGitHubEvents(store);
+
+    expect(commitRows(store).map((e) => e.dedupe_key)).toEqual([`commit:${REPO}:g1`]);
+  });
+});
+
 describe("summaries", () => {
   it("posts a daily summary once when the run is called twice", async () => {
     const store = createMemoryStore();
@@ -168,13 +220,8 @@ describe("achievements", () => {
     const achievementEmbeds = () => discordMessages.filter((m) => JSON.stringify(m).includes("Achievement Unlocked"));
     // Pre-record whatever the first poll earned, then post a fresh event through the same path
     const before = achievementEmbeds().length;
-    githubEvents = [
-      {
-        id: "2", type: "PushEvent", actor: { login: "Staxed" }, repo: { name: REPO }, public: true,
-        created_at: COMMIT_TIME,
-        payload: { commits: [{ sha: "def456", message: "Second feature", distinct: true, author: { name: "Staxed", email: "staxed@users.noreply.github.com" } }] },
-      },
-    ];
+    githubEvents = [slimPush("2", SHA, "def456")];
+    restCommits = { def456: [restCommit("def456", "Second feature")] };
     await pollGitHubEvents(store);
 
     expect(JSON.stringify(discordMessages)).toContain("Second feature");
