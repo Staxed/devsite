@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { createAdminClient } from "@/lib/supabase/server";
 import { getCodingStreak, getPeriodStats } from "@/lib/streaks/engine";
+import { scrubPrivateEvent } from "@/lib/activity/view";
 import { getSettings } from "@/lib/settings";
 import { todayInTimezone, getWeekStartFromTimezone, getMonthStartFromTimezone } from "@/lib/dates";
 import Timeline from "@/components/activity/timeline";
@@ -35,17 +36,7 @@ export default async function ActivityPage() {
   ]);
 
   // Scrub private details for public display
-  const publicEvents: ActivityEvent[] = ((events as ActivityEvent[]) || []).map((e) => {
-    if (e.visibility === "private") {
-      return {
-        ...e,
-        url: null,
-        metadata: {},
-        title: e.public_summary || "Activity in a private repository",
-      };
-    }
-    return e;
-  });
+  const publicEvents: ActivityEvent[] = ((events as ActivityEvent[]) || []).map(scrubPrivateEvent);
 
   return (
     <main id="main-content" tabIndex={-1} className="activity-main">

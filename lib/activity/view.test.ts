@@ -101,3 +101,26 @@ describe("patterns", () => {
     expect(reposBreakdown(stored, ["me/*"])).toEqual([{ name: "Redacted repos", events: 1 }]);
   });
 });
+
+describe("ordering and redacted timestamps", () => {
+  const patterns = ["me/hidden"];
+  const old = ev("me/open", { title: "old", occurred_at: "2026-01-05T08:00:00Z" });
+  const mid = ev("me/hidden", { occurred_at: "2026-01-05T09:00:00Z" });
+  const newest = ev("me/hidden", { occurred_at: "2026-01-05T12:00:00Z" });
+  const newer = ev("me/open", { title: "newer", occurred_at: "2026-01-05T10:00:00Z" });
+
+  it("lists timeline rows newest first and stamps the redacted row with the newest excluded event", () => {
+    const rows = timelineRows([old, mid, newest, newer], patterns);
+    expect(rows.map((r) => r.occurred_at)).toEqual([
+      "2026-01-05T12:00:00Z",
+      "2026-01-05T10:00:00Z",
+      "2026-01-05T08:00:00Z",
+    ]);
+    expect(rows[0].title).toBe("Active in 1 redacted repos · 2 events");
+  });
+
+  it("stamps the Discord redacted item with the newest excluded event", () => {
+    const items = discordPostItems([mid, newest], patterns);
+    expect(items[0].occurred_at).toBe("2026-01-05T12:00:00Z");
+  });
+});

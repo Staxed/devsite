@@ -20,6 +20,12 @@ export interface RepoBreakdownRow {
   events: number;
 }
 
+/** Public-safe copy of an event: private events lose url and metadata. */
+export function scrubPrivateEvent(event: ActivityEvent): ActivityEvent {
+  if (event.visibility !== "private") return event;
+  return { ...event, url: null, metadata: {}, title: event.public_summary || PRIVATE_SITE_TITLE };
+}
+
 function repoOf(event: ActivityEvent): string {
   return (event.metadata?.repo as string) || "";
 }
@@ -46,7 +52,7 @@ function redactedLine(events: ActivityEvent[]): string {
   return `Active in ${repos.size} redacted repos · ${events.length} events`;
 }
 
-function discordText(event: ActivityEvent): string {
+export function discordText(event: ActivityEvent): string {
   const title = event.title || "Activity";
   if (event.visibility === "private") return `${title} [Private Repo]`;
   const repo = repoOf(event);
@@ -78,12 +84,13 @@ export function timelineRows(events: ActivityEvent[], patterns: string[]): Timel
     if (isExcluded(event)) {
       excludedByDay.set(event.occurred_on, [...(excludedByDay.get(event.occurred_on) ?? []), event]);
     } else if (event.visibility === "private") {
+      const scrubbed = scrubPrivateEvent(event);
       rows.push({
         occurred_on: event.occurred_on,
         occurred_at: event.occurred_at,
-        title: event.public_summary || PRIVATE_SITE_TITLE,
+        title: scrubbed.title,
         url: null,
-        event: { ...event, url: null, metadata: {}, title: event.public_summary || PRIVATE_SITE_TITLE },
+        event: scrubbed,
       });
     } else {
       rows.push({
