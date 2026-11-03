@@ -15,6 +15,8 @@ interface RepoStatus {
 }
 
 export default function BackfillPanel() {
+  // Fixed when discovery is triggered, so every step of one backfill shares the same window
+  const [run, setRun] = useState<{ id: string; since: string } | null>(null);
   const [repos, setRepos] = useState<Repo[]>([]);
   const [repoStatus, setRepoStatus] = useState<RepoStatus>({});
   const [discovering, setDiscovering] = useState(false);
@@ -30,6 +32,9 @@ export default function BackfillPanel() {
         body: JSON.stringify({ action: "discover" }),
       });
       const data = await res.json();
+      const since = new Date();
+      since.setFullYear(since.getFullYear() - 2);
+      setRun({ id: data.run.id, since: since.toISOString() });
       setRepos(data.repos || []);
       const status: RepoStatus = {};
       for (const repo of data.repos || []) {
@@ -50,7 +55,7 @@ export default function BackfillPanel() {
       const res = await fetch("/api/admin/backfill", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "backfill_repo", repo_id: repo.id }),
+        body: JSON.stringify({ action: "backfill_repo", repo_id: repo.id, since: run?.since }),
       });
       const data = await res.json();
       setRepoStatus((s) => ({ ...s, [repo.id]: "done" }));
@@ -75,12 +80,29 @@ export default function BackfillPanel() {
       const res = await fetch("/api/admin/backfill", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "backfill_prs" }),
+        body: JSON.stringify({ action: "backfill_prs", since: run?.since }),
       });
       const data = await res.json();
       setMessage(`PRs: ${data.inserted} events imported`);
     } catch {
       setMessage("PR backfill failed");
+    }
+  }
+
+  async function handleFinalize() {
+    if (!run) return;
+    setMessage("Awarding achievements from the stored history...");
+    try {
+      const res = await fetch("/api/admin/backfill", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "finalize", run_id: run.id, since: run.since }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setMessage(`Backfill finalized: ${data.achievements} achievements recorded, nothing posted to Discord`);
+    } catch (err) {
+      setMessage(`Finalize failed: ${err instanceof Error ? err.message : err}`);
     }
   }
 
@@ -105,6 +127,9 @@ export default function BackfillPanel() {
             </button>
             <button className="btn-admin btn-admin-primary" onClick={handleBackfillPRs}>
               Backfill PRs
+            </button>
+            <button className="btn-admin btn-admin-primary" onClick={handleFinalize}>
+              Finalize (award achievements)
             </button>
           </>
         )}

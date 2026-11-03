@@ -1,9 +1,9 @@
 import { Octokit } from "octokit";
 import { getSettings } from "@/lib/settings";
-import { createAdminClient } from "@/lib/supabase/server";
+import { createSupabaseStore, type ActivityStore, type NewEvent } from "@/lib/activity/store";
 import { hashRepoName, sanitizeForPrivateRepo } from "./sanitize";
 
-import { toDateInTimezone } from "@/lib/dates";
+import { toDateInTimezone, todayInTimezone } from "@/lib/dates";
 
 function base64UrlEncode(data: ArrayBuffer | Uint8Array): string {
   const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
@@ -132,6 +132,20 @@ export async function createAuthenticatedOctokit(): Promise<Octokit> {
   return new Octokit({ auth: token });
 }
 
+/** The backfill reads Staxed's own activity, private repos included, with his personal token. */
+function createEventsOctokit(): Octokit {
+  const token = process.env.GITHUB_EVENTS_TOKEN;
+  if (!token) throw new Error("GITHUB_EVENTS_TOKEN is not set; the backfill reads Staxed's repos with it");
+  return new Octokit({ auth: token });
+}
+
+/** Two years before `now`: where a backfill triggered at `now` starts. */
+export function twoYearsBefore(now: Date): string {
+  const since = new Date(now);
+  since.setUTCFullYear(since.getUTCFullYear() - 2);
+  return since.toISOString();
+}
+
 export interface DiscoveredRepo {
   id: number;
   full_name: string;
@@ -140,67 +154,38 @@ export interface DiscoveredRepo {
   visibility: "public" | "private";
 }
 
+/** Every repo Staxed owns, collaborates on or reaches through an organization. */
 export async function discoverRepos(): Promise<DiscoveredRepo[]> {
-  const { github_username, github_org } = await getSettings();
-  const octokit = await createAuthenticatedOctokit();
-  const repos: DiscoveredRepo[] = [];
-
-  // Personal repos
-  const personalRepos = await octokit.paginate(octokit.rest.repos.listForUser, {
-    username: github_username,
+  const octokit = createEventsOctokit();
+  const repos = await octokit.paginate(octokit.rest.repos.listForAuthenticatedUser, {
+    affiliation: "owner,collaborator,organization_member",
     per_page: 100,
-    type: "owner",
   });
-
-  for (const repo of personalRepos) {
-    repos.push({
-      id: repo.id,
-      full_name: repo.full_name,
-      owner: repo.owner?.login || github_username,
-      name: repo.name,
-      visibility: repo.private ? "private" : "public",
-    });
-  }
-
-  // Org repos
-  if (github_org) {
-    try {
-      const orgRepos = await octokit.paginate(octokit.rest.repos.listForOrg, {
-        org: github_org,
-        per_page: 100,
-      });
-
-      for (const repo of orgRepos) {
-        if (!repos.some((r) => r.id === repo.id)) {
-          repos.push({
-            id: repo.id,
-            full_name: repo.full_name,
-            owner: repo.owner?.login || github_org,
-            name: repo.name,
-            visibility: repo.private ? "private" : "public",
-          });
-        }
-      }
-    } catch {
-      // Org may not be accessible
-    }
-  }
-
-  return repos;
+  return repos.map((repo) => ({
+    id: repo.id,
+    full_name: repo.full_name,
+    owner: repo.owner.login,
+    name: repo.name,
+    visibility: repo.private ? "private" : "public",
+  }));
 }
 
+/**
+ * Store Staxed's commits on the repo's default branch since `since`.
+ * Rows are written as already posted: a backfill never sends anything to Discord.
+ */
 export async function backfillRepoCommits(
   repo: DiscoveredRepo,
-  since: string
+  since: string,
+  store: ActivityStore = createSupabaseStore()
 ): Promise<number> {
   const { github_username, timezone } = await getSettings();
-  const octokit = await createAuthenticatedOctokit();
-  const supabase = createAdminClient();
-  let inserted = 0;
+  const octokit = createEventsOctokit();
 
   const isPrivateRepo = repo.visibility === "private";
   const repoHash = await hashRepoName(repo.full_name);
 
+  // No sha parameter: GitHub lists the default branch
   const commits = await octokit.paginate(octokit.rest.repos.listCommits, {
     owner: repo.owner,
     repo: repo.name,
@@ -209,7 +194,7 @@ export async function backfillRepoCommits(
     per_page: 100,
   });
 
-  const events = commits.map((commit) => {
+  const events: NewEvent[] = commits.map((commit) => {
     const timestamp = commit.commit.author?.date || new Date().toISOString();
     const subject = (commit.commit.message || "").split("\n")[0];
 
@@ -225,6 +210,7 @@ export async function backfillRepoCommits(
       dedupe_key: `commit:${repo.full_name}:${commit.sha}`,
       repo_visibility: repo.visibility,
       repo_hash: repoHash,
+      posted_to_discord: true,
     };
 
     if (isPrivateRepo) {
@@ -245,31 +231,57 @@ export async function backfillRepoCommits(
     };
   });
 
-  if (events.length > 0) {
-    // Insert in batches of 100
-    for (let i = 0; i < events.length; i += 100) {
-      const batch = events.slice(i, i + 100);
-      const { data } = await supabase
-        .from("activity_events")
-        .upsert(batch, { onConflict: "dedupe_key", ignoreDuplicates: true })
-        .select("id");
-      inserted += data?.length || 0;
-    }
-  }
-
-  return inserted;
+  return storeNewEvents(store, events);
 }
 
-export async function backfillPRs(since: string): Promise<number> {
-  const { github_username, timezone } = await getSettings();
-  const octokit = await createAuthenticatedOctokit();
-  const supabase = createAdminClient();
-  let inserted = 0;
+async function storeNewEvents(store: ActivityStore, events: NewEvent[]): Promise<number> {
+  const before = await store.countEvents();
+  await store.upsertEvents(events);
+  return (await store.countEvents()) - before;
+}
 
-  const prs = await octokit.paginate(octokit.rest.search.issuesAndPullRequests, {
-    q: `author:${github_username} type:pr created:>=${since.split("T")[0]}`,
-    per_page: 100,
-  });
+const SEARCH_RESULT_CAP = 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+type SearchedPullRequest = Awaited<
+  ReturnType<Octokit["rest"]["search"]["issuesAndPullRequests"]>
+>["data"]["items"][number];
+
+/** Search caps a query at 1000 results, so a window over the cap is halved until each part fits. */
+async function searchPullRequestsInWindow(
+  octokit: Octokit,
+  username: string,
+  fromDate: string,
+  toDate: string
+): Promise<SearchedPullRequest[]> {
+  const q = `author:${username} type:pr created:${fromDate}..${toDate}`;
+  const { data } = await octokit.rest.search.issuesAndPullRequests({ q, per_page: 1 });
+  if (data.total_count <= SEARCH_RESULT_CAP) {
+    return octokit.paginate(octokit.rest.search.issuesAndPullRequests, { q, per_page: 100 });
+  }
+  if (fromDate === toDate) {
+    throw new Error(`PR search for ${fromDate} has ${data.total_count} results, over the ${SEARCH_RESULT_CAP} cap, and cannot be split`);
+  }
+  const fromMs = Date.parse(fromDate);
+  const midDate = new Date(fromMs + Math.floor((Date.parse(toDate) - fromMs) / DAY_MS / 2) * DAY_MS).toISOString().slice(0, 10);
+  const nextDate = new Date(Date.parse(midDate) + DAY_MS).toISOString().slice(0, 10);
+  return [
+    ...(await searchPullRequestsInWindow(octokit, username, fromDate, midDate)),
+    ...(await searchPullRequestsInWindow(octokit, username, nextDate, toDate)),
+  ];
+}
+
+/** Store Staxed's PRs created since `since`, as already posted. */
+export async function backfillPRs(since: string, store: ActivityStore = createSupabaseStore()): Promise<number> {
+  const { github_username, timezone } = await getSettings();
+  const octokit = createEventsOctokit();
+
+  const prs = await searchPullRequestsInWindow(
+    octokit,
+    github_username,
+    since.split("T")[0],
+    todayInTimezone(timezone)
+  );
 
   // Build a set of known private repo names from discovered repos
   const discoveredRepos = await discoverRepos();
@@ -277,7 +289,7 @@ export async function backfillPRs(since: string): Promise<number> {
     discoveredRepos.filter((r) => r.visibility === "private").map((r) => r.full_name)
   );
 
-  const events = [];
+  const events: NewEvent[] = [];
   for (const pr of prs) {
     const repoUrl = pr.repository_url || "";
     const repoParts = repoUrl.split("/");
@@ -285,44 +297,32 @@ export async function backfillPRs(since: string): Promise<number> {
     const repoHash = await hashRepoName(repoFullName);
     const isPrivate = privateRepoNames.has(repoFullName);
 
-    const kinds = [];
-    if (pr.state === "open") kinds.push("pr_opened");
-    else if (pr.pull_request?.merged_at) kinds.push("pr_merged");
-    else kinds.push("pr_closed");
+    let kind: string;
+    if (pr.state === "open") kind = "pr_opened";
+    else if (pr.pull_request?.merged_at) kind = "pr_merged";
+    else kind = "pr_closed";
 
-    for (const kind of kinds) {
-      const timestamp = pr.updated_at || pr.created_at;
-      const actionLabel = kind === "pr_merged" ? "Merged" : kind === "pr_opened" ? "Opened" : "Closed";
-      events.push({
-        occurred_at: timestamp,
-        occurred_on: toDateInTimezone(timestamp, timezone),
-        source: "github" as const,
-        category: "code",
-        kind,
-        value: 1,
-        unit: "count",
-        title: `${actionLabel} PR #${pr.number}: ${pr.title}`,
-        public_summary: `${actionLabel} PR in ${repoFullName}`,
-        url: isPrivate ? null : pr.html_url,
-        metadata: { pr_number: pr.number, repo: repoFullName },
-        dedupe_key: `pr:${repoFullName}:${pr.number}:${kind}`,
-        repo_visibility: isPrivate ? ("private" as const) : ("public" as const),
-        repo_hash: repoHash,
-        visibility: isPrivate ? ("private" as const) : ("public" as const),
-      });
-    }
+    const timestamp = pr.updated_at || pr.created_at;
+    const actionLabel = kind === "pr_merged" ? "Merged" : kind === "pr_opened" ? "Opened" : "Closed";
+    events.push({
+      occurred_at: timestamp,
+      occurred_on: toDateInTimezone(timestamp, timezone),
+      source: "github" as const,
+      category: "code",
+      kind,
+      value: 1,
+      unit: "count",
+      title: `${actionLabel} PR #${pr.number}: ${pr.title}`,
+      public_summary: `${actionLabel} PR in ${repoFullName}`,
+      url: isPrivate ? null : pr.html_url,
+      metadata: { pr_number: pr.number, repo: repoFullName },
+      dedupe_key: `pr:${repoFullName}:${pr.number}:${kind}`,
+      repo_visibility: isPrivate ? "private" : "public",
+      repo_hash: repoHash,
+      visibility: isPrivate ? "private" : "public",
+      posted_to_discord: true,
+    });
   }
 
-  if (events.length > 0) {
-    for (let i = 0; i < events.length; i += 100) {
-      const batch = events.slice(i, i + 100);
-      const { data } = await supabase
-        .from("activity_events")
-        .upsert(batch, { onConflict: "dedupe_key", ignoreDuplicates: true })
-        .select("id");
-      inserted += data?.length || 0;
-    }
-  }
-
-  return inserted;
+  return storeNewEvents(store, events);
 }
