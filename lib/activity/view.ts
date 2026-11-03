@@ -20,10 +20,15 @@ export interface RepoBreakdownRow {
   events: number;
 }
 
+/** The title a private event shows on the site. */
+function privateSiteTitle(event: ActivityEvent): string {
+  return event.public_summary || PRIVATE_SITE_TITLE;
+}
+
 /** Public-safe copy of an event: private events lose url and metadata. */
 export function scrubPrivateEvent(event: ActivityEvent): ActivityEvent {
   if (event.visibility !== "private") return event;
-  return { ...event, url: null, metadata: {}, title: event.public_summary || PRIVATE_SITE_TITLE };
+  return { ...event, url: null, metadata: {}, title: privateSiteTitle(event) };
 }
 
 function repoOf(event: ActivityEvent): string {
@@ -88,7 +93,7 @@ export function timelineRows(events: ActivityEvent[], patterns: string[]): Timel
       rows.push({
         occurred_on: event.occurred_on,
         occurred_at: event.occurred_at,
-        title: scrubbed.title,
+        title: privateSiteTitle(event),
         url: null,
         event: scrubbed,
       });
