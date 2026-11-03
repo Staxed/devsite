@@ -5,11 +5,18 @@ import { useEffect, useState } from "react";
 export default function SettingsPage() {
   const [excludedRepos, setExcludedRepos] = useState("");
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [status, setStatus] = useState("");
 
   useEffect(() => {
     async function load() {
       const res = await fetch("/api/admin/settings");
+      if (!res.ok) {
+        setStatus(`Could not load settings (${res.status}); saving is disabled.`);
+        setLoadFailed(true);
+        setLoading(false);
+        return;
+      }
       const data = await res.json();
       const row = (data.settings || []).find((s: { key: string }) => s.key === "excluded_repos");
       setExcludedRepos(row?.value ?? "");
@@ -20,6 +27,7 @@ export default function SettingsPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (loadFailed) return;
     const res = await fetch("/api/admin/settings", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -50,7 +58,7 @@ export default function SettingsPage() {
             placeholder="AeonForge-io/secret-repo, AeonForge-io/internal-*"
             style={{ width: "100%", padding: "0.5rem", margin: "0.75rem 0", borderRadius: "4px", border: "1px solid var(--color-border)", background: "var(--color-bg)", color: "var(--color-text)" }}
           />
-          <button type="submit" className="btn-admin btn-admin-primary">Save</button>
+          <button type="submit" disabled={loadFailed} className="btn-admin btn-admin-primary">Save</button>
           {status && <p role="status">{status}</p>}
         </form>
       </div>

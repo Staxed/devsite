@@ -1,6 +1,6 @@
 import type { DiscordEmbed } from "./client";
 import type { ActivityEvent, Achievement } from "@/lib/supabase/types";
-import { discordPostItems, discordText, partitionExcluded } from "@/lib/activity/view";
+import { discordText, partitionExcluded, redactedLine } from "@/lib/activity/view";
 import { getSettings } from "@/lib/settings";
 import { getRandomQuote } from "@/lib/quotes";
 
@@ -337,14 +337,16 @@ export async function buildGroupedEmbeds(events: ActivityEvent[]): Promise<Disco
   // Sort by priority and build embeds
   const sorted = [...groups.entries()].sort((a, b) => a[1].priority - b[1].priority);
 
+  // Reserve the last slot for the redacted line when excluded events exist.
+  const limit = excluded.length > 0 ? 9 : 10;
   for (const [builder, { events: groupEvents }] of sorted) {
-    if (embeds.length >= 10) break;
+    if (embeds.length >= limit) break;
     embeds.push(builder(groupEvents));
   }
 
-  if (excluded.length > 0 && embeds.length < 10) {
+  if (excluded.length > 0) {
     embeds.push({
-      description: discordPostItems(excluded, excluded_repos)[0].text,
+      description: redactedLine(excluded),
       color: EMBED_COLORS.SUMMARY,
     });
   }

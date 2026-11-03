@@ -22,5 +22,5 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ events: timelineRows((data || []) as ActivityEvent[], excluded_repos) });
+  return NextResponse.json({ rows: timelineRows((data || []) as ActivityEvent[], excluded_repos) });
 }

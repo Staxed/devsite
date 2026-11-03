@@ -63,7 +63,7 @@ export function partitionExcluded(
   };
 }
 
-function redactedLine(events: ActivityEvent[]): string {
+export function redactedLine(events: ActivityEvent[]): string {
   const repos = new Set(events.map(repoOf));
   return `Active in ${repos.size} redacted repos · ${events.length} events`;
 }
@@ -78,11 +78,8 @@ export function discordText(event: ActivityEvent): string {
 
 /** One item per visible event, then a single line collapsing the excluded ones. */
 export function discordPostItems(events: ActivityEvent[], patterns: string[]): DiscordPostItem[] {
-  const isExcluded = excludedMatcher(patterns);
-  const excluded = events.filter(isExcluded);
-  const items = events
-    .filter((e) => !isExcluded(e))
-    .map((e) => ({ occurred_at: e.occurred_at, text: discordText(e) }));
+  const { visible, excluded } = partitionExcluded(events, patterns);
+  const items = visible.map((e) => ({ occurred_at: e.occurred_at, text: discordText(e) }));
   if (excluded.length > 0) {
     const newest = excluded.map((e) => e.occurred_at).sort().reverse()[0];
     items.push({ occurred_at: newest, text: redactedLine(excluded) });

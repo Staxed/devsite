@@ -59,4 +59,12 @@ describe("buildGroupedEmbeds with an exclude list", () => {
     expect(text).toContain("secret work 2");
     expect(text).not.toContain("redacted");
   });
+
+  it("keeps the redacted line when the visible groups fill the embed limit", async () => {
+    const kinds = ["commit_pushed","pr_opened","pr_merged","pr_reviewed","issue_opened","issue_closed","release_published","pr_comment_created","member_added","wiki_updated","repo_made_public","discussion_created"];
+    const many = kinds.map((kind, i) => ({ ...commit("Acme/open", 100 + i), kind }) as ActivityEvent);
+    const embeds = await buildGroupedEmbeds([...many, commit("Acme/hidden", 2)]);
+    expect(embeds.length).toBeLessThanOrEqual(10);
+    expect(JSON.stringify(embeds)).toContain("Active in 1 redacted repos");
+  });
 });

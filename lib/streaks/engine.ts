@@ -391,8 +391,8 @@ export async function getGithubEventsInRange(
     .gte("occurred_on", startDate)
     .lte("occurred_on", endDate);
 
-  if (error || !data) return [];
-  return data as ActivityEvent[];
+  if (error) throw new Error(`Failed to load activity events: ${error.message}`);
+  return (data ?? []) as ActivityEvent[];
 }
 
 /**
