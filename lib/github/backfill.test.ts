@@ -7,7 +7,8 @@ vi.mock("@/lib/settings", () => ({
 vi.mock("@/lib/quotes", () => ({ getRandomQuote: async () => null }));
 vi.mock("@/lib/supabase/server", () => ({ createAdminClient: () => ({}) }));
 
-import { discoverRepos, backfillRepoCommits, backfillPRs, twoYearsBefore } from "./backfill";
+import { discoverRepos, backfillRepoCommits, backfillPRs } from "./backfill";
+import { twoYearsBefore } from "@/lib/dates";
 import { pollGitHubEvents } from "./poller";
 
 const NOW = new Date("2026-03-10T15:00:00Z");
@@ -45,9 +46,9 @@ beforeEach(() => {
       if (url.pathname === "/user/repos") {
         return Response.json(url.searchParams.get("page") === "1" || !url.searchParams.get("page") ? [repoJson("Staxed/site", false), repoJson("Acme/hidden", true)] : []);
       }
-      if (url.pathname === "/repos/Staxed/site/commits") {
+      if (url.pathname === "/repos/Staxed/site/commits" || url.pathname === "/repos/Acme/hidden/commits") {
         return Response.json(url.searchParams.get("page") === "1" || !url.searchParams.get("page")
-          ? [{ sha: "abc", html_url: "https://github.com/Staxed/site/commit/abc", commit: { message: "Add feature\n\nbody", author: { date: COMMIT_TIME } } }]
+          ? [{ sha: "abc", html_url: "https://github.com/x/commit/abc", commit: { message: "Add feature\n\nbody", author: { date: COMMIT_TIME } } }]
           : []);
       }
       if (url.pathname === "/search/issues") {
@@ -101,6 +102,21 @@ describe("backfill", () => {
     await backfillRepoCommits({ id: 1, full_name: "Staxed/site", owner: "Staxed", name: "site", visibility: "private" }, "2024-03-10T15:00:00.000Z", store);
 
     expect(store.events).toMatchObject([{ repo_visibility: "private", visibility: "private", url: null, posted_to_discord: true }]);
+  });
+
+  it("stores commits of an excluded repo and counts them", async () => {
+    const store = createMemoryStore();
+    const inserted = await backfillRepoCommits({ id: 2, full_name: "Acme/hidden", owner: "Acme", name: "hidden", visibility: "public" }, "2024-03-10T15:00:00.000Z", store);
+
+    expect(inserted).toBe(1);
+    expect(store.events).toMatchObject([{ dedupe_key: "commit:Acme/hidden:abc", repo_name: "Acme/hidden", posted_to_discord: true }]);
+  });
+
+  it("fails loudly when a single day still has over 1000 PRs", async () => {
+    const store = createMemoryStore();
+    prSearch["2026-03-10..2026-03-10"] = { total: 1500, items: [] };
+
+    await expect(backfillPRs("2026-03-10T00:00:00.000Z", store)).rejects.toThrow(/cannot be split/);
   });
 
   it("splits the PR search into date windows under the 1000-result cap and stores the PRs as posted", async () => {

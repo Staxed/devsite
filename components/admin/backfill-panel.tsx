@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { twoYearsBefore } from "@/lib/dates";
 
 interface Repo {
   id: number;
@@ -32,9 +33,7 @@ export default function BackfillPanel() {
         body: JSON.stringify({ action: "discover" }),
       });
       const data = await res.json();
-      const since = new Date();
-      since.setFullYear(since.getFullYear() - 2);
-      setRun({ id: data.run.id, since: since.toISOString() });
+      setRun({ id: data.run.id, since: twoYearsBefore(new Date()) });
       setRepos(data.repos || []);
       const status: RepoStatus = {};
       for (const repo of data.repos || []) {

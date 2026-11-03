@@ -64,6 +64,7 @@ describe("achievement replay", () => {
     await replayAchievements(store, "2026-01-01", "2026-03-10");
 
     expect(store.achievements.map((a) => a.achievement_id)).toContain("century_club");
+    expect(store.achievements.filter((a) => a.period === "2025-06-02")).toEqual([]);
     expect(store.achievements.find((a) => a.achievement_id === "century_club")!.earned_at).toBe("2026-02-02T17:00:00Z");
   });
 });

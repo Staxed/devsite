@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdmin } from "@/lib/auth/admin";
 import { createAdminClient } from "@/lib/supabase/server";
-import { discoverRepos, backfillRepoCommits, backfillPRs, twoYearsBefore } from "@/lib/github/backfill";
+import { discoverRepos, backfillRepoCommits, backfillPRs } from "@/lib/github/backfill";
 import { createSupabaseStore } from "@/lib/activity/store";
 import { replayAchievements } from "@/lib/achievements/engine";
 import { getSettings } from "@/lib/settings";
-import { toDateInTimezone, todayInTimezone } from "@/lib/dates";
+import { toDateInTimezone, todayInTimezone, twoYearsBefore } from "@/lib/dates";
 
 export async function GET() {
   const admin = await verifyAdmin();

@@ -1,6 +1,6 @@
 import { Octokit } from "octokit";
 import { getSettings } from "@/lib/settings";
-import { createSupabaseStore, type ActivityStore, type NewEvent } from "@/lib/activity/store";
+import { createSupabaseStore, insertNewEvents, type ActivityStore, type NewEvent } from "@/lib/activity/store";
 import { hashRepoName, sanitizeForPrivateRepo } from "./sanitize";
 
 import { toDateInTimezone, todayInTimezone } from "@/lib/dates";
@@ -139,13 +139,6 @@ function createEventsOctokit(): Octokit {
   return new Octokit({ auth: token });
 }
 
-/** Two years before `now`: where a backfill triggered at `now` starts. */
-export function twoYearsBefore(now: Date): string {
-  const since = new Date(now);
-  since.setUTCFullYear(since.getUTCFullYear() - 2);
-  return since.toISOString();
-}
-
 export interface DiscoveredRepo {
   id: number;
   full_name: string;
@@ -231,13 +224,7 @@ export async function backfillRepoCommits(
     };
   });
 
-  return storeNewEvents(store, events);
-}
-
-async function storeNewEvents(store: ActivityStore, events: NewEvent[]): Promise<number> {
-  const before = await store.countEvents();
-  await store.upsertEvents(events);
-  return (await store.countEvents()) - before;
+  return insertNewEvents(store, events);
 }
 
 const SEARCH_RESULT_CAP = 1000;
@@ -324,5 +311,5 @@ export async function backfillPRs(since: string, store: ActivityStore = createSu
     });
   }
 
-  return storeNewEvents(store, events);
+  return insertNewEvents(store, events);
 }
