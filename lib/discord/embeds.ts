@@ -1,5 +1,6 @@
 import type { DiscordEmbed } from "./client";
 import type { ActivityEvent, Achievement } from "@/lib/supabase/types";
+import { discordText } from "@/lib/activity/view";
 import { getSettings } from "@/lib/settings";
 import { getRandomQuote } from "@/lib/quotes";
 
@@ -60,19 +61,7 @@ function githubAvatar(username: string): string {
 
 // --- Helpers ---
 
-function formatItem(event: ActivityEvent): string {
-  const isPublic = event.visibility === "public";
-  const title = event.title || "Activity";
-  const repo = (event.metadata?.repo as string) || "";
-
-  if (isPublic && event.url) {
-    return `[${title}](${event.url}) in ${repo}`;
-  }
-  if (!isPublic) {
-    return `${title} [Private Repo]`;
-  }
-  return `${title}${repo ? ` in ${repo}` : ""}`;
-}
+const formatItem = discordText;
 
 function discordTimestamp(isoDate: string): string {
   const unix = Math.floor(new Date(isoDate).getTime() / 1000);

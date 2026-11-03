@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { scrubPrivateEvent } from "@/lib/activity/view";
 import { createAdminClient } from "@/lib/supabase/server";
 
 export async function GET(request: NextRequest) {
@@ -19,17 +20,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Scrub private event details for public consumption
-  const publicData = (data || []).map((event) => {
-    if (event.visibility === "private") {
-      return {
-        ...event,
-        url: null,
-        metadata: {},
-        title: event.public_summary || "Activity in a private repository",
-      };
-    }
-    return event;
-  });
+  const publicData = (data || []).map(scrubPrivateEvent);
 
   return NextResponse.json({ events: publicData });
 }
