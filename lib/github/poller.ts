@@ -4,7 +4,8 @@
  */
 
 import { Octokit } from "octokit";
-import { enrichEvents, type RawGitHubEvent } from "./enrich-events";
+import { enrichEvents } from "./enrich-events";
+import type { GitHubEvent as RawGitHubEvent } from "./normalize-events-api";
 import { normalizeEventsApiResponse } from "./normalize-events-api";
 import { getSettings } from "@/lib/settings";
 import { createSupabaseStore, type ActivityStore } from "@/lib/activity/store";

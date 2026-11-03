@@ -27,7 +27,7 @@ interface NormalizedEvent {
   dedupe_key: string;
 }
 
-interface GitHubEvent {
+export interface GitHubEvent {
   id: string;
   type: string;
   actor: { login: string };

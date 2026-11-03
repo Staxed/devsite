@@ -30,6 +30,9 @@ let discordMessages: unknown[];
 let githubEvents: unknown[];
 // compare/commit lookups by head sha; a missing entry answers 404
 let restCommits: Record<string, unknown[]>;
+let restResources: Record<string, unknown>;
+let githubUrls: string[];
+let restStatus: number | null;
 
 const restCommit = (sha: string, message: string, login = "Staxed", email = "staxed@users.noreply.github.com") => ({
   sha,
@@ -49,6 +52,9 @@ beforeEach(() => {
   process.env.GITHUB_WEBHOOK_SECRET = WEBHOOK_SECRET;
   process.env.GITHUB_EVENTS_TOKEN = "pat";
   discordMessages = [];
+  githubUrls = [];
+  restResources = {};
+  restStatus = null;
   githubEvents = [slimPush("1", "b0", SHA)];
   restCommits = { [SHA]: [restCommit(SHA, "Add feature")] };
   vi.stubGlobal(
@@ -62,6 +68,14 @@ beforeEach(() => {
       if (url.includes("api.github.com") && url.includes("/events")) {
         return Response.json(url.includes("page=1") ? githubEvents : []);
       }
+      githubUrls.push(url);
+      if (restStatus && !url.includes("/events")) return new Response("denied", { status: restStatus });
+      const lookup = url.match(/\/repos\/[^/]+\/[^/]+\/(pulls|issues)\/(\d+)$/);
+      if (lookup) {
+        const found = restResources[`${lookup[1]}/${lookup[2]}`];
+        return found ? Response.json(found) : new Response("nope", { status: 404 });
+      }
+      if (/\/compare\/0{40}\.\.\./.test(url)) return new Response("no base", { status: 404 });
       const rest = url.match(/\/repos\/[^/]+\/[^/]+\/(?:compare\/[^.]+\.\.\.|commits\/)(\w+)/);
       if (rest) {
         const found = restCommits[rest[1]];
@@ -173,6 +187,69 @@ describe("pushes through the Events API", () => {
     await pollGitHubEvents(store);
 
     expect(commitRows(store).map((e) => e.dedupe_key)).toEqual([`commit:${REPO}:h3`]);
+    expect(githubUrls.some((u) => u.includes("/commits/h3"))).toBe(true);
+    expect(githubUrls.some((u) => u.includes("/compare/"))).toBe(false);
+  });
+
+  it("makes no REST call for a branch deletion", async () => {
+    const store = createMemoryStore();
+    githubEvents = [slimPush("1", "b0", "0".repeat(40))];
+
+    await pollGitHubEvents(store);
+
+    expect(commitRows(store)).toHaveLength(0);
+    expect(githubUrls.some((u) => u.includes("/compare/") || u.includes("/commits/"))).toBe(false);
+  });
+
+  it("keeps a commit linked to Staxed only by its author login", async () => {
+    const store = createMemoryStore();
+    githubEvents = [slimPush("1", "b0", "h5")];
+    restCommits = { h5: [{ sha: "c9", commit: { message: "Login only", author: { name: "Someone", email: "x@example.com" } }, author: { login: "staxed" } }] };
+
+    await pollGitHubEvents(store);
+
+    expect(commitRows(store).map((e) => e.dedupe_key)).toEqual([`commit:${REPO}:c9`]);
+  });
+
+  it("fills a pull request event from the REST resource", async () => {
+    const store = createMemoryStore();
+    githubEvents = [{
+      id: "9", type: "PullRequestEvent", actor: { login: "Staxed" }, repo: { name: REPO }, public: true, created_at: COMMIT_TIME,
+      payload: { action: "opened", number: 7 },
+    }];
+    restResources = { "pulls/7": { number: 7, title: "Fetched PR title", state: "open", merged: false, html_url: "https://github.com/Staxed/site/pull/7", user: { login: "Staxed" } } };
+
+    await pollGitHubEvents(store);
+
+    expect(JSON.stringify(store.events)).toContain("Fetched PR title");
+    expect(githubUrls.some((u) => u.endsWith("/pulls/7"))).toBe(true);
+  });
+
+  it("fills an issue event from the REST resource", async () => {
+    const store = createMemoryStore();
+    githubEvents = [{
+      id: "10", type: "IssuesEvent", actor: { login: "Staxed" }, repo: { name: REPO }, public: true, created_at: COMMIT_TIME,
+      payload: { action: "opened", issue: { number: 3 } },
+    }];
+    restResources = { "issues/3": { number: 3, title: "Fetched issue title", state: "open", html_url: "https://github.com/Staxed/site/issues/3", user: { login: "Staxed" } } };
+
+    await pollGitHubEvents(store);
+
+    expect(githubUrls.some((u) => u.endsWith("/issues/3"))).toBe(true);
+    expect(JSON.stringify(store.events)).toContain("Fetched issue title");
+  });
+
+  it("stops the poll on an auth failure instead of skipping every event", async () => {
+    restStatus = 401;
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await expect(pollGitHubEvents(createMemoryStore())).rejects.toThrow();
+  });
+
+  it("stops the poll with a named error when GITHUB_EVENTS_TOKEN is missing", async () => {
+    delete process.env.GITHUB_EVENTS_TOKEN;
+
+    await expect(pollGitHubEvents(createMemoryStore())).rejects.toThrow(/GITHUB_EVENTS_TOKEN/);
   });
 
   it("drops commits not authored by Staxed", async () => {

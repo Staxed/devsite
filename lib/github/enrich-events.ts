@@ -5,16 +5,7 @@
  */
 
 import type { Octokit } from "octokit";
-
-export interface RawGitHubEvent {
-  id: string;
-  type: string;
-  actor: { login: string };
-  repo: { name: string };
-  payload: Record<string, unknown>;
-  public: boolean;
-  created_at: string;
-}
+import type { GitHubEvent as RawGitHubEvent } from "./normalize-events-api";
 
 const ZERO_SHA = "0000000000000000000000000000000000000000";
 
@@ -45,8 +36,11 @@ async function fetchPushCommits(octokit: Octokit, event: RawGitHubEvent): Promis
     const { data } = await octokit.rest.repos.getCommit({ owner, repo, ref: head });
     return [data as unknown as RestCommit];
   }
-  const { data } = await octokit.rest.repos.compareCommits({ owner, repo, base: before, head, per_page: 100 });
-  return data.commits as unknown as RestCommit[];
+  // The compare response is one object per page, with the commits inside it.
+  const commits: RestCommit[] = [];
+  const pages = octokit.paginate.iterator(octokit.rest.repos.compareCommits, { owner, repo, base: before, head, per_page: 100 });
+  for await (const page of pages) commits.push(...(page.data as unknown as { commits: RestCommit[] }).commits);
+  return commits;
 }
 
 async function enrichEvent(octokit: Octokit, event: RawGitHubEvent): Promise<RawGitHubEvent> {
@@ -83,6 +77,8 @@ export async function enrichEvents(octokit: Octokit, events: RawGitHubEvent[]): 
     try {
       enriched.push(await enrichEvent(octokit, event));
     } catch (err) {
+      const status = (err as { status?: number }).status;
+      if (status !== 404 && status !== 422) throw err; // auth or rate-limit: stop the poll
       console.error(`Skipping ${event.type} ${event.id} in ${event.repo.name}: REST lookup failed:`, err);
     }
   }
