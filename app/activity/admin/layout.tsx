@@ -11,6 +11,7 @@ const adminLinks = [
   { href: "/activity/admin/goals", label: "Goals" },
   { href: "/activity/admin/quotes", label: "Quotes" },
   { href: "/activity/admin/backfill", label: "Backfill" },
+  { href: "/activity/admin/settings", label: "Settings" },
 ];
 
 export default function AdminLayout({ children }: { children: ReactNode }) {

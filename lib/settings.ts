@@ -4,6 +4,8 @@ export interface AppSettings {
   github_username: string;
   github_org: string;
   timezone: string;
+  /** Glob patterns (owner/repo) whose activity is counted but never shown in detail. */
+  excluded_repos: string[];
 }
 
 let cached: AppSettings | null = null;
@@ -43,6 +45,7 @@ export async function getSettings(): Promise<AppSettings> {
     github_username: map.github_username,
     github_org: map.github_org || "",
     timezone: map.timezone,
+    excluded_repos: (map.excluded_repos || "").split(",").map((p) => p.trim()).filter(Boolean),
   };
 
   cached = settings;

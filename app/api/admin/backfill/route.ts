@@ -1,9 +1,11 @@
-export const runtime = "edge";
-
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdmin } from "@/lib/auth/admin";
 import { createAdminClient } from "@/lib/supabase/server";
 import { discoverRepos, backfillRepoCommits, backfillPRs } from "@/lib/github/backfill";
+import { createSupabaseStore } from "@/lib/activity/store";
+import { replayAchievements } from "@/lib/achievements/engine";
+import { getSettings } from "@/lib/settings";
+import { toDateInTimezone, todayInTimezone, twoYearsBefore } from "@/lib/dates";
 
 export async function GET() {
   const admin = await verifyAdmin();
@@ -65,7 +67,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "repo_id is required" }, { status: 400 });
       }
 
-      const sinceDate = since || new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString();
+      const sinceDate = since || twoYearsBefore(new Date());
 
       // Get repo info from tracked_repos
       const { data: repo } = await supabase
@@ -105,7 +107,7 @@ export async function POST(request: NextRequest) {
 
     case "backfill_prs": {
       const { since } = body;
-      const sinceDate = since || new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString();
+      const sinceDate = since || twoYearsBefore(new Date());
 
       const inserted = await backfillPRs(sinceDate);
 
@@ -113,17 +115,28 @@ export async function POST(request: NextRequest) {
     }
 
     case "finalize": {
-      const { run_id } = body;
+      const { run_id, since } = body;
       if (!run_id) {
         return NextResponse.json({ error: "run_id is required" }, { status: 400 });
       }
+      if (!since) {
+        return NextResponse.json({ error: "since is required" }, { status: 400 });
+      }
+
+      // Silent: records the achievements the stored history earned, with their historical periods
+      const { timezone } = await getSettings();
+      const achievements = await replayAchievements(
+        createSupabaseStore(),
+        toDateInTimezone(since, timezone),
+        todayInTimezone(timezone)
+      );
 
       await supabase
         .from("sync_runs")
         .update({ status: "completed", finished_at: new Date().toISOString() })
         .eq("id", run_id);
 
-      return NextResponse.json({ ok: true });
+      return NextResponse.json({ ok: true, achievements });
     }
 
     default:

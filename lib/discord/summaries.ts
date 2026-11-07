@@ -1,7 +1,7 @@
-import { createAdminClient } from "@/lib/supabase/server";
 import { getSettings } from "@/lib/settings";
 import { getPeriodStats, getCodingStreak } from "@/lib/streaks/engine";
-import type { DiscordEmbed } from "./client";
+import { sendChannelMessage, type DiscordEmbed } from "./client";
+import type { ActivityStore } from "@/lib/activity/store";
 import { EMBED_COLORS, KIND_EMOJI } from "./embeds";
 import { getRandomQuote } from "@/lib/quotes";
 
@@ -47,13 +47,13 @@ function buildStatsFields(stats: Record<string, number>): { name: string; value:
 
 // --- Summary builders ---
 
-export async function buildDailySummaryEmbed(): Promise<{ embed: DiscordEmbed; total: number }> {
+export async function buildDailySummaryEmbed(store: ActivityStore): Promise<{ embed: DiscordEmbed; total: number }> {
   const { github_username, timezone } = await getSettings();
   const avatarUrl = `https://github.com/${github_username}.png`;
   const yesterday = yesterdayInTimezone(timezone);
-  const stats = await getPeriodStats(yesterday, yesterday);
+  const stats = await getPeriodStats(yesterday, yesterday, store);
   const total = Object.values(stats).reduce((a, b) => a + b, 0);
-  const streak = await getCodingStreak();
+  const streak = await getCodingStreak(store);
   const quote = await getRandomQuote();
 
   const footerParts = [dailyBadge(total)];
@@ -71,23 +71,16 @@ export async function buildDailySummaryEmbed(): Promise<{ embed: DiscordEmbed; t
   return { embed, total };
 }
 
-export async function buildWeeklySummaryEmbed(): Promise<{ embed: DiscordEmbed; total: number }> {
+export async function buildWeeklySummaryEmbed(store: ActivityStore): Promise<{ embed: DiscordEmbed; total: number }> {
   const { github_username, timezone } = await getSettings();
   const avatarUrl = `https://github.com/${github_username}.png`;
   const start = getPreviousWeekStartFromTimezone(timezone);
   const end = getPreviousWeekEndFromTimezone(timezone);
-  const stats = await getPeriodStats(start, end);
+  const stats = await getPeriodStats(start, end, store);
   const total = Object.values(stats).reduce((a, b) => a + b, 0);
   const quote = await getRandomQuote();
 
-  // Count active days
-  const supabase = createAdminClient();
-  const { data } = await supabase
-    .from("activity_events")
-    .select("occurred_on")
-    .gte("occurred_on", start)
-    .lte("occurred_on", end);
-  const activeDays = new Set(data?.map((e) => e.occurred_on)).size;
+  const activeDays = new Set((await store.eventsInRange(start, end)).map((e) => e.occurred_on)).size;
 
   const footerParts = [weeklyBadge(total)];
   if (quote) footerParts.push(quote);
@@ -104,11 +97,11 @@ export async function buildWeeklySummaryEmbed(): Promise<{ embed: DiscordEmbed; 
   return { embed, total };
 }
 
-export async function buildMonthlySummaryEmbed(): Promise<{ embed: DiscordEmbed; total: number }> {
+export async function buildMonthlySummaryEmbed(store: ActivityStore): Promise<{ embed: DiscordEmbed; total: number }> {
   const { github_username, timezone } = await getSettings();
   const avatarUrl = `https://github.com/${github_username}.png`;
   const { start, end, label } = getPreviousMonthRangeFromTimezone(timezone);
-  const stats = await getPeriodStats(start, end);
+  const stats = await getPeriodStats(start, end, store);
   const total = Object.values(stats).reduce((a, b) => a + b, 0);
   const quote = await getRandomQuote();
 
@@ -130,7 +123,7 @@ export async function buildMonthlySummaryEmbed(): Promise<{ embed: DiscordEmbed;
 /**
  * Determine which summaries to send and return them.
  */
-export async function getSummariesToSend(): Promise<
+export async function getSummariesToSend(store: ActivityStore): Promise<
   { type: "daily" | "weekly" | "monthly"; embed: DiscordEmbed; total: number; period: string }[]
 > {
   const { timezone } = await getSettings();
@@ -141,22 +134,52 @@ export async function getSummariesToSend(): Promise<
   const dayOfMonth = tz.getDate();
 
   // Always send daily
-  const daily = await buildDailySummaryEmbed();
+  const daily = await buildDailySummaryEmbed(store);
   summaries.push({ type: "daily", ...daily, period: yesterdayInTimezone(timezone) });
 
   // Weekly on Monday
   if (dayOfWeek === 1) {
-    const weekly = await buildWeeklySummaryEmbed();
+    const weekly = await buildWeeklySummaryEmbed(store);
     const weekStart = getPreviousWeekStartFromTimezone(timezone);
     summaries.push({ type: "weekly", ...weekly, period: weekStart });
   }
 
   // Monthly on the 1st
   if (dayOfMonth === 1) {
-    const monthly = await buildMonthlySummaryEmbed();
+    const monthly = await buildMonthlySummaryEmbed(store);
     const { start } = getPreviousMonthRangeFromTimezone(timezone);
     summaries.push({ type: "monthly", ...monthly, period: start.slice(0, 7) });
   }
 
   return summaries;
+}
+
+/**
+ * Post each due summary once. The (summary_type, period) row is claimed before sending,
+ * so a repeated run, or a second caller, skips what is already claimed.
+ */
+export async function postSummaries(
+  store: ActivityStore,
+  channelId: string
+): Promise<{ type: string; sent: boolean }[]> {
+  const results: { type: string; sent: boolean }[] = [];
+
+  for (const summary of await getSummariesToSend(store)) {
+    const claimed = await store.claimSummary({
+      summary_type: summary.type,
+      period: summary.period,
+      channel_id: channelId,
+      events_count: summary.total,
+    });
+    if (!claimed) {
+      results.push({ type: summary.type, sent: false });
+      continue;
+    }
+
+    const message = await sendChannelMessage(channelId, { embeds: [summary.embed] });
+    if (message) await store.setSummaryMessageId(summary.type, summary.period, message.id);
+    results.push({ type: summary.type, sent: message !== null });
+  }
+
+  return results;
 }

@@ -1,11 +1,9 @@
-export const runtime = "edge";
-
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdmin } from "@/lib/auth/admin";
 import { createAdminClient } from "@/lib/supabase/server";
 import { invalidateSettingsCache } from "@/lib/settings";
 
-const ALLOWED_KEYS = ["github_username", "github_org", "timezone"];
+const ALLOWED_KEYS = ["github_username", "github_org", "timezone", "excluded_repos"];
 
 export async function GET() {
   const admin = await verifyAdmin();

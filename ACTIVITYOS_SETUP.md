@@ -2,6 +2,8 @@
 
 Everything you need to do to get ActivityOS running, from external service setup through deployment.
 
+Prefer the interactive wizard: run `scripts/setup-activityos.sh`. It walks every manual step below in order (Discord, Cloudflare secrets, Supabase SQL, GitHub token and webhook, backfill).
+
 ---
 
 ## 1. Supabase — Database Setup
@@ -221,82 +223,30 @@ Registered 4 commands:
 
 ---
 
-## 6. Cron — Scheduled Summaries
+## 6. Cron — Scheduled Polling and Summaries
 
-Generate a secret for the cron endpoint:
+Scheduling runs inside the Cloudflare Worker: `cloudflare.config.ts` declares the cron trigger `*/30 * * * *`, and the worker entry (`worker.ts`) calls the endpoints itself. Do not set up an external scheduler (cron-job.org, QStash, GitHub Actions); it would run everything twice.
+
+Generate a secret for the cron endpoints:
 
 ```bash
 openssl rand -hex 20
 ```
 
-Save the output as `CRON_SECRET`.
+Save the output as `CRON_SECRET`, and set it with `npx wrangler secret put CRON_SECRET --name staxed-devsite`.
 
-Set up a daily cron job (using cron-job.org, Upstash QStash, or GitHub Actions) to hit:
+The scheduled work does nothing unless `CRON_ENABLED` is `true`. Set `CRON_ENABLED=true` on production only; the test instance leaves it unset and never polls or posts.
 
-```
-POST https://staxed.dev/api/cron/summaries
-Header: x-cron-secret: YOUR_CRON_SECRET
-```
+Every tick calls `POST /api/cron/poll-github`. The tick between 09:00 and 09:29 America/New_York also calls `POST /api/cron/summaries` (DST-safe; a repeated call is harmless). Both send the `x-cron-secret` header.
 
-**Schedule:** Daily at 09:00 ET (13:00 UTC)
-
-This will automatically send:
+Summaries send:
 - **Daily summary** — every day (for the previous day)
 - **Weekly summary** — every Monday (for the previous week)
 - **Monthly summary** — on the 1st of each month (for the previous month)
 
-### GitHub Polling Cron
-
-Set up a second cron job to poll GitHub for events every 30-60 minutes:
-
-```
-POST https://staxed.dev/api/cron/poll-github
-Header: x-cron-secret: YOUR_CRON_SECRET
-```
-
-This is a complement to webhooks — it catches events that webhooks may miss and enables:
+The poll is a complement to webhooks — it catches events that webhooks may miss and enables:
 - **Event grouping** — batches events from each polling run into a single Discord message
 - **Unposted event recovery** — finds events that were stored but not posted to Discord
-
-### GitHub Actions Example
-
-Create `.github/workflows/daily-summary.yml`:
-
-```yaml
-name: Daily Summary
-on:
-  schedule:
-    - cron: '0 13 * * *'  # 09:00 ET (13:00 UTC)
-  workflow_dispatch:       # Allow manual trigger
-
-jobs:
-  summary:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Send summary
-        run: |
-          curl -sf -X POST https://staxed.dev/api/cron/summaries \
-            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}"
-```
-
-Create `.github/workflows/poll-github.yml`:
-
-```yaml
-name: Poll GitHub
-on:
-  schedule:
-    - cron: '*/30 * * * *'  # Every 30 minutes
-  workflow_dispatch:
-
-jobs:
-  poll:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Poll GitHub events
-        run: |
-          curl -sf -X POST https://staxed.dev/api/cron/poll-github \
-            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}"
-```
 
 ---
 
@@ -322,6 +272,7 @@ ADMIN_WALLET_ADDRESS=0x189e78Ed23EdBDDD2E2B302c1B9111465fB87795
 GITHUB_APP_ID=123456
 GITHUB_APP_PRIVATE_KEY=LS0tLS1CRUdJTi...  (base64-encoded PEM, no newlines)
 GITHUB_WEBHOOK_SECRET=your_webhook_secret
+GITHUB_EVENTS_TOKEN=ghp_...  (classic PAT with read:user and repo scopes; the poll reads your events with it)
 
 # Discord
 DISCORD_APP_ID=your_discord_app_id
@@ -338,33 +289,31 @@ CRON_SECRET=your_cron_secret
 For production on Cloudflare, set these as secrets:
 
 ```bash
-# Set each secret (you'll be prompted to paste the value)
-npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
-npx wrangler secret put NEXTAUTH_SECRET
-npx wrangler secret put GITHUB_APP_ID
-npx wrangler secret put GITHUB_APP_PRIVATE_KEY
-npx wrangler secret put GITHUB_WEBHOOK_SECRET
-npx wrangler secret put DISCORD_APP_ID
-npx wrangler secret put DISCORD_PUBLIC_KEY
-npx wrangler secret put DISCORD_BOT_TOKEN
-npx wrangler secret put DISCORD_CHANNEL_ID
-npx wrangler secret put CRON_SECRET
+# Set each secret on the production Worker, staxed-devsite (you'll be prompted to paste the value).
+# Use --name devsite-test for the test Worker.
+npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY --name staxed-devsite
+npx wrangler secret put NEXTAUTH_SECRET --name staxed-devsite
+npx wrangler secret put GITHUB_APP_ID --name staxed-devsite
+npx wrangler secret put GITHUB_APP_PRIVATE_KEY --name staxed-devsite
+npx wrangler secret put GITHUB_WEBHOOK_SECRET --name staxed-devsite
+npx wrangler secret put GITHUB_EVENTS_TOKEN --name staxed-devsite
+npx wrangler secret put DISCORD_APP_ID --name staxed-devsite
+npx wrangler secret put DISCORD_PUBLIC_KEY --name staxed-devsite
+npx wrangler secret put DISCORD_BOT_TOKEN --name staxed-devsite
+npx wrangler secret put DISCORD_CHANNEL_ID --name staxed-devsite
+npx wrangler secret put CRON_SECRET --name staxed-devsite
+npx wrangler secret put DISCORD_OWNER_ID --name staxed-devsite
+npx wrangler secret put NEXT_PUBLIC_SUPABASE_URL --name staxed-devsite
+npx wrangler secret put NEXT_PUBLIC_SUPABASE_ANON_KEY --name staxed-devsite
+npx wrangler secret put NEXT_PUBLIC_REOWN_PROJECT_ID --name staxed-devsite
+npx wrangler secret put NEXT_PUBLIC_SITE_URL --name staxed-devsite
+npx wrangler secret put NEXTAUTH_URL --name staxed-devsite
+npx wrangler secret put ADMIN_WALLET_ADDRESS --name staxed-devsite
+# Production only; never set it on devsite-test:
+echo -n true | npx wrangler secret put CRON_ENABLED --name staxed-devsite
 ```
 
-For non-secret public vars, add them to `wrangler.jsonc` under `vars`:
-
-```jsonc
-{
-  // ...existing config
-  "vars": {
-    "NEXT_PUBLIC_SUPABASE_URL": "https://your-project.supabase.co",
-    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "eyJ...",
-    "NEXT_PUBLIC_REOWN_PROJECT_ID": "your_reown_project_id",
-    "NEXTAUTH_URL": "https://staxed.dev",
-    "ADMIN_WALLET_ADDRESS": "0x189e78Ed23EdBDDD2E2B302c1B9111465fB87795"
-  }
-}
-```
+The Worker, its bindings and the cron trigger are defined in `cloudflare.config.ts` (`staxed-devsite` for production, `devsite-test` for `--mode test`); there is no `wrangler.jsonc`. Every variable it lists, public ones included, is set as a secret as above (the list covers all of them).
 
 ---
 
@@ -399,7 +348,7 @@ The middleware redirects non-admin wallets to `/activity`. To test admin pages l
 
 ```bash
 # Build & deploy to Cloudflare
-npm run deploy
+npm run deploy:vinext
 ```
 
 ---
@@ -436,10 +385,11 @@ DISCORD_APP_ID=your_id DISCORD_BOT_TOKEN=your_token npx tsx scripts/register-dis
 
 ### F. Backfill Historical Data
 1. Visit `https://staxed.dev/activity/admin/backfill`
-2. Click **Discover Repos** — your personal and org repos will appear
-3. Click **Backfill All Commits** to import the last 6 months of commits
-4. Click **Backfill PRs** to import PRs
-5. Visit `/activity` — your timeline should now be populated
+2. Click **Discover Repos** — every repo you own, collaborate on or reach through an organization appears (needs `GITHUB_EVENTS_TOKEN`)
+3. Click **Backfill All Commits** to import the last two years of your commits on each default branch
+4. Click **Backfill PRs** to import your PRs, searched in date windows under GitHub's 1000-result cap
+5. Click **Finalize (award achievements)** to replay the stored history and record the achievements it earned, with their historical dates
+6. Visit `/activity` — the timeline and badges are populated. The backfill marks its rows as posted and sends nothing to Discord, and the next poll posts no achievements from the replay
 
 ### G. Create Your First Habit
 1. Visit `https://staxed.dev/activity/admin/habits`

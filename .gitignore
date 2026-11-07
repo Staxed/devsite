@@ -24,3 +24,6 @@ next-env.d.ts
 .omc/
 
 .DS_Store
+/dist/
+.vinext/
+.cloudflare/
