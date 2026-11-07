@@ -225,7 +225,7 @@ Registered 4 commands:
 
 ## 6. Cron — Scheduled Polling and Summaries
 
-Scheduling runs inside the Cloudflare Worker: `wrangler.jsonc` declares the cron trigger `*/30 * * * *`, and the worker entry (`worker.ts`) calls the endpoints itself. Do not set up an external scheduler (cron-job.org, QStash, GitHub Actions); it would run everything twice.
+Scheduling runs inside the Cloudflare Worker: `cloudflare.config.ts` declares the cron trigger `*/30 * * * *`, and the worker entry (`worker.ts`) calls the endpoints itself. Do not set up an external scheduler (cron-job.org, QStash, GitHub Actions); it would run everything twice.
 
 Generate a secret for the cron endpoints:
 
@@ -233,7 +233,7 @@ Generate a secret for the cron endpoints:
 openssl rand -hex 20
 ```
 
-Save the output as `CRON_SECRET`, and set it with `wrangler secret put CRON_SECRET`.
+Save the output as `CRON_SECRET`, and set it with `npx wrangler secret put CRON_SECRET --name devsite`.
 
 The scheduled work does nothing unless `CRON_ENABLED` is `true`. Set `CRON_ENABLED=true` on production only; the test instance leaves it unset and never polls or posts.
 
@@ -289,34 +289,22 @@ CRON_SECRET=your_cron_secret
 For production on Cloudflare, set these as secrets:
 
 ```bash
-# Set each secret (you'll be prompted to paste the value)
-npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
-npx wrangler secret put NEXTAUTH_SECRET
-npx wrangler secret put GITHUB_APP_ID
-npx wrangler secret put GITHUB_APP_PRIVATE_KEY
-npx wrangler secret put GITHUB_WEBHOOK_SECRET
-npx wrangler secret put GITHUB_EVENTS_TOKEN
-npx wrangler secret put DISCORD_APP_ID
-npx wrangler secret put DISCORD_PUBLIC_KEY
-npx wrangler secret put DISCORD_BOT_TOKEN
-npx wrangler secret put DISCORD_CHANNEL_ID
-npx wrangler secret put CRON_SECRET
+# Set each secret on the production Worker, devsite (you'll be prompted to paste the value).
+# Use --name devsite-test for the test Worker.
+npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY --name devsite
+npx wrangler secret put NEXTAUTH_SECRET --name devsite
+npx wrangler secret put GITHUB_APP_ID --name devsite
+npx wrangler secret put GITHUB_APP_PRIVATE_KEY --name devsite
+npx wrangler secret put GITHUB_WEBHOOK_SECRET --name devsite
+npx wrangler secret put GITHUB_EVENTS_TOKEN --name devsite
+npx wrangler secret put DISCORD_APP_ID --name devsite
+npx wrangler secret put DISCORD_PUBLIC_KEY --name devsite
+npx wrangler secret put DISCORD_BOT_TOKEN --name devsite
+npx wrangler secret put DISCORD_CHANNEL_ID --name devsite
+npx wrangler secret put CRON_SECRET --name devsite
 ```
 
-For non-secret public vars, add them to `wrangler.jsonc` under `vars`:
-
-```jsonc
-{
-  // ...existing config
-  "vars": {
-    "NEXT_PUBLIC_SUPABASE_URL": "https://your-project.supabase.co",
-    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "eyJ...",
-    "NEXT_PUBLIC_REOWN_PROJECT_ID": "your_reown_project_id",
-    "NEXTAUTH_URL": "https://staxed.dev",
-    "ADMIN_WALLET_ADDRESS": "0x189e78Ed23EdBDDD2E2B302c1B9111465fB87795"
-  }
-}
-```
+The Worker, its bindings and the cron trigger are defined in `cloudflare.config.ts` (`devsite` for production, `devsite-test` for `--mode test`); there is no `wrangler.jsonc`. Every variable it lists, public ones included, is set as a secret as above.
 
 ---
 
@@ -351,7 +339,7 @@ The middleware redirects non-admin wallets to `/activity`. To test admin pages l
 
 ```bash
 # Build & deploy to Cloudflare
-npm run deploy
+npm run deploy:vinext
 ```
 
 ---

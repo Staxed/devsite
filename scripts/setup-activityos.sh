@@ -8,6 +8,7 @@ cd "$(dirname "$0")/.."
 SITE_URL="https://staxed.dev"
 INTERACTIONS_URL="$SITE_URL/api/discord/interactions"
 WEBHOOK_URL="$SITE_URL/api/github/webhook"
+WORKER_NAME="devsite"
 
 step() { printf '\n== Step %s: %s\n' "$1" "$2"; }
 say() { printf '%s\n' "$@"; }
@@ -25,8 +26,17 @@ put_secret() {
     say "$name is empty; aborting." >&2
     exit 1
   fi
-  printf '%s' "$value" | npx wrangler secret put "$name"
+  printf '%s' "$value" | npx wrangler secret put "$name" --name "$WORKER_NAME"
 }
+
+step 0 "Confirm staxed.dev is served by the $WORKER_NAME Worker"
+say "devsite#22 step 3 creates the $WORKER_NAME Worker, connects it to main and moves staxed.dev to it."
+say "This wizard does not deploy or move domains. Steps 4, 8 and 9 need that code live on $SITE_URL."
+read -r -p "Is staxed.dev served by the $WORKER_NAME Worker? Type yes to continue: " served_ok
+if [ "$served_ok" != "yes" ]; then
+  say "Finish devsite#22 step 3 first, then rerun." >&2
+  exit 1
+fi
 
 step 1 "Create the Stixed bot and invite it"
 say "1. Open https://discord.com/developers/applications and click New Application, named Stixed."
@@ -52,11 +62,10 @@ say "DISCORD_CHANNEL_ID is the Aeon Forge activity channel (1437115510558036115)
 say "DISCORD_OWNER_ID is your Discord user id (Developer Mode on, right-click yourself, Copy User ID)."
 say "GITHUB_EVENTS_TOKEN comes from step 7; if you have it already, paste it now, otherwise press Enter to skip it and set it in step 7."
 say "CRON_SECRET is any long random string."
-say "wrangler targets the Worker named in wrangler.jsonc: $(grep -m1 '"name"' wrangler.jsonc)."
-say "That Worker must be the production one (staxed.dev), not the test instance."
-read -r -p "Is this the production Worker? Type yes to continue: " target_ok
+say "Every secret is written to the Worker named $WORKER_NAME (--name $WORKER_NAME), the production Worker, not devsite-test."
+read -r -p "Is $WORKER_NAME the production Worker? Type yes to continue: " target_ok
 if [ "$target_ok" != "yes" ]; then
-  say "Aborting; point wrangler at production (e.g. --env or --name) and rerun." >&2
+  say "Aborting; the secrets must go to the production Worker." >&2
   exit 1
 fi
 for name in DISCORD_APP_ID DISCORD_PUBLIC_KEY DISCORD_BOT_TOKEN DISCORD_CHANNEL_ID DISCORD_OWNER_ID GITHUB_EVENTS_TOKEN CRON_SECRET; do
@@ -66,9 +75,9 @@ for name in DISCORD_APP_ID DISCORD_PUBLIC_KEY DISCORD_BOT_TOKEN DISCORD_CHANNEL_
     put_secret "$name"
   fi
 done
-printf 'true' | npx wrangler secret put CRON_ENABLED
+printf 'true' | npx wrangler secret put CRON_ENABLED --name "$WORKER_NAME"
 say "CRON_ENABLED=true set on production only; never set it on the test instance."
-say "Deploy the Worker (main -> test -> production flow) so the secrets and cron trigger are live before step 4."
+say "Redeploy the $WORKER_NAME Worker (Workers Builds on main from devsite#22, or npm run deploy:vinext) so the secrets and cron trigger are live before step 4."
 pause
 
 step 4 "Set the Stixed bot's Interactions Endpoint URL"
