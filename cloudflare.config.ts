@@ -2,7 +2,7 @@ import { bindings, defineConfig, defineWorker, triggers } from "cf/config";
 
 // One Worker, staxed-devsite. Workers Builds deploys the production branch with
 // `npm run deploy:vinext` (staxed.dev) and the test branch as a Preview with
-// `npm run deploy:vinext:preview`.
+// `npm run deploy:vinext:preview` (the script skips every branch but test).
 export default defineConfig(() => ({
   worker: defineWorker({
     name: "staxed-devsite",

@@ -312,7 +312,7 @@ npx wrangler secret put ADMIN_WALLET_ADDRESS --name staxed-devsite
 echo -n true | npx wrangler secret put CRON_ENABLED --name staxed-devsite
 ```
 
-The Worker, its bindings and the cron trigger are defined in `cloudflare.config.ts` (one Worker, `staxed-devsite`: the `production` branch deploys it with `npm run deploy:vinext`, the `test` branch deploys a Preview with `npm run deploy:vinext:preview`); there is no `wrangler.jsonc`. Every variable it lists, public ones included, is set as a secret as above (the list covers all of them).
+The Worker, its bindings and the cron trigger are defined in `cloudflare.config.ts` (one Worker, `staxed-devsite`: the `production` branch deploys it with `npm run deploy:vinext`, the `test` branch deploys a Preview with `npm run deploy:vinext:preview`, which skips every other branch because Workers Previews have no branch filter); there is no `wrangler.jsonc`. Every variable it lists, public ones included, is set as a secret as above (the list covers all of them).
 
 ---
 

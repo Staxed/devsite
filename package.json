@@ -10,7 +10,7 @@
     "build:vinext": "vite build",
     "start:vinext": "vite preview",
     "deploy:vinext": "vinext-cloudflare deploy",
-    "deploy:vinext:preview": "vinext-cloudflare previews deploy",
+    "deploy:vinext:preview": "if [ \"$WORKERS_CI_BRANCH\" = \"test\" ]; then vinext-cloudflare previews deploy; else echo \"Preview skipped: only the test branch makes a Preview (this build is on ${WORKERS_CI_BRANCH:-no branch}).\"; fi",
     "test": "vitest run"
   },
   "dependencies": {
