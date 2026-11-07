@@ -10,7 +10,7 @@
     "build:vinext": "vite build",
     "start:vinext": "vite preview",
     "deploy:vinext": "vinext-cloudflare deploy",
-    "deploy:vinext:test": "vinext-cloudflare deploy --env test",
+    "deploy:vinext:preview": "vinext-cloudflare previews deploy",
     "test": "vitest run"
   },
   "dependencies": {
