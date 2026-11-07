@@ -3,7 +3,7 @@ import { bindings, defineConfig, defineWorker, triggers } from "cf/config";
 // One Worker, staxed-devsite. Workers Builds deploys the production branch with
 // `npm run deploy:vinext` (staxed.dev) and the test branch as a Preview with
 // `npm run deploy:vinext:preview` (the script skips every branch but test).
-export default defineConfig(() => ({
+export default defineConfig(({ isPreview }) => ({
   worker: defineWorker({
     name: "staxed-devsite",
     entrypoint: "./worker.ts",
@@ -15,7 +15,8 @@ export default defineConfig(() => ({
       runWorkerFirst: ["/*", "!/_next/static/*", "!/*/_next/static/*"],
     },
     // Poll every 30 minutes; the scheduled handler decides what to run (lib/cron/tick.ts).
-    triggers: [triggers.scheduled({ schedule: "*/30 * * * *" })],
+    // Previews reject the triggers field and never run cron, so a Preview build leaves it out.
+    triggers: isPreview ? [] : [triggers.scheduled({ schedule: "*/30 * * * *" })],
     env: {
       ASSETS: bindings.assets(),
       // Values are set in Cloudflare (dashboard or `cf secrets`); locally they come from .dev.vars.
