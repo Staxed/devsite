@@ -95,3 +95,10 @@ export function getPreviousMonthRangeFromTimezone(tz: string): { start: string; 
     label: `${monthNames[prevMonth - 1]} ${prevYear}`,
   };
 }
+
+/** Two years before `now`: where a backfill triggered at `now` starts. */
+export function twoYearsBefore(now: Date): string {
+  const since = new Date(now);
+  since.setUTCFullYear(since.getUTCFullYear() - 2);
+  return since.toISOString();
+}

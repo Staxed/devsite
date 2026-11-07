@@ -1,10 +1,11 @@
 import { createAdminClient } from "@/lib/supabase/server";
 import { getSettings } from "@/lib/settings";
+import { reposBreakdown } from "@/lib/activity/view";
 import {
   getPeriodStats,
   getLongestStreak,
   getAllStreaks,
-  getRepoBreakdown,
+  getGithubEventsInRange,
   getTimePatterns,
 } from "@/lib/streaks/engine";
 import {
@@ -168,12 +169,15 @@ export async function handleActivityStreak() {
 export async function handleActivityRepos(options: CommandOption[]) {
   const timeframe = (getOption(options, "timeframe") as string) || "week";
   const { startDate, endDate, label } = await getDateRange(timeframe);
-  const repos = await getRepoBreakdown(startDate, endDate);
+  const [events, { excluded_repos }] = await Promise.all([
+    getGithubEventsInRange(startDate, endDate),
+    getSettings(),
+  ]);
 
-  const sorted = Object.entries(repos).sort((a, b) => b[1] - a[1]).slice(0, 15);
+  const sorted = reposBreakdown(events, excluded_repos).slice(0, 15);
 
-  const fields = sorted.map(([repo, count]) => ({
-    name: repo,
+  const fields = sorted.map(({ name, events: count }) => ({
+    name,
     value: `${count} event${count !== 1 ? "s" : ""}`,
     inline: true,
   }));

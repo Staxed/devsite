@@ -10,7 +10,8 @@
     "build:vinext": "vite build",
     "start:vinext": "vite preview",
     "deploy:vinext": "vinext-cloudflare deploy",
-    "deploy:vinext:test": "vinext-cloudflare deploy --env test"
+    "deploy:vinext:preview": "if [ \"$WORKERS_CI_BRANCH\" = \"test\" ]; then vinext-cloudflare previews deploy; else echo \"Preview skipped: only the test branch makes a Preview (this build is on ${WORKERS_CI_BRANCH:-no branch}).\"; fi",
+    "test": "vitest run"
   },
   "dependencies": {
     "@reown/appkit": "^1.8.18",
@@ -44,6 +45,7 @@
     "tailwindcss": "^4.1.18",
     "typescript": "^5.9.3",
     "vite": "^8.3.0",
+    "vitest": "^5.1.0",
     "wrangler": "^4.66.0"
   },
   "type": "module"

@@ -1,11 +1,12 @@
-import { bindings, defineConfig, defineWorker } from "cf/config";
+import { bindings, defineConfig, defineWorker, triggers } from "cf/config";
 
-// Two Workers from one repo: `--mode test` (the test branch) builds devsite-test,
-// any other mode builds the production Worker, devsite.
-export default defineConfig(({ mode }) => ({
+// One Worker, staxed-devsite. Workers Builds deploys the production branch with
+// `npm run deploy:vinext` (staxed.dev) and the test branch as a Preview with
+// `npm run deploy:vinext:preview` (the script skips every branch but test).
+export default defineConfig(() => ({
   worker: defineWorker({
-    name: mode === "test" ? "devsite-test" : "devsite",
-    entrypoint: "vinext/server/fetch-handler",
+    name: "staxed-devsite",
+    entrypoint: "./worker.ts",
     compatibilityDate: "2026-11-03",
     compatibilityFlags: ["nodejs_compat"],
     assets: {
@@ -13,6 +14,8 @@ export default defineConfig(({ mode }) => ({
       notFoundHandling: "none",
       runWorkerFirst: ["/*", "!/_next/static/*", "!/*/_next/static/*"],
     },
+    // Poll every 30 minutes; the scheduled handler decides what to run (lib/cron/tick.ts).
+    triggers: [triggers.scheduled({ schedule: "*/30 * * * *" })],
     env: {
       ASSETS: bindings.assets(),
       // Values are set in Cloudflare (dashboard or `cf secrets`); locally they come from .dev.vars.
@@ -31,7 +34,10 @@ export default defineConfig(({ mode }) => ({
       DISCORD_PUBLIC_KEY: bindings.secret(),
       DISCORD_BOT_TOKEN: bindings.secret(),
       DISCORD_CHANNEL_ID: bindings.secret(),
+      DISCORD_OWNER_ID: bindings.secret(),
+      GITHUB_EVENTS_TOKEN: bindings.secret(),
       CRON_SECRET: bindings.secret(),
+      CRON_ENABLED: bindings.secret(),
     },
   }),
 }));
