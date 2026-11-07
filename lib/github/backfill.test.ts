@@ -56,7 +56,12 @@ beforeEach(() => {
         const found = prSearch[window];
         if (!found) throw new Error(`Unexpected PR search window ${window}`);
         const page = url.searchParams.get("page");
-        return Response.json({ total_count: found.total, incomplete_results: false, items: !page || page === "1" ? found.items : [] });
+        // octokit spaces search calls 2s apart by Date.now(), which is frozen here: step the clock past it
+        vi.setSystemTime(Date.now() + 5000);
+        const res = Response.json({ total_count: found.total, incomplete_results: false, items: !page || page === "1" ? found.items : [] });
+        // octokit's paginate reads response.url for search results; a bare Response has none
+        Object.defineProperty(res, "url", { value: String(url) });
+        return res;
       }
       if (url.pathname === "/users/Staxed/events") {
         return Response.json(url.searchParams.get("page") === "1" ? [{
@@ -109,7 +114,7 @@ describe("backfill", () => {
     const inserted = await backfillRepoCommits({ id: 2, full_name: "Acme/hidden", owner: "Acme", name: "hidden", visibility: "public" }, "2024-03-10T15:00:00.000Z", store);
 
     expect(inserted).toBe(1);
-    expect(store.events).toMatchObject([{ dedupe_key: "commit:Acme/hidden:abc", repo_name: "Acme/hidden", posted_to_discord: true }]);
+    expect(store.events).toMatchObject([{ dedupe_key: "commit:Acme/hidden:abc", metadata: { repo: "Acme/hidden" }, posted_to_discord: true }]);
   });
 
   it("fails loudly when a single day still has over 1000 PRs", async () => {
