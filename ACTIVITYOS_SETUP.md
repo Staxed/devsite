@@ -235,7 +235,7 @@ openssl rand -hex 20
 
 Save the output as `CRON_SECRET`, and set it with `npx wrangler secret put CRON_SECRET --name staxed-devsite`.
 
-The scheduled work does nothing unless `CRON_ENABLED` is `true`. Set `CRON_ENABLED=true` on production only; the test instance leaves it unset and never polls or posts.
+The scheduled work does nothing unless `CRON_ENABLED` is `true`. Set `CRON_ENABLED=true` on the staxed-devsite Worker. Previews of the test branch share its settings, but Cloudflare runs cron triggers only on the deployed production version, so a Preview never polls or posts on a schedule.
 
 Every tick calls `POST /api/cron/poll-github`. The tick between 09:00 and 09:29 America/New_York also calls `POST /api/cron/summaries` (DST-safe; a repeated call is harmless). Both send the `x-cron-secret` header.
 
@@ -290,7 +290,6 @@ For production on Cloudflare, set these as secrets:
 
 ```bash
 # Set each secret on the production Worker, staxed-devsite (you'll be prompted to paste the value).
-# Use --name devsite-test for the test Worker.
 npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY --name staxed-devsite
 npx wrangler secret put NEXTAUTH_SECRET --name staxed-devsite
 npx wrangler secret put GITHUB_APP_ID --name staxed-devsite
@@ -309,11 +308,11 @@ npx wrangler secret put NEXT_PUBLIC_REOWN_PROJECT_ID --name staxed-devsite
 npx wrangler secret put NEXT_PUBLIC_SITE_URL --name staxed-devsite
 npx wrangler secret put NEXTAUTH_URL --name staxed-devsite
 npx wrangler secret put ADMIN_WALLET_ADDRESS --name staxed-devsite
-# Production only; never set it on devsite-test:
+# Turns on the 30-minute poll (cron triggers run only on the production deployment):
 echo -n true | npx wrangler secret put CRON_ENABLED --name staxed-devsite
 ```
 
-The Worker, its bindings and the cron trigger are defined in `cloudflare.config.ts` (`staxed-devsite` for production, `devsite-test` for `--mode test`); there is no `wrangler.jsonc`. Every variable it lists, public ones included, is set as a secret as above (the list covers all of them).
+The Worker, its bindings and the cron trigger are defined in `cloudflare.config.ts` (one Worker, `staxed-devsite`: the `production` branch deploys it with `npm run deploy:vinext`, the `test` branch deploys a Preview with `npm run deploy:vinext:preview`, which skips every other branch because Workers Previews have no branch filter); there is no `wrangler.jsonc`. Every variable it lists, public ones included, is set as a secret as above (the list covers all of them).
 
 ---
 

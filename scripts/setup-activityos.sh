@@ -30,7 +30,7 @@ put_secret() {
 }
 
 step 0 "Confirm staxed.dev is served by the $WORKER_NAME Worker"
-say "devsite#22 step 3 creates the $WORKER_NAME Worker, connects it to main and moves staxed.dev to it."
+say "devsite#22 step 3 creates the $WORKER_NAME Worker, builds it from the production branch and moves staxed.dev to it."
 say "This wizard does not deploy or move domains. Steps 4, 8 and 9 need that code live on $SITE_URL."
 read -r -p "Is staxed.dev served by the $WORKER_NAME Worker? Type yes to continue: " served_ok
 if [ "$served_ok" != "yes" ]; then
@@ -62,7 +62,7 @@ say "DISCORD_CHANNEL_ID is the Aeon Forge activity channel (1437115510558036115)
 say "DISCORD_OWNER_ID is your Discord user id (Developer Mode on, right-click yourself, Copy User ID)."
 say "GITHUB_EVENTS_TOKEN comes from step 7; if you have it already, paste it now, otherwise press Enter to skip it and set it in step 7."
 say "CRON_SECRET is any long random string."
-say "Every secret is written to the Worker named $WORKER_NAME (--name $WORKER_NAME), the production Worker, not devsite-test."
+say "Every secret is written to the Worker named $WORKER_NAME (--name $WORKER_NAME), the production Worker."
 read -r -p "Is $WORKER_NAME the production Worker? Type yes to continue: " target_ok
 if [ "$target_ok" != "yes" ]; then
   say "Aborting; the secrets must go to the production Worker." >&2
@@ -76,8 +76,8 @@ for name in DISCORD_APP_ID DISCORD_PUBLIC_KEY DISCORD_BOT_TOKEN DISCORD_CHANNEL_
   fi
 done
 printf 'true' | npx wrangler secret put CRON_ENABLED --name "$WORKER_NAME"
-say "CRON_ENABLED=true set on production only; never set it on the test instance."
-say "Redeploy the $WORKER_NAME Worker (Workers Builds on main from devsite#22, or npm run deploy:vinext) so the secrets and cron trigger are live before step 4."
+say "CRON_ENABLED=true set; cron triggers run only on the production deployment, never on test-branch Previews."
+say "Redeploy the $WORKER_NAME Worker (Workers Builds: Retry the latest production-branch build, or npm run deploy:vinext) so the secrets and cron trigger are live before step 4."
 pause
 
 step 4 "Set the Stixed bot's Interactions Endpoint URL"
