@@ -302,9 +302,18 @@ npx wrangler secret put DISCORD_PUBLIC_KEY --name devsite
 npx wrangler secret put DISCORD_BOT_TOKEN --name devsite
 npx wrangler secret put DISCORD_CHANNEL_ID --name devsite
 npx wrangler secret put CRON_SECRET --name devsite
+npx wrangler secret put DISCORD_OWNER_ID --name devsite
+npx wrangler secret put NEXT_PUBLIC_SUPABASE_URL --name devsite
+npx wrangler secret put NEXT_PUBLIC_SUPABASE_ANON_KEY --name devsite
+npx wrangler secret put NEXT_PUBLIC_REOWN_PROJECT_ID --name devsite
+npx wrangler secret put NEXT_PUBLIC_SITE_URL --name devsite
+npx wrangler secret put NEXTAUTH_URL --name devsite
+npx wrangler secret put ADMIN_WALLET_ADDRESS --name devsite
+# Production only; never set it on devsite-test:
+echo -n true | npx wrangler secret put CRON_ENABLED --name devsite
 ```
 
-The Worker, its bindings and the cron trigger are defined in `cloudflare.config.ts` (`devsite` for production, `devsite-test` for `--mode test`); there is no `wrangler.jsonc`. Every variable it lists, public ones included, is set as a secret as above.
+The Worker, its bindings and the cron trigger are defined in `cloudflare.config.ts` (`devsite` for production, `devsite-test` for `--mode test`); there is no `wrangler.jsonc`. Every variable it lists, public ones included, is set as a secret as above (the list covers all of them).
 
 ---
 

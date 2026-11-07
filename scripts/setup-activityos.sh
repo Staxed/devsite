@@ -15,11 +15,11 @@ say() { printf '%s\n' "$@"; }
 pause() { read -r -p "Press Enter when done... " _; }
 
 put_secret() {
-  local name="$1" value
+  local name="$1" optional="${2:-required}" value
   read -r -s -p "$name: " value
   printf '\n'
   if [ -z "$value" ]; then
-    if [ "${ALLOW_SKIP:-}" = "1" ]; then
+    if [ "$optional" = "optional" ]; then
       say "$name skipped; set it later (step 7)."
       return 0
     fi
@@ -70,7 +70,7 @@ if [ "$target_ok" != "yes" ]; then
 fi
 for name in DISCORD_APP_ID DISCORD_PUBLIC_KEY DISCORD_BOT_TOKEN DISCORD_CHANNEL_ID DISCORD_OWNER_ID GITHUB_EVENTS_TOKEN CRON_SECRET; do
   if [ "$name" = "GITHUB_EVENTS_TOKEN" ]; then
-    ALLOW_SKIP=1 put_secret "$name"
+    put_secret "$name" optional
   else
     put_secret "$name"
   fi
