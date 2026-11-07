@@ -1,10 +1,10 @@
 import { bindings, defineConfig, defineWorker, triggers } from "cf/config";
 
 // Two Workers from one repo: `--mode test` (the test branch) builds devsite-test,
-// any other mode builds the production Worker, devsite.
+// any other mode builds the production Worker, staxed-devsite.
 export default defineConfig(({ mode }) => ({
   worker: defineWorker({
-    name: mode === "test" ? "devsite-test" : "devsite",
+    name: mode === "test" ? "devsite-test" : "staxed-devsite",
     entrypoint: "./worker.ts",
     compatibilityDate: "2026-11-03",
     compatibilityFlags: ["nodejs_compat"],

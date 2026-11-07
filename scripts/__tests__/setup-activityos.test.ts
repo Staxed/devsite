@@ -39,7 +39,7 @@ describe("setup-activityos.sh", () => {
 
   it("allows GITHUB_EVENTS_TOKEN alone to be skipped", () => {
     const r = run("yes\n\n\nid\ntok\nyes\na\nb\nc\nd\ne\n\nf\n");
-    expect(r.calls).toContain("secret put CRON_SECRET --name devsite");
+    expect(r.calls).toContain("secret put CRON_SECRET --name staxed-devsite");
     expect(r.calls).not.toContain("secret put GITHUB_EVENTS_TOKEN");
   });
 });

@@ -233,7 +233,7 @@ Generate a secret for the cron endpoints:
 openssl rand -hex 20
 ```
 
-Save the output as `CRON_SECRET`, and set it with `npx wrangler secret put CRON_SECRET --name devsite`.
+Save the output as `CRON_SECRET`, and set it with `npx wrangler secret put CRON_SECRET --name staxed-devsite`.
 
 The scheduled work does nothing unless `CRON_ENABLED` is `true`. Set `CRON_ENABLED=true` on production only; the test instance leaves it unset and never polls or posts.
 
@@ -289,31 +289,31 @@ CRON_SECRET=your_cron_secret
 For production on Cloudflare, set these as secrets:
 
 ```bash
-# Set each secret on the production Worker, devsite (you'll be prompted to paste the value).
+# Set each secret on the production Worker, staxed-devsite (you'll be prompted to paste the value).
 # Use --name devsite-test for the test Worker.
-npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY --name devsite
-npx wrangler secret put NEXTAUTH_SECRET --name devsite
-npx wrangler secret put GITHUB_APP_ID --name devsite
-npx wrangler secret put GITHUB_APP_PRIVATE_KEY --name devsite
-npx wrangler secret put GITHUB_WEBHOOK_SECRET --name devsite
-npx wrangler secret put GITHUB_EVENTS_TOKEN --name devsite
-npx wrangler secret put DISCORD_APP_ID --name devsite
-npx wrangler secret put DISCORD_PUBLIC_KEY --name devsite
-npx wrangler secret put DISCORD_BOT_TOKEN --name devsite
-npx wrangler secret put DISCORD_CHANNEL_ID --name devsite
-npx wrangler secret put CRON_SECRET --name devsite
-npx wrangler secret put DISCORD_OWNER_ID --name devsite
-npx wrangler secret put NEXT_PUBLIC_SUPABASE_URL --name devsite
-npx wrangler secret put NEXT_PUBLIC_SUPABASE_ANON_KEY --name devsite
-npx wrangler secret put NEXT_PUBLIC_REOWN_PROJECT_ID --name devsite
-npx wrangler secret put NEXT_PUBLIC_SITE_URL --name devsite
-npx wrangler secret put NEXTAUTH_URL --name devsite
-npx wrangler secret put ADMIN_WALLET_ADDRESS --name devsite
+npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY --name staxed-devsite
+npx wrangler secret put NEXTAUTH_SECRET --name staxed-devsite
+npx wrangler secret put GITHUB_APP_ID --name staxed-devsite
+npx wrangler secret put GITHUB_APP_PRIVATE_KEY --name staxed-devsite
+npx wrangler secret put GITHUB_WEBHOOK_SECRET --name staxed-devsite
+npx wrangler secret put GITHUB_EVENTS_TOKEN --name staxed-devsite
+npx wrangler secret put DISCORD_APP_ID --name staxed-devsite
+npx wrangler secret put DISCORD_PUBLIC_KEY --name staxed-devsite
+npx wrangler secret put DISCORD_BOT_TOKEN --name staxed-devsite
+npx wrangler secret put DISCORD_CHANNEL_ID --name staxed-devsite
+npx wrangler secret put CRON_SECRET --name staxed-devsite
+npx wrangler secret put DISCORD_OWNER_ID --name staxed-devsite
+npx wrangler secret put NEXT_PUBLIC_SUPABASE_URL --name staxed-devsite
+npx wrangler secret put NEXT_PUBLIC_SUPABASE_ANON_KEY --name staxed-devsite
+npx wrangler secret put NEXT_PUBLIC_REOWN_PROJECT_ID --name staxed-devsite
+npx wrangler secret put NEXT_PUBLIC_SITE_URL --name staxed-devsite
+npx wrangler secret put NEXTAUTH_URL --name staxed-devsite
+npx wrangler secret put ADMIN_WALLET_ADDRESS --name staxed-devsite
 # Production only; never set it on devsite-test:
-echo -n true | npx wrangler secret put CRON_ENABLED --name devsite
+echo -n true | npx wrangler secret put CRON_ENABLED --name staxed-devsite
 ```
 
-The Worker, its bindings and the cron trigger are defined in `cloudflare.config.ts` (`devsite` for production, `devsite-test` for `--mode test`); there is no `wrangler.jsonc`. Every variable it lists, public ones included, is set as a secret as above (the list covers all of them).
+The Worker, its bindings and the cron trigger are defined in `cloudflare.config.ts` (`staxed-devsite` for production, `devsite-test` for `--mode test`); there is no `wrangler.jsonc`. Every variable it lists, public ones included, is set as a secret as above (the list covers all of them).
 
 ---
 

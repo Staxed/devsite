@@ -8,7 +8,7 @@ cd "$(dirname "$0")/.."
 SITE_URL="https://staxed.dev"
 INTERACTIONS_URL="$SITE_URL/api/discord/interactions"
 WEBHOOK_URL="$SITE_URL/api/github/webhook"
-WORKER_NAME="devsite"
+WORKER_NAME="staxed-devsite"
 
 step() { printf '\n== Step %s: %s\n' "$1" "$2"; }
 say() { printf '%s\n' "$@"; }
