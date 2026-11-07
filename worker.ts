@@ -1,7 +1,10 @@
+import vinextHandler from "vinext/server/fetch-handler";
 import { createScheduled } from "./lib/cron/scheduled";
-import { default as openNextWorker } from "./.open-next/worker.js";
+
+type Handler = { fetch: Parameters<typeof createScheduled>[0] };
+const handler = vinextHandler as unknown as Handler;
 
 export default {
-  fetch: openNextWorker.fetch,
-  scheduled: createScheduled(openNextWorker.fetch as Parameters<typeof createScheduled>[0]),
+  fetch: handler.fetch,
+  scheduled: createScheduled(handler.fetch),
 };
