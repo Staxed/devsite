@@ -1,5 +1,3 @@
-export const runtime = "edge";
-
 import { NextResponse } from "next/server";
 import { getCodingStreak } from "@/lib/streaks/engine";
 import { createAdminClient } from "@/lib/supabase/server";

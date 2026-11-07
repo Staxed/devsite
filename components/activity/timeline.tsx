@@ -1,4 +1,4 @@
-import type { ActivityEvent } from "@/lib/supabase/types";
+import type { TimelineRow } from "@/lib/activity/view";
 
 const kindIcons: Record<string, { icon: string; color: string }> = {
   commit_pushed: { icon: "⚡", color: "var(--color-accent-gold)" },
@@ -20,15 +20,8 @@ function formatTime(isoDate: string): string {
   });
 }
 
-function getDisplayTitle(event: ActivityEvent): string {
-  if (event.visibility === "private" && event.repo_visibility === "private") {
-    return event.public_summary || "Activity in a private repository";
-  }
-  return event.title || event.public_summary || event.kind;
-}
-
-export default function Timeline({ events }: { events: ActivityEvent[] }) {
-  if (events.length === 0) {
+export default function Timeline({ rows }: { rows: TimelineRow[] }) {
+  if (rows.length === 0) {
     return (
       <div className="timeline-empty">
         <p>No activity yet. Check back soon.</p>
@@ -38,27 +31,27 @@ export default function Timeline({ events }: { events: ActivityEvent[] }) {
 
   return (
     <div className="timeline" role="list" aria-label="Activity timeline">
-      {events.map((event) => {
-        const { icon, color } = kindIcons[event.kind] || { icon: "·", color: "var(--color-text-muted)" };
+      {rows.map((row) => {
+        const { icon, color } = (row.event && kindIcons[row.event.kind]) || { icon: "·", color: "var(--color-text-muted)" };
         return (
-          <div key={event.id} className="timeline-item" role="listitem">
+          <div key={row.event ? row.event.id : `redacted-${row.occurred_on}`} className="timeline-item" role="listitem">
             <div className="timeline-icon" style={{ color }} aria-hidden="true">
               {icon}
             </div>
             <div className="timeline-content">
               <p className="timeline-title">
-                {event.url && event.visibility === "public" ? (
-                  <a href={event.url} target="_blank" rel="noopener noreferrer">
-                    {getDisplayTitle(event)}
+                {row.url ? (
+                  <a href={row.url} target="_blank" rel="noopener noreferrer">
+                    {row.title}
                     <span className="sr-only"> (opens in new tab)</span>
                   </a>
                 ) : (
-                  getDisplayTitle(event)
+                  row.title
                 )}
               </p>
               <p className="timeline-meta">
-                <span className="timeline-kind">{event.kind.replace(/_/g, " ")}</span>
-                <span className="timeline-time">{formatTime(event.occurred_at)}</span>
+                {row.event && <span className="timeline-kind">{row.event.kind.replace(/_/g, " ")}</span>}
+                <span className="timeline-time">{formatTime(row.occurred_at)}</span>
               </p>
             </div>
           </div>
