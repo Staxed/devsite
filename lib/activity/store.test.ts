@@ -22,16 +22,6 @@ vi.mock("@/lib/supabase/server", () => {
 import { createSupabaseStore } from "./store";
 
 describe("supabase store claims", () => {
-  it("claims events with a conditional update on posted_to_discord=false", async () => {
-    calls = [];
-    result = { data: [{ occurred_at: "b" }, { occurred_at: "a" }] };
-    const claimed = await createSupabaseStore().claimEvents(["k1", "k2"]);
-
-    expect(calls).toContainEqual(["update", { posted_to_discord: true }]);
-    expect(calls).toContainEqual(["eq", "posted_to_discord", false]);
-    expect(claimed.map((e) => e.occurred_at)).toEqual(["a", "b"]);
-  });
-
   it("claims a time range with a conditional update on posted_to_discord=false", async () => {
     calls = [];
     result = { data: [{ occurred_at: "b" }, { occurred_at: "a" }] };

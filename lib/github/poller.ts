@@ -10,13 +10,10 @@ import { normalizeEventsApiResponse } from "./normalize-events-api";
 import { getSettings } from "@/lib/settings";
 import { createSupabaseStore, insertNewEvents, type ActivityStore } from "@/lib/activity/store";
 import { findNewCommits, recordCommitLines } from "./commit-lines";
-import { claimAndPostEvents } from "@/lib/discord/notify";
 
 interface PollResult {
   fetched: number;
   newEvents: number;
-  posted: boolean;
-  recovered: number;
 }
 
 /**
@@ -59,14 +56,13 @@ async function fetchGitHubEvents(
 }
 
 /**
- * Main polling function. Fetches events, normalizes, upserts, posts to Discord.
+ * Main polling function. Fetches events, normalizes and stores them; the hourly digest posts to Discord.
  */
 export async function pollGitHubEvents(
   store: ActivityStore = createSupabaseStore(),
   maxAgeHours = 12
 ): Promise<PollResult> {
   const settings = await getSettings();
-  const channelId = process.env.DISCORD_CHANNEL_ID;
 
   const token = process.env.GITHUB_EVENTS_TOKEN;
   if (!token) throw new Error("GITHUB_EVENTS_TOKEN is not set; the poll reads Staxed's events with it");
@@ -79,39 +75,5 @@ export async function pollGitHubEvents(
   const stored = await insertNewEvents(store, normalized);
   await recordCommitLines(store, newCommits);
 
-  let posted = false;
-  if (channelId && normalized.length > 0) {
-    try {
-      const pollRunId = `poll:${new Date().toISOString()}`;
-      posted = (await claimAndPostEvents(store, channelId, normalized.map((e) => e.dedupe_key), pollRunId)) > 0;
-    } catch (err) {
-      console.error("Discord posting failed during poll:", err);
-    }
-  }
-
-  const recovered = channelId ? await recoverUnpostedEvents(store, channelId) : 0;
-
-  return { fetched: rawEvents.length, newEvents: stored, posted, recovered };
-}
-
-/**
- * Post events that were stored but never claimed (for example when the process died
- * between storing and posting). Claiming first means events the webhook or this poll
- * already claimed are never posted again.
- */
-async function recoverUnpostedEvents(store: ActivityStore, channelId: string): Promise<number> {
-  // At least 5 minutes old, to avoid racing with a path that is about to claim them
-  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-  const recentCutoff = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-
-  const unposted = await store.findUnpostedEvents(cutoff, recentCutoff);
-  const dedupeKeys = unposted.flatMap((e) => (e.dedupe_key ? [e.dedupe_key] : []));
-  if (dedupeKeys.length === 0) return 0;
-
-  try {
-    return await claimAndPostEvents(store, channelId, dedupeKeys, `recovery:${new Date().toISOString()}`);
-  } catch (err) {
-    console.error("Recovery posting failed:", err);
-    return 0;
-  }
+  return { fetched: rawEvents.length, newEvents: stored };
 }

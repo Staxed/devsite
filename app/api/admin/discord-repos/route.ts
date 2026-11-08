@@ -4,8 +4,6 @@ import { createSupabaseStore } from "@/lib/activity/store";
 import { discoverRepos } from "@/lib/github/backfill";
 import { buildRepoList, parseRepoFullName, planRepoSave } from "@/lib/discord/repo-list";
 
-export const runtime = "edge";
-
 const unauthorized = () => NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
 export async function GET() {

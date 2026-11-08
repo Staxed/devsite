@@ -9,7 +9,7 @@ vi.mock("@/lib/supabase/server", () => ({ createAdminClient: () => ({}) }));
 
 import { discoverRepos, backfillRepoCommits, backfillPRs } from "./backfill";
 import { twoYearsBefore } from "@/lib/dates";
-import { pollGitHubEvents } from "./poller";
+import { postHourlyDigest } from "@/lib/discord/digest";
 
 const NOW = new Date("2026-03-10T15:00:00Z");
 const COMMIT_TIME = "2026-03-09T14:00:00Z";
@@ -90,13 +90,15 @@ describe("backfill", () => {
     expect(listing.searchParams.get("affiliation")).toBe("owner,collaborator,organization_member");
   });
 
-  it("stores commits as already posted, then the next poll posts nothing for them", async () => {
+  it("stores commits as already posted, and the hourly digest never posts them", async () => {
     const store = createMemoryStore();
     const [site] = await discoverRepos();
 
     const inserted = await backfillRepoCommits(site, "2024-03-10T15:00:00.000Z", store);
-    await pollGitHubEvents(store);
+    await store.saveDiscordRepos([{ repo_full_name: "Staxed/site", display_name: "Site", included: true }]);
+    const lines = await postHourlyDigest(store, "chan", new Date("2026-03-10T15:30:00Z"));
 
+    expect(lines).toBe(0);
     expect(inserted).toBe(1);
     expect(store.events).toMatchObject([{ dedupe_key: "commit:Staxed/site:abc", posted_to_discord: true, title: "Add feature" }]);
     expect(discordMessages).toEqual([]);

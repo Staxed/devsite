@@ -29,20 +29,20 @@ describe("scheduled", () => {
     await expect(s.scheduled({ scheduledTime: outWindow }, { CRON_ENABLED: "true" }, s.ctx)).rejects.toThrow(/CRON_SECRET/);
   });
 
-  it("posts poll only outside the window, with the secret header", async () => {
+  it("posts poll then digest outside the window, with the secret header", async () => {
     const s = setup();
     await s.scheduled({ scheduledTime: outWindow }, { CRON_ENABLED: "true", CRON_SECRET: "sek" }, s.ctx);
     await Promise.all(s.waits);
-    expect(s.calls.map((r) => new URL(r.url).pathname)).toEqual(["/api/cron/poll-github"]);
+    expect(s.calls.map((r) => new URL(r.url).pathname)).toEqual(["/api/cron/poll-github", "/api/cron/digest"]);
     expect(s.calls[0].method).toBe("POST");
     expect(s.calls[0].headers.get("x-cron-secret")).toBe("sek");
   });
 
-  it("runs poll before summaries inside the window", async () => {
+  it("runs poll, digest, then summaries inside the window", async () => {
     const s = setup();
     await s.scheduled({ scheduledTime: inWindow }, { CRON_ENABLED: "true", CRON_SECRET: "sek" }, s.ctx);
     await Promise.all(s.waits);
-    expect(s.calls.map((r) => new URL(r.url).pathname)).toEqual(["/api/cron/poll-github", "/api/cron/summaries"]);
+    expect(s.calls.map((r) => new URL(r.url).pathname)).toEqual(["/api/cron/poll-github", "/api/cron/digest", "/api/cron/summaries"]);
   });
 
   it("fails on a non-ok response", async () => {
