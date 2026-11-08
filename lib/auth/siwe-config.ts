@@ -45,7 +45,12 @@ export const siweConfig = createSIWEConfig({
         signature,
         callbackUrl: "/activity/admin",
       });
-      return Boolean(success?.ok);
+      // A refused sign-in still answers HTTP 200, with the reason in `error`.
+      if (!success?.ok || success.error) {
+        console.error("Admin sign-in refused by the server:", success?.error ?? "no response");
+        return false;
+      }
+      return true;
     } catch {
       return false;
     }
