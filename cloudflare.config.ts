@@ -14,6 +14,13 @@ export default defineConfig(({ isPreview }) => ({
       notFoundHandling: "none",
       runWorkerFirst: ["/*", "!/_next/static/*", "!/*/_next/static/*"],
     },
+    // Must match the custom domains on the Worker in the dashboard: the deploy runs
+    // strict and aborts if they differ. test.staxed.dev serves Previews only.
+    domains: [
+      { hostname: "staxed.dev", production: true, previews: false },
+      { hostname: "www.staxed.dev", production: true, previews: false },
+      { hostname: "test.staxed.dev", production: false, previews: true },
+    ],
     // Poll every 30 minutes; the scheduled handler decides what to run (lib/cron/tick.ts).
     // Previews reject the triggers field and never run cron, so a Preview build leaves it out.
     triggers: isPreview ? [] : [triggers.scheduled({ schedule: "*/30 * * * *" })],
