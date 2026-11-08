@@ -20,6 +20,7 @@ export function parseRepoFullName(input: unknown): string | null {
 /**
  * Every repo GitHub lists, every repo in stored activity and every saved row.
  * Visibility is GitHub's flag when GitHub lists the repo, otherwise private.
+ * Repos GitHub reports as archived are left out; their stored events and saved row are kept.
  */
 export async function buildRepoList(store: ActivityStore, github: DiscoveredRepo[]): Promise<RepoListEntry[]> {
   const [eventRepos, saved] = await Promise.all([store.listEventRepos(), store.listDiscordRepos()]);
@@ -27,8 +28,9 @@ export async function buildRepoList(store: ActivityStore, github: DiscoveredRepo
   const savedByName = new Map(saved.map((r) => [r.repo_full_name, r]));
   const hasPrivateEvent = new Map(eventRepos.map((r) => [r.repo_full_name, r.has_private_event]));
 
+  const archived = new Set(github.filter((r) => r.archived).map((r) => r.full_name));
   const names = new Set([...githubVisibility.keys(), ...hasPrivateEvent.keys(), ...savedByName.keys()]);
-  return [...names].sort().map((repo_full_name) => {
+  return [...names].filter((name) => !archived.has(name)).sort().map((repo_full_name) => {
     const row = savedByName.get(repo_full_name);
     const display_name = row?.display_name ?? null;
     const included = row?.included ?? false;
