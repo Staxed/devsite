@@ -1,7 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/server";
 import { getSettings } from "@/lib/settings";
 import { createSupabaseStore } from "@/lib/activity/store";
-import { repoDisplayName } from "./digest";
+import { groupByIncludedRepo, includedRepoNames, repoDisplayName } from "./digest";
 import type { ActivityEvent } from "@/lib/supabase/types";
 import {
   getPeriodStats,
@@ -175,12 +175,8 @@ export async function handleActivityRepos(options: CommandOption[]) {
     getGithubEventsInRange(startDate, endDate),
     createSupabaseStore().listDiscordRepos(),
   ]);
-  const included = new Map(discordRepos.filter((r) => r.included).map((r) => [r.repo_full_name, r.display_name]));
-  const byRepo = new Map<string, ActivityEvent[]>();
-  for (const event of events) {
-    const repo = event.metadata?.repo as string | undefined;
-    if (repo && included.has(repo)) byRepo.set(repo, [...(byRepo.get(repo) ?? []), event]);
-  }
+  const included = includedRepoNames(discordRepos);
+  const byRepo = groupByIncludedRepo(events, included);
 
   const sorted = [...byRepo]
     .map(([repo, repoEvents]) => ({ name: repoDisplayName(repo, included.get(repo) ?? null, repoEvents), count: repoEvents.length }))
