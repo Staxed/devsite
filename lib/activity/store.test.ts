@@ -113,4 +113,22 @@ describe("supabase store discord/line methods", () => {
     ]);
     expect(upsert?.[2]).toEqual({ onConflict: "repo_full_name" });
   });
+
+  it("reads repos from github events and flags those with a private event", async () => {
+    calls = [];
+    result = {
+      data: [
+        { repo: "o/a", repo_visibility: "public" },
+        { repo: "o/a", repo_visibility: "private" },
+        { repo: null, repo_visibility: "public" },
+        { repo: "o/b", repo_visibility: "public" },
+      ],
+    };
+    const repos = await createSupabaseStore().listEventRepos();
+    expect(calls).toContainEqual(["eq", "source", "github"]);
+    expect(repos).toEqual([
+      { repo_full_name: "o/a", has_private_event: true },
+      { repo_full_name: "o/b", has_private_event: false },
+    ]);
+  });
 });

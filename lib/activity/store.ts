@@ -19,6 +19,11 @@ export interface DiscordPostRecord {
   events_count: number;
 }
 
+export interface EventRepo {
+  repo_full_name: string;
+  has_private_event: boolean;
+}
+
 /**
  * The database operations that ingest, posting, summaries and achievements need.
  * Every "claim" is atomic: the caller owns only what the call returns.
@@ -36,6 +41,8 @@ export interface ActivityStore {
   findStoredKeys(dedupeKeys: string[]): Promise<string[]>;
   /** Set lines_added and lines_removed on the event with this dedupe key. */
   setEventLines(dedupeKey: string, linesAdded: number, linesRemoved: number): Promise<void>;
+  /** Every distinct repo named by a stored GitHub event, with whether any of its events came from a private repo. */
+  listEventRepos(): Promise<EventRepo[]>;
   /** Every saved discord_repos row. */
   listDiscordRepos(): Promise<DiscordRepo[]>;
   /** Insert or update discord_repos rows by repo_full_name. */
@@ -142,6 +149,28 @@ export function createSupabaseStore(): ActivityStore {
         .update({ lines_added: linesAdded, lines_removed: linesRemoved })
         .eq("dedupe_key", dedupeKey);
       if (error) fail("set event lines", error);
+    },
+
+    async listEventRepos() {
+      // Page through the events: Supabase caps a single response at 1000 rows.
+      const pageSize = 1000;
+      const repos = new Map<string, boolean>();
+      for (let from = 0; ; from += pageSize) {
+        const { data, error } = await supabase
+          .from("activity_events")
+          .select("repo:metadata->>repo, repo_visibility")
+          .eq("source", "github")
+          .order("id", { ascending: true })
+          .range(from, from + pageSize - 1);
+        if (error) fail("list event repos", error);
+        const page = data as unknown as { repo: string | null; repo_visibility: string | null }[];
+        for (const row of page) {
+          if (!row.repo) continue;
+          repos.set(row.repo, (repos.get(row.repo) ?? false) || row.repo_visibility === "private");
+        }
+        if (page.length < pageSize) break;
+      }
+      return [...repos].map(([repo_full_name, has_private_event]) => ({ repo_full_name, has_private_event }));
     },
 
     async listDiscordRepos() {
