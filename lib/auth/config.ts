@@ -29,7 +29,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
       async authorize(credentials) {
         try {
-          if (!credentials?.message || !credentials?.signature) return null;
+          if (!credentials?.message || !credentials?.signature) {
+            console.error("Admin sign-in refused: message or signature missing");
+            return null;
+          }
+          if (!ADMIN_WALLET_ADDRESS) {
+            console.error("Admin sign-in refused: ADMIN_WALLET_ADDRESS is not set on the Worker");
+            return null;
+          }
 
           const message = credentials.message as string;
           const signature = credentials.signature as string;
@@ -38,6 +45,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
           // Only allow the admin wallet
           if (address.toLowerCase() !== ADMIN_WALLET_ADDRESS.toLowerCase()) {
+            console.error(
+              `Admin sign-in refused: ${address} is not ADMIN_WALLET_ADDRESS (${ADMIN_WALLET_ADDRESS})`
+            );
             return null;
           }
 
@@ -53,8 +63,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             return { id: sessionSubject(chainId, address) };
           }
 
+          console.error(
+            `Admin sign-in refused: signature did not verify for ${address} on ${chainId}`
+          );
           return null;
-        } catch {
+        } catch (error) {
+          console.error("Admin sign-in failed with an error:", error);
           return null;
         }
       },

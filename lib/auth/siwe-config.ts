@@ -9,6 +9,10 @@ import type {
 import { createSIWEConfig, formatMessage } from "@reown/appkit-siwe";
 import { mainnet } from "@reown/appkit/networks";
 
+// The admin layout listens for this to re-check the session after a sign-in or sign-out.
+export const ADMIN_SESSION_EVENT = "admin-session-changed";
+const announceSessionChange = () => window.dispatchEvent(new Event(ADMIN_SESSION_EVENT));
+
 export const siweConfig = createSIWEConfig({
   getMessageParams: async () => ({
     domain: typeof window !== "undefined" ? window.location.host : "",
@@ -45,11 +49,18 @@ export const siweConfig = createSIWEConfig({
         signature,
         callbackUrl: "/activity/admin",
       });
-      return Boolean(success?.ok);
+      // A refused sign-in still answers HTTP 200, with the reason in `error`.
+      if (!success?.ok || success.error) {
+        console.error("Admin sign-in refused by the server:", success?.error ?? "no response");
+        return false;
+      }
+      return true;
     } catch {
       return false;
     }
   },
+  onSignIn: announceSessionChange,
+  onSignOut: announceSessionChange,
   signOut: async () => {
     try {
       await signOut({ redirect: false });
