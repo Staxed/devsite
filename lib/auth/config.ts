@@ -7,6 +7,7 @@ import {
   getAddressFromMessage,
 } from "@reown/appkit-siwe";
 import { ADMIN_WALLET_ADDRESS } from "@/lib/constants";
+import { parseSessionSubject, sessionSubject } from "@/lib/auth/subject";
 
 declare module "next-auth" {
   interface Session extends SIWESession {
@@ -49,7 +50,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           });
 
           if (isValid) {
-            return { id: `${chainId}:${address}` };
+            return { id: sessionSubject(chainId, address) };
           }
 
           return null;
@@ -64,10 +65,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     session({ session, token }) {
       if (!token.sub) return session;
 
-      const [chainId, address] = token.sub.split(":");
-      if (chainId && address) {
-        session.address = address;
-        session.chainId = parseInt(chainId, 10);
+      const parsed = parseSessionSubject(token.sub);
+      if (parsed) {
+        session.address = parsed.address;
+        session.chainId = parsed.chainId;
       }
 
       return session;
