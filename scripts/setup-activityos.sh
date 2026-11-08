@@ -122,4 +122,4 @@ say "It posts nothing to Discord."
 pause
 
 say ""
-say "Done. Demo: push a commit, see it on $SITE_URL/activity and in the activity channel, then run /stats."
+say "Done. Demo: tick a repo on $SITE_URL/activity/admin/settings, push a commit in it, see it on $SITE_URL/activity and in the next top-of-hour digest in the activity channel, then run /stats and /activity repos."
