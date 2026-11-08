@@ -9,19 +9,24 @@ import type { ActivityStore, NewEvent } from "@/lib/activity/store";
 
 const LOOKUP_TIMEOUT_MS = 10_000;
 
+type KeyedEvent = NewEvent & { dedupe_key: string };
+
 /** The commit_pushed events whose dedupe key is not stored yet; call before storing the batch. */
-export async function findNewCommits(store: ActivityStore, events: NewEvent[]): Promise<NewEvent[]> {
-  const commits = events.filter((event) => event.kind === "commit_pushed");
+export async function findNewCommits(store: ActivityStore, events: NewEvent[]): Promise<KeyedEvent[]> {
+  const commits = events.filter(
+    (event): event is KeyedEvent => event.kind === "commit_pushed" && event.dedupe_key !== null
+  );
   const stored = new Set(await store.findStoredKeys(commits.map((event) => event.dedupe_key)));
   return commits.filter((event) => !stored.has(event.dedupe_key));
 }
 
 /** Write lines_added and lines_removed for these stored commits; merge commits and failed lookups stay empty. */
-export async function recordCommitLines(store: ActivityStore, commits: NewEvent[]): Promise<void> {
+export async function recordCommitLines(store: ActivityStore, commits: KeyedEvent[]): Promise<void> {
   if (commits.length === 0) return;
   const token = process.env.GITHUB_EVENTS_TOKEN;
   if (!token) throw new Error("GITHUB_EVENTS_TOKEN is not set; commit line counts are looked up with it");
-  const octokit = new Octokit({ auth: token });
+  // No retries: a failed lookup leaves the columns empty rather than holding the webhook or poll in backoff.
+  const octokit = new Octokit({ auth: token, retry: { enabled: false } });
 
   await Promise.all(
     commits.map(async (event) => {
