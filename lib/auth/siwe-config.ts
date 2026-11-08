@@ -9,6 +9,10 @@ import type {
 import { createSIWEConfig, formatMessage } from "@reown/appkit-siwe";
 import { mainnet } from "@reown/appkit/networks";
 
+// The admin layout listens for this to re-check the session after a sign-in or sign-out.
+export const ADMIN_SESSION_EVENT = "admin-session-changed";
+const announceSessionChange = () => window.dispatchEvent(new Event(ADMIN_SESSION_EVENT));
+
 export const siweConfig = createSIWEConfig({
   getMessageParams: async () => ({
     domain: typeof window !== "undefined" ? window.location.host : "",
@@ -55,6 +59,8 @@ export const siweConfig = createSIWEConfig({
       return false;
     }
   },
+  onSignIn: announceSessionChange,
+  onSignOut: announceSessionChange,
   signOut: async () => {
     try {
       await signOut({ redirect: false });
