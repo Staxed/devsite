@@ -272,7 +272,7 @@ ADMIN_WALLET_ADDRESS=0x189e78Ed23EdBDDD2E2B302c1B9111465fB87795
 GITHUB_APP_ID=123456
 GITHUB_APP_PRIVATE_KEY=LS0tLS1CRUdJTi...  (base64-encoded PEM, no newlines)
 GITHUB_WEBHOOK_SECRET=your_webhook_secret
-GITHUB_EVENTS_TOKEN=ghp_...  (classic PAT with read:user and repo scopes; the poll reads your events with it)
+GITHUB_EVENTS_TOKEN=ghp_...  (classic PAT with read:user and repo scopes; the poll reads your events with it, and the webhook and poll read each new own commit's line counts with it)
 
 # Discord
 DISCORD_APP_ID=your_discord_app_id

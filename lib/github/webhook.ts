@@ -3,6 +3,7 @@ import { verifyGitHubWebhook } from "@/lib/github/verify";
 import { normalizeWebhookEvent } from "@/lib/github/normalize";
 import { createAdminClient } from "@/lib/supabase/server";
 import { claimAndPostEvents } from "@/lib/discord/notify";
+import { findNewCommits, recordCommitLines } from "@/lib/github/commit-lines";
 import { getSettings } from "@/lib/settings";
 import type { ActivityStore } from "@/lib/activity/store";
 
@@ -72,7 +73,9 @@ export async function handleGitHubWebhook(request: NextRequest, store: ActivityS
     const settings = await getSettings();
     const events = await normalizeWebhookEvent(eventName, payload, settings);
 
+    const newCommits = await findNewCommits(store, events);
     await store.upsertEvents(events);
+    await recordCommitLines(store, newCommits);
 
     await supabase
       .from("github_deliveries")
