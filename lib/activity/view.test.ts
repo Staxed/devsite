@@ -87,7 +87,6 @@ describe("patterns", () => {
     expect(out.filter((i) => i.text.startsWith("Active in 1 redacted")).length).toBe(1);
   });
 });
-});
 
 describe("ordering and redacted timestamps", () => {
   const patterns = ["me/hidden"];
