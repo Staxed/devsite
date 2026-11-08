@@ -31,6 +31,18 @@ describe("supabase store claims", () => {
     expect(claimed.map((e) => e.occurred_at)).toEqual(["a", "b"]);
   });
 
+  it("claims a time range with a conditional update on posted_to_discord=false", async () => {
+    calls = [];
+    result = { data: [{ occurred_at: "b" }, { occurred_at: "a" }] };
+    const claimed = await createSupabaseStore().claimUnhandledEvents("2026-03-10T10:00:00Z", "2026-03-10T11:00:00Z");
+
+    expect(calls).toContainEqual(["update", { posted_to_discord: true }]);
+    expect(calls).toContainEqual(["eq", "posted_to_discord", false]);
+    expect(calls).toContainEqual(["gte", "occurred_at", "2026-03-10T10:00:00Z"]);
+    expect(calls).toContainEqual(["lte", "occurred_at", "2026-03-10T11:00:00Z"]);
+    expect(claimed.map((e) => e.occurred_at)).toEqual(["a", "b"]);
+  });
+
   it("returns false from claimSummary on a unique violation and true on insert", async () => {
     const claim = { summary_type: "daily", period: "2026-03-10", channel_id: "c", events_count: 0 };
     calls = [];

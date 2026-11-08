@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/server";
-import type { Achievement, ActivityEvent } from "@/lib/supabase/types";
+import type { Achievement, ActivityEvent, DiscordRepo } from "@/lib/supabase/types";
 
 export type NewEvent = Omit<ActivityEvent, "id" | "created_at">;
 
@@ -28,6 +28,18 @@ export interface ActivityStore {
   upsertEvents(events: NewEvent[]): Promise<void>;
   /** Flip posted_to_discord false to true for these dedupe keys; returns only the rows this call flipped. */
   claimEvents(dedupeKeys: string[]): Promise<ActivityEvent[]>;
+  /** Flip posted_to_discord false to true for every event that occurred within [from, to]; returns only the rows this call flipped. */
+  claimUnhandledEvents(from: string, to: string): Promise<ActivityEvent[]>;
+  /** Flip posted_to_discord back to false for these event ids, so a later claim picks them up again. */
+  releaseEvents(ids: number[]): Promise<void>;
+  /** The subset of these dedupe keys that are already stored. */
+  findStoredKeys(dedupeKeys: string[]): Promise<string[]>;
+  /** Set lines_added and lines_removed on the event with this dedupe key. */
+  setEventLines(dedupeKey: string, linesAdded: number, linesRemoved: number): Promise<void>;
+  /** Every saved discord_repos row. */
+  listDiscordRepos(): Promise<DiscordRepo[]>;
+  /** Insert or update discord_repos rows by repo_full_name. */
+  saveDiscordRepos(repos: DiscordRepo[]): Promise<void>;
   /** Events with posted_to_discord false that occurred within [from, to]. */
   findUnpostedEvents(from: string, to: string): Promise<ActivityEvent[]>;
   /** Insert the (summary_type, period) row; false when it already exists. */
@@ -91,6 +103,62 @@ export function createSupabaseStore(): ActivityStore {
         .order("occurred_at", { ascending: true });
       if (error) fail("find unposted events", error);
       return data as ActivityEvent[];
+    },
+
+    async claimUnhandledEvents(from, to) {
+      const { data, error } = await supabase
+        .from("activity_events")
+        .update({ posted_to_discord: true })
+        .eq("posted_to_discord", false)
+        .gte("occurred_at", from)
+        .lte("occurred_at", to)
+        .select("*");
+      if (error) fail("claim unhandled events", error);
+      return (data as ActivityEvent[]).sort((a, b) => a.occurred_at.localeCompare(b.occurred_at));
+    },
+
+    async releaseEvents(ids) {
+      if (ids.length === 0) return;
+      const { error } = await supabase.from("activity_events").update({ posted_to_discord: false }).in("id", ids);
+      if (error) fail("release events", error);
+    },
+
+    async findStoredKeys(dedupeKeys) {
+      const stored: string[] = [];
+      for (let i = 0; i < dedupeKeys.length; i += 100) {
+        const { data, error } = await supabase
+          .from("activity_events")
+          .select("dedupe_key")
+          .in("dedupe_key", dedupeKeys.slice(i, i + 100));
+        if (error) fail("find stored keys", error);
+        stored.push(...(data as { dedupe_key: string }[]).map((row) => row.dedupe_key));
+      }
+      return stored;
+    },
+
+    async setEventLines(dedupeKey, linesAdded, linesRemoved) {
+      const { error } = await supabase
+        .from("activity_events")
+        .update({ lines_added: linesAdded, lines_removed: linesRemoved })
+        .eq("dedupe_key", dedupeKey);
+      if (error) fail("set event lines", error);
+    },
+
+    async listDiscordRepos() {
+      const { data, error } = await supabase
+        .from("discord_repos")
+        .select("repo_full_name, display_name, included");
+      if (error) fail("list discord repos", error);
+      return data as DiscordRepo[];
+    },
+
+    async saveDiscordRepos(repos) {
+      if (repos.length === 0) return;
+      const updated_at = new Date().toISOString();
+      const { error } = await supabase
+        .from("discord_repos")
+        .upsert(repos.map((repo) => ({ ...repo, updated_at })), { onConflict: "repo_full_name" });
+      if (error) fail("save discord repos", error);
     },
 
     async claimSummary(claim) {
