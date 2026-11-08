@@ -145,6 +145,8 @@ export interface DiscoveredRepo {
   owner: string;
   name: string;
   visibility: "public" | "private";
+  /** GitHub's archived flag; only discoverRepos sets it. */
+  archived?: boolean;
 }
 
 /** Every repo Staxed owns, collaborates on or reaches through an organization. */
@@ -160,6 +162,7 @@ export async function discoverRepos(): Promise<DiscoveredRepo[]> {
     owner: repo.owner.login,
     name: repo.name,
     visibility: repo.private ? "private" : "public",
+    archived: repo.archived ?? false,
   }));
 }
 
