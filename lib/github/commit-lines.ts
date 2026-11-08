@@ -20,10 +20,7 @@ export async function findNewCommits(store: ActivityStore, events: NewEvent[]): 
 export async function recordCommitLines(store: ActivityStore, commits: NewEvent[]): Promise<void> {
   if (commits.length === 0) return;
   const token = process.env.GITHUB_EVENTS_TOKEN;
-  if (!token) {
-    console.error("GITHUB_EVENTS_TOKEN is not set; commit line counts were not looked up");
-    return;
-  }
+  if (!token) throw new Error("GITHUB_EVENTS_TOKEN is not set; commit line counts are looked up with it");
   const octokit = new Octokit({ auth: token });
 
   await Promise.all(

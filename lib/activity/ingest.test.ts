@@ -15,6 +15,7 @@ vi.mock("@/lib/supabase/server", () => {
   return { createAdminClient: () => chain };
 });
 
+import { recordCommitLines } from "@/lib/github/commit-lines";
 import { pollGitHubEvents } from "@/lib/github/poller";
 import { handleGitHubWebhook } from "@/lib/github/webhook";
 import { postSummaries } from "@/lib/discord/summaries";
@@ -35,6 +36,7 @@ let githubUrls: string[];
 let restStatus: number | null;
 // GET commit answers by sha, for the line-count lookup; a missing entry falls back to restCommits
 let commitDetails: Record<string, unknown>;
+let commitDetailStatus: number | null = null;
 
 const restCommit = (sha: string, message: string, login = "Staxed", email = "staxed@users.noreply.github.com") => ({
   sha,
@@ -57,6 +59,7 @@ beforeEach(() => {
   githubUrls = [];
   restResources = {};
   commitDetails = {};
+  commitDetailStatus = null;
   restStatus = null;
   githubEvents = [slimPush("1", "b0", SHA)];
   restCommits = { [SHA]: [restCommit(SHA, "Add feature")] };
@@ -80,6 +83,7 @@ beforeEach(() => {
       }
       if (/\/compare\/0{40}\.\.\./.test(url)) return new Response("no base", { status: 404 });
       const detail = url.match(/\/repos\/[^/]+\/[^/]+\/commits\/(\w+)$/);
+      if (detail && commitDetailStatus) return new Response("boom", { status: commitDetailStatus });
       if (detail && commitDetails[detail[1]]) return Response.json(commitDetails[detail[1]]);
       const rest = url.match(/\/repos\/[^/]+\/[^/]+\/(?:compare\/[^.]+\.\.\.|commits\/)(\w+)/);
       if (rest) {
@@ -317,6 +321,23 @@ describe("line counts at ingest", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     await deliverPush(store);
     expect(commitLines(store)).toEqual([[null, null]]);
+  });
+
+  it("leaves the columns empty, logs, and still stores the commit when GET commit returns 500", async () => {
+    commitDetails = { [SHA]: detail(1) };
+    commitDetailStatus = 500;
+    const store = createMemoryStore();
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    await deliverPush(store);
+    expect(commitLines(store)).toEqual([[null, null]]);
+    expect(logged).toHaveBeenCalledWith(expect.stringContaining("Line count lookup failed"), expect.anything());
+  });
+
+  it("stops with a named error when GITHUB_EVENTS_TOKEN is missing", async () => {
+    const store = createMemoryStore();
+    delete process.env.GITHUB_EVENTS_TOKEN;
+    const { event } = { event: { kind: "commit_pushed", dedupe_key: "k", metadata: { repo: REPO, sha: SHA } } };
+    await expect(recordCommitLines(store, [event as never])).rejects.toThrow(/GITHUB_EVENTS_TOKEN/);
   });
 
   it("does not look up a commit that is already stored", async () => {
