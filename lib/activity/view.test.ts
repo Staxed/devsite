@@ -64,13 +64,19 @@ describe("patterns", () => {
   it("supports * and ? globs and leaves non-matches untouched", () => {
     const out = titles([ev("org/a1"), ev("org/ab1"), ev("other/a1")], ["org/a?", "nomatch/*"]);
     expect(out).toHaveLength(3);
-    expect(out.filter((t) => t.startsWith("Active in 1 redacted"))).toHaveLength(1);
+    expect(out).toContain("Active in 1 redacted repos · 1 events");
+    expect(out).toContain("commit in org/ab1");
+    expect(out).toContain("commit in other/a1");
+    expect(out).not.toContain("commit in org/a1");
   });
 
   it("treats regex characters literally and matches the whole name", () => {
     const out = titles([ev("me/a.b"), ev("me/axb"), ev("me/a.b-extra")], ["me/a.b"]);
     expect(out).toHaveLength(3);
-    expect(out.filter((t) => t.startsWith("Active in 1 redacted"))).toHaveLength(1);
+    expect(out).toContain("Active in 1 redacted repos · 1 events");
+    expect(out).toContain("commit in me/axb");
+    expect(out).toContain("commit in me/a.b-extra");
+    expect(out).not.toContain("commit in me/a.b");
   });
 });
 
