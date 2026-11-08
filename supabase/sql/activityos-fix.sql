@@ -1,4 +1,4 @@
--- ActivityOS fix (idempotent): creates whatever of migrations 013-015 is missing and seeds the settings.
+-- ActivityOS fix (idempotent): creates whatever of migrations 013-016 is missing and seeds the settings.
 -- Run in the Supabase SQL editor after activityos-check.sql. Safe to re-run: every statement is
 -- IF NOT EXISTS or an upsert. Like migration 015 it marks existing events as posted, but only when it
 -- adds posted_to_discord. It does not seed quotes.
@@ -280,3 +280,18 @@ ON CONFLICT (key) DO NOTHING;
 -- Empty on first run only, so a re-run keeps an exclude list edited later.
 INSERT INTO app_settings (key, value) VALUES ('excluded_repos', '')
 ON CONFLICT (key) DO NOTHING;
+
+-- 016
+CREATE TABLE IF NOT EXISTS discord_repos (
+  repo_full_name TEXT PRIMARY KEY,
+  display_name TEXT,
+  included BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+ALTER TABLE discord_repos ADD COLUMN IF NOT EXISTS display_name TEXT;
+ALTER TABLE discord_repos ADD COLUMN IF NOT EXISTS included BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE discord_repos ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE discord_repos ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE activity_events ADD COLUMN IF NOT EXISTS lines_added INTEGER;
+ALTER TABLE activity_events ADD COLUMN IF NOT EXISTS lines_removed INTEGER;

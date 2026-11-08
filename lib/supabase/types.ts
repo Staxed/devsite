@@ -27,7 +27,15 @@ export interface ActivityEvent {
   metadata: Record<string, unknown>;
   dedupe_key: string | null;
   posted_to_discord?: boolean;
+  lines_added?: number | null;
+  lines_removed?: number | null;
   created_at: string;
+}
+
+export interface DiscordRepo {
+  repo_full_name: string;
+  display_name: string | null;
+  included: boolean;
 }
 
 export interface Habit {

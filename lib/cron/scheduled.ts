@@ -13,6 +13,7 @@ export type WorkerFetch = (request: Request, env: CronEnv, ctx: CronCtx) => Prom
 
 export const CRON_PATHS = {
   poll: "/api/cron/poll-github",
+  digest: "/api/cron/digest",
   summaries: "/api/cron/summaries",
 };
 
@@ -23,7 +24,7 @@ export function createScheduled(workerFetch: WorkerFetch) {
     const secret = env.CRON_SECRET;
     if (!secret) throw new Error("CRON_SECRET is not set");
 
-    // Sequential: summaries read what the poll just stored.
+    // Sequential: the digest and summaries read what the poll just stored.
     const run = async () => {
       for (const call of calls) {
         const request = new Request(`https://staxed.dev${CRON_PATHS[call]}`, {
