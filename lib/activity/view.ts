@@ -15,11 +15,6 @@ export interface TimelineRow {
   event: ActivityEvent | null;
 }
 
-export interface RepoBreakdownRow {
-  name: string;
-  events: number;
-}
-
 /** The title a private event shows on the site. */
 function privateSiteTitle(event: ActivityEvent): string {
   return event.public_summary || PRIVATE_SITE_TITLE;
@@ -122,22 +117,4 @@ export function timelineRows(events: ActivityEvent[], patterns: string[]): Timel
   }
 
   return rows.sort((a, b) => b.occurred_at.localeCompare(a.occurred_at));
-}
-
-/** Events per repo, busiest first; excluded repos lump into one "Redacted repos" row, private repos keep names. */
-export function reposBreakdown(events: ActivityEvent[], patterns: string[]): RepoBreakdownRow[] {
-  const isExcluded = excludedMatcher(patterns);
-  const counts = new Map<string, number>();
-  let redacted = 0;
-  for (const event of events) {
-    if (isExcluded(event)) {
-      redacted++;
-      continue;
-    }
-    const repo = repoOf(event);
-    if (repo) counts.set(repo, (counts.get(repo) ?? 0) + 1);
-  }
-  const rows = [...counts].map(([name, n]) => ({ name, events: n }));
-  if (redacted > 0) rows.push({ name: "Redacted repos", events: redacted });
-  return rows.sort((a, b) => b.events - a.events);
 }

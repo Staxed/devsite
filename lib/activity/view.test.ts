@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ActivityEvent } from "@/lib/supabase/types";
-import { discordPostItems, reposBreakdown, timelineRows } from "./view";
+import { discordPostItems, timelineRows } from "./view";
 
 let nextId = 1;
 function ev(repo: string, over: Partial<ActivityEvent> = {}): ActivityEvent {
@@ -60,14 +60,6 @@ describe("collapse", () => {
     expect(titles).toContain("Active in 1 redacted repos · 1 events");
   });
 
-  it("lumps excluded repos into one row in the repos breakdown and keeps private names", () => {
-    expect(reposBreakdown(events, patterns)).toEqual([
-      { name: "Redacted repos", events: 3 },
-      { name: "me/open", events: 1 },
-      { name: "me/secret", events: 1 },
-    ]);
-  });
-
   it("excluded wins over private", () => {
     const texts = discordPostItems([priv("me/hidden-a")], patterns).map((i) => i.text);
     expect(texts).toEqual(["Active in 1 redacted repos · 1 events"]);
@@ -93,12 +85,6 @@ describe("patterns", () => {
     const out = discordPostItems([ev("me/a.b"), ev("me/axb"), ev("me/a.b-extra")], ["me/a.b"]);
     expect(out).toHaveLength(3);
     expect(out.filter((i) => i.text.startsWith("Active in 1 redacted")).length).toBe(1);
-  });
-
-  it("changing patterns changes how the same stored events show", () => {
-    const stored = [ev("me/proj")];
-    expect(reposBreakdown(stored, [])).toEqual([{ name: "me/proj", events: 1 }]);
-    expect(reposBreakdown(stored, ["me/*"])).toEqual([{ name: "Redacted repos", events: 1 }]);
   });
 });
 
