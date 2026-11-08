@@ -93,6 +93,7 @@ describe("PUT", () => {
     });
 
     expect(res.status).toBe(200);
+    expect((await res.json()).saved).toBe(1);
     expect(store.discordRepos).toEqual([
       { repo_full_name: "me/pub", display_name: "Pub", included: true },
       { repo_full_name: "me/secret", display_name: "Vault", included: true },

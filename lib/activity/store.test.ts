@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 type Call = [string, ...unknown[]];
 let calls: Call[];
+let pages: { data?: unknown }[] = [];
 let result: { data?: unknown; error?: { code?: string; message: string } | null };
 
 vi.mock("@/lib/supabase/server", () => {
@@ -9,7 +10,7 @@ vi.mock("@/lib/supabase/server", () => {
     new Proxy(() => undefined, {
       get: (_t, prop: string) =>
         prop === "then"
-          ? (resolve: (v: unknown) => void) => resolve({ data: null, error: null, ...result })
+          ? (resolve: (v: unknown) => void) => resolve({ data: null, error: null, ...(pages.length ? pages.shift() : result) })
           : (...args: unknown[]) => {
               calls.push([prop, ...args]);
               return builder();
@@ -129,6 +130,21 @@ describe("supabase store discord/line methods", () => {
     expect(repos).toEqual([
       { repo_full_name: "o/a", has_private_event: true },
       { repo_full_name: "o/b", has_private_event: false },
+    ]);
+  });
+
+  it("pages through event repos until a short page", async () => {
+    calls = [];
+    const full = Array.from({ length: 1000 }, () => ({ repo: "o/a", repo_visibility: "public" }));
+    pages = [{ data: full }, { data: [{ repo: "o/b", repo_visibility: "private" }] }];
+    const repos = await createSupabaseStore().listEventRepos();
+    expect(calls.filter((c) => c[0] === "range")).toEqual([
+      ["range", 0, 999],
+      ["range", 1000, 1999],
+    ]);
+    expect(repos).toEqual([
+      { repo_full_name: "o/a", has_private_event: false },
+      { repo_full_name: "o/b", has_private_event: true },
     ]);
   });
 });

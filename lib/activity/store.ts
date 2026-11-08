@@ -75,6 +75,22 @@ function fail(action: string, error: { message: string }): never {
   throw new Error(`Activity store: ${action} failed: ${error.message}`);
 }
 
+// Supabase caps a single response at 1000 rows, so page through a query.
+async function selectAllPages<T>(
+  action: string,
+  query: (range: { from: number; to: number }) => PromiseLike<{ data: unknown; error: { message: string } | null }>,
+): Promise<T[]> {
+  const pageSize = 1000;
+  const rows: T[] = [];
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await query({ from, to: from + pageSize - 1 });
+    if (error) fail(action, error);
+    const page = data as T[];
+    rows.push(...page);
+    if (page.length < pageSize) return rows;
+  }
+}
+
 export function createSupabaseStore(): ActivityStore {
   const supabase = createAdminClient();
 
@@ -152,23 +168,20 @@ export function createSupabaseStore(): ActivityStore {
     },
 
     async listEventRepos() {
-      // Page through the events: Supabase caps a single response at 1000 rows.
-      const pageSize = 1000;
+      const rows = await selectAllPages<{ repo: string | null; repo_visibility: string | null }>(
+        "list event repos",
+        (range) =>
+          supabase
+            .from("activity_events")
+            .select("repo:metadata->>repo, repo_visibility")
+            .eq("source", "github")
+            .order("id", { ascending: true })
+            .range(range.from, range.to),
+      );
       const repos = new Map<string, boolean>();
-      for (let from = 0; ; from += pageSize) {
-        const { data, error } = await supabase
-          .from("activity_events")
-          .select("repo:metadata->>repo, repo_visibility")
-          .eq("source", "github")
-          .order("id", { ascending: true })
-          .range(from, from + pageSize - 1);
-        if (error) fail("list event repos", error);
-        const page = data as unknown as { repo: string | null; repo_visibility: string | null }[];
-        for (const row of page) {
-          if (!row.repo) continue;
-          repos.set(row.repo, (repos.get(row.repo) ?? false) || row.repo_visibility === "private");
-        }
-        if (page.length < pageSize) break;
+      for (const row of rows) {
+        if (!row.repo) continue;
+        repos.set(row.repo, (repos.get(row.repo) ?? false) || row.repo_visibility === "private");
       }
       return [...repos].map(([repo_full_name, has_private_event]) => ({ repo_full_name, has_private_event }));
     },
@@ -220,23 +233,16 @@ export function createSupabaseStore(): ActivityStore {
     },
 
     async eventsInRange(fromDate, toDate) {
-      // Page through the range: Supabase caps a single response at 1000 rows.
-      const pageSize = 1000;
-      const rows: ActivityEvent[] = [];
-      for (let from = 0; ; from += pageSize) {
-        const { data, error } = await supabase
+      return selectAllPages<ActivityEvent>("read events", (range) =>
+        supabase
           .from("activity_events")
           .select("*")
           .gte("occurred_on", fromDate)
           .lte("occurred_on", toDate)
           .order("occurred_at", { ascending: true })
           .order("id", { ascending: true })
-          .range(from, from + pageSize - 1);
-        if (error) fail("read events", error);
-        const page = data as ActivityEvent[];
-        rows.push(...page);
-        if (page.length < pageSize) return rows;
-      }
+          .range(range.from, range.to),
+      );
     },
 
     async countEvents() {
