@@ -41,9 +41,30 @@ export function formatRepoCounts(events: ActivityEvent[]): string {
   return parts.join(" · ");
 }
 
+/** Included repos from the discord_repos list, mapped to their display names. */
+export function includedRepoNames(repos: { repo_full_name: string; display_name: string | null; included: boolean }[]): Map<string, string | null> {
+  return new Map(repos.filter((r) => r.included).map((r) => [r.repo_full_name, r.display_name]));
+}
+
+/** Groups events by repo, keeping only repos on the include list. */
+export function groupByIncludedRepo(events: ActivityEvent[], included: Map<string, string | null>): Map<string, ActivityEvent[]> {
+  const byRepo = new Map<string, ActivityEvent[]>();
+  for (const e of events) {
+    const repo = e.metadata?.repo as string | undefined;
+    if (repo && included.has(repo)) byRepo.set(repo, [...(byRepo.get(repo) ?? []), e]);
+  }
+  return byRepo;
+}
+
+/** The name a repo shows under in Discord: its display name, else the short name when all events are public, else "Private repo". */
+export function repoDisplayName(repo: string, displayName: string | null, events: ActivityEvent[]): string {
+  const allPublic = events.every((e) => e.repo_visibility === "public");
+  return displayName?.trim() || (allPublic ? repo.split("/")[1] : PRIVATE_REPO_NAME);
+}
+
 function repoLine(repo: string, displayName: string | null, events: ActivityEvent[]): string {
   const allPublic = events.every((e) => e.repo_visibility === "public");
-  const name = displayName?.trim() || (allPublic ? repo.split("/")[1] : PRIVATE_REPO_NAME);
+  const name = repoDisplayName(repo, displayName, events);
   const label = allPublic ? `[${name}](https://github.com/${repo})` : name;
   return `**${label}**: ${formatRepoCounts(events)}`;
 }
@@ -87,17 +108,11 @@ export async function postHourlyDigest(store: ActivityStore, channelId: string, 
   );
   if (claimed.length === 0) return 0;
 
-  const included = new Map(
-    (await store.listDiscordRepos()).filter((r) => r.included).map((r) => [r.repo_full_name, r.display_name])
+  const included = includedRepoNames(await store.listDiscordRepos());
+  const byRepo = groupByIncludedRepo(
+    claimed.filter((e) => Date.parse(e.occurred_at) >= windowStart && e.source === "github" && COUNTED_KINDS.has(e.kind)),
+    included
   );
-  const byRepo = new Map<string, ActivityEvent[]>();
-  for (const e of claimed) {
-    const repo = e.metadata.repo as string | undefined;
-    if (Date.parse(e.occurred_at) < windowStart || e.source !== "github" || !repo || !included.has(repo) || !COUNTED_KINDS.has(e.kind)) {
-      continue;
-    }
-    byRepo.set(repo, [...(byRepo.get(repo) ?? []), e]);
-  }
 
   if (byRepo.size > 0) {
     const lines = [...byRepo]

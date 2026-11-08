@@ -1,6 +1,8 @@
 import { createAdminClient } from "@/lib/supabase/server";
 import { getSettings } from "@/lib/settings";
-import { reposBreakdown } from "@/lib/activity/view";
+import { createSupabaseStore } from "@/lib/activity/store";
+import { groupByIncludedRepo, includedRepoNames, repoDisplayName } from "./digest";
+import type { ActivityEvent } from "@/lib/supabase/types";
 import {
   getPeriodStats,
   getLongestStreak,
@@ -169,14 +171,19 @@ export async function handleActivityStreak() {
 export async function handleActivityRepos(options: CommandOption[]) {
   const timeframe = (getOption(options, "timeframe") as string) || "week";
   const { startDate, endDate, label } = await getDateRange(timeframe);
-  const [events, { excluded_repos }] = await Promise.all([
+  const [events, discordRepos] = await Promise.all([
     getGithubEventsInRange(startDate, endDate),
-    getSettings(),
+    createSupabaseStore().listDiscordRepos(),
   ]);
+  const included = includedRepoNames(discordRepos);
+  const byRepo = groupByIncludedRepo(events, included);
 
-  const sorted = reposBreakdown(events, excluded_repos).slice(0, 15);
+  const sorted = [...byRepo]
+    .map(([repo, repoEvents]) => ({ name: repoDisplayName(repo, included.get(repo) ?? null, repoEvents), count: repoEvents.length }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 15);
 
-  const fields = sorted.map(({ name, events: count }) => ({
+  const fields = sorted.map(({ name, count }) => ({
     name,
     value: `${count} event${count !== 1 ? "s" : ""}`,
     inline: true,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ActivityEvent } from "@/lib/supabase/types";
-import { reposBreakdown, timelineRows } from "./view";
+import { timelineRows } from "./view";
 
 let nextId = 1;
 function ev(repo: string, over: Partial<ActivityEvent> = {}): ActivityEvent {
@@ -48,20 +48,29 @@ describe("collapse", () => {
     expect(titles).toContain("Active in 1 redacted repos · 1 events");
   });
 
-  it("lumps excluded repos into one row in the repos breakdown and keeps private names", () => {
-    expect(reposBreakdown(events, patterns)).toEqual([
-      { name: "Redacted repos", events: 3 },
-      { name: "me/open", events: 1 },
-      { name: "me/secret", events: 1 },
-    ]);
+  it("excluded wins over private", () => {
+    const titles = timelineRows([priv("me/hidden-a")], patterns).map((r) => r.title);
+    expect(titles).toEqual(["Active in 1 redacted repos · 1 events"]);
   });
 });
 
 describe("patterns", () => {
-  it("changing patterns changes how the same stored events show", () => {
-    const stored = [ev("me/proj")];
-    expect(reposBreakdown(stored, [])).toEqual([{ name: "me/proj", events: 1 }]);
-    expect(reposBreakdown(stored, ["me/*"])).toEqual([{ name: "Redacted repos", events: 1 }]);
+  const titles = (evs: ActivityEvent[], pats: string[]) => timelineRows(evs, pats).map((r) => r.title);
+
+  it("matches full names case-insensitively", () => {
+    expect(titles([ev("Me/Hidden")], ["me/hidden"])).toEqual(["Active in 1 redacted repos · 1 events"]);
+  });
+
+  it("supports * and ? globs and leaves non-matches untouched", () => {
+    const out = titles([ev("org/a1"), ev("org/ab1"), ev("other/a1")], ["org/a?", "nomatch/*"]);
+    expect(out).toHaveLength(3);
+    expect(out.filter((t) => t.startsWith("Active in 1 redacted"))).toHaveLength(1);
+  });
+
+  it("treats regex characters literally and matches the whole name", () => {
+    const out = titles([ev("me/a.b"), ev("me/axb"), ev("me/a.b-extra")], ["me/a.b"]);
+    expect(out).toHaveLength(3);
+    expect(out.filter((t) => t.startsWith("Active in 1 redacted"))).toHaveLength(1);
   });
 });
 
