@@ -38,7 +38,7 @@ describe("claimUnhandledEvents", () => {
     const first = await store.claimUnhandledEvents(...RANGE);
     expect(first.map((e) => e.dedupe_key)).toEqual(["in-1", "in-2"]);
     expect(await store.claimUnhandledEvents(...RANGE)).toEqual([]);
-    expect(store.events.find((e) => e.dedupe_key === "out")?.posted_to_discord).toBe(false);
+    expect((await store.claimUnhandledEvents("2026-03-10T11:30:00Z", "2026-03-10T12:30:00Z")).map((e) => e.dedupe_key)).toEqual(["out"]);
   });
 
   it("makes released events claimable again", async () => {
