@@ -237,7 +237,7 @@ Save the output as `CRON_SECRET`, and set it with `npx wrangler secret put CRON_
 
 The scheduled work does nothing unless `CRON_ENABLED` is `true`. Set `CRON_ENABLED=true` on the staxed-devsite Worker. Previews of the test branch share its settings, but Cloudflare runs cron triggers only on the deployed production version, so a Preview never polls or posts on a schedule.
 
-Every tick calls `POST /api/cron/poll-github`. The tick between 09:00 and 09:29 America/New_York also calls `POST /api/cron/summaries` (DST-safe; a repeated call is harmless). Both send the `x-cron-secret` header.
+Every tick calls `POST /api/cron/poll-github`. Every tick in the first half of the hour then calls `POST /api/cron/digest`, which posts one activity digest for the previous hour. The tick between 09:00 and 09:29 America/New_York also calls `POST /api/cron/summaries` after the digest (DST-safe; a repeated call is harmless). All send the `x-cron-secret` header.
 
 Summaries send:
 - **Daily summary** — every day (for the previous day)
@@ -245,8 +245,7 @@ Summaries send:
 - **Monthly summary** — on the 1st of each month (for the previous month)
 
 The poll is a complement to webhooks — it catches events that webhooks may miss and enables:
-- **Event grouping** — batches events from each polling run into a single Discord message
-- **Unposted event recovery** — finds events that were stored but not posted to Discord
+- **Storage only** — the poll and the webhook store events and send nothing to Discord; the hourly digest posts them
 
 ---
 
@@ -272,7 +271,7 @@ ADMIN_WALLET_ADDRESS=0x189e78Ed23EdBDDD2E2B302c1B9111465fB87795
 GITHUB_APP_ID=123456
 GITHUB_APP_PRIVATE_KEY=LS0tLS1CRUdJTi...  (base64-encoded PEM, no newlines)
 GITHUB_WEBHOOK_SECRET=your_webhook_secret
-GITHUB_EVENTS_TOKEN=ghp_...  (classic PAT with read:user and repo scopes; the poll reads your events with it)
+GITHUB_EVENTS_TOKEN=ghp_...  (classic PAT with read:user and repo scopes; the poll reads your events with it, and the webhook and poll read each new own commit's line counts with it)
 
 # Discord
 DISCORD_APP_ID=your_discord_app_id
@@ -374,8 +373,8 @@ DISCORD_APP_ID=your_id DISCORD_BOT_TOKEN=your_token npx tsx scripts/register-dis
 
 ### D. Verify Proactive Discord Posting
 1. Push a commit to any repo where the GitHub App is installed
-2. Within seconds, a rich embed should appear in your configured Discord channel
-3. The embed should show commit details with clickable links (for public repos) or `[Private Repo]` labels
+2. Check Supabase: `activity_events` has the commit. Nothing is posted to Discord right away
+3. At the next top-of-hour cron tick, the digest embed in your Discord channel counts the commit under its repo (if the repo is on the Discord include list)
 
 ### E. Test Deduplication
 1. Go to your GitHub App settings → **Advanced** → **Recent Deliveries**
@@ -426,7 +425,7 @@ curl -X POST https://staxed.dev/api/cron/poll-github \
   -H "x-cron-secret: YOUR_CRON_SECRET"
 ```
 
-Verify: recent GitHub events appear in `activity_events` and get posted as a grouped batch to Discord. Any previously unposted events will also be recovered.
+Verify: recent GitHub events appear in `activity_events` and are stored. Nothing is posted to Discord by the poll; the hourly digest posts them.
 
 ### L. Manage Quotes
 1. Visit `https://staxed.dev/activity/admin/quotes`
@@ -457,21 +456,9 @@ If you modify `lib/discord/commands.ts`, re-register:
 DISCORD_APP_ID=your_id DISCORD_BOT_TOKEN=your_token npx tsx scripts/register-discord-commands.ts
 ```
 
-### Event Filtering
+### Discord Digest
 
-Event type posting to Discord is controlled in `lib/constants.ts` via `EVENT_FILTERS`. All events are always stored in the database regardless of filter settings — filters only control which types get posted to Discord.
-
-To disable posting for a specific event type, set the corresponding filter to `false`:
-```typescript
-// Example: stop posting star events to Discord
-EVENT_FILTERS.POST_STARS = false;
-```
-
-Additional filters available:
-- `PR_ACTION_FILTER` — which PR actions to process (`opened`, `closed`, `merged`)
-- `ISSUE_ACTION_FILTER` — which issue actions to process (`opened`, `closed`)
-- `REVIEW_STATE_FILTER` — which review states to process (`approved`, `changes_requested`)
-- `BRANCH_IGNORE_PATTERNS` — branch name prefixes to ignore (`dependabot/`, `renovate/`)
+Discord gets one digest per hour, not a post per event. All events are stored; the digest lists each repo ticked on the Discord include list that had counted activity.
 
 ---
 
@@ -482,10 +469,11 @@ Public Visitor → /activity (server-rendered, no auth)
                   ↓
               Supabase (activity_events, habits, goals, achievements, quotes)
                   ↑
-GitHub Webhooks → /api/github/webhook → normalize → upsert → Discord post + achievements
-GitHub Polling  → /api/cron/poll-github → Events API → normalize → upsert → grouped Discord post + recovery
+GitHub Webhooks → /api/github/webhook → normalize → upsert
+GitHub Polling  → /api/cron/poll-github → Events API → normalize → upsert
 Discord Bot     → /api/discord/interactions → handle → upsert/respond with embeds
 Admin (SIWE)    → /activity/admin/* → /api/admin/* → upsert
+Cron            → /api/cron/digest → hourly per-repo digest + achievements → Discord
 Cron            → /api/cron/summaries → daily/weekly/monthly embeds (with quotes) → Discord
 
 Backfill: Admin → /api/admin/backfill → GitHub API → upsert
@@ -552,15 +540,13 @@ Reconcile: Admin → /api/admin/reconcile → GitHub API → upsert (gap-fill)
 ### Key Design Decisions
 - **All writes go through Supabase service role** — no client-side DB access
 - **Dedupe keys on every event** — safe to re-run backfills, re-deliver webhooks
-- **Discord posting is deduped** — `discord_posts` table prevents double-posting on webhook redelivery
+- **Discord posting is deduped** — events are claimed (`posted_to_discord`) before the digest sends, so a repeated run posts nothing twice
 - **Summary posting is deduped** — `summary_posts` table prevents duplicate daily/weekly/monthly summaries
 - **Private repos are scrubbed** — no repo names or URLs leak to public views or Discord embeds
 - **Streaks computed on-the-fly** — no rollup tables needed at single-user scale
 - **All dates in America/New_York** — consistent streak/stat calculations
-- **Event filtering is post-storage** — all events stored in DB regardless of Discord posting filters
-- **Discord posting is best-effort** — webhook always returns 200 even if Discord API fails
+- **Webhook and poll only store** — they never post to Discord; the hourly digest does, and a failed send is retried by the next digest
 - **Polling complements webhooks** — both sources dedupe via `dedupe_key`, polling catches missed events
-- **Unposted event recovery** — `posted_to_discord` column tracks posting status; recovery runs each poll cycle
 - **Quotes in embed footers** — random programming quote added to activity and summary embeds
 - **Achievement periods** — daily (default), weekly (dedup by week start), monthly (dedup by YYYY-MM), milestone (all-time)
 - **Four streak types** — daily (commit-based), weekly/monthly/yearly (any event)

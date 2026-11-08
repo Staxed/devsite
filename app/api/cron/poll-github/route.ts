@@ -1,16 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { checkCronSecret } from "@/lib/cron/auth";
 import { pollGitHubEvents } from "@/lib/github/poller";
 
 export async function POST(request: NextRequest) {
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret) {
-    return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 500 });
-  }
-
-  const providedSecret = request.headers.get("x-cron-secret");
-  if (providedSecret !== cronSecret) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const denied = checkCronSecret(request);
+  if (denied) return denied;
 
   try {
     const result = await pollGitHubEvents();
