@@ -79,7 +79,7 @@ function digestTitle(hourStart: Date, timezone: string): string {
 export async function postHourlyDigest(store: ActivityStore, channelId: string, now: Date): Promise<number> {
   const { timezone } = await getSettings();
   const currentHourStart = new Date(Math.floor(now.getTime() / HOUR_MS) * HOUR_MS);
-  const windowStart = new Date(currentHourStart.getTime() - DIGEST_WINDOW_MS).toISOString();
+  const windowStart = currentHourStart.getTime() - DIGEST_WINDOW_MS;
 
   const claimed = await store.claimUnhandledEvents(
     new Date(0).toISOString(),
@@ -93,7 +93,7 @@ export async function postHourlyDigest(store: ActivityStore, channelId: string, 
   const byRepo = new Map<string, ActivityEvent[]>();
   for (const e of claimed) {
     const repo = e.metadata.repo as string | undefined;
-    if (e.occurred_at < windowStart || e.source !== "github" || !repo || !included.has(repo) || !COUNTED_KINDS.has(e.kind)) {
+    if (Date.parse(e.occurred_at) < windowStart || e.source !== "github" || !repo || !included.has(repo) || !COUNTED_KINDS.has(e.kind)) {
       continue;
     }
     byRepo.set(repo, [...(byRepo.get(repo) ?? []), e]);
@@ -118,7 +118,7 @@ export async function postHourlyDigest(store: ActivityStore, channelId: string, 
     }
     if (messageIds.length === 0) {
       await store.releaseEvents(claimed.map((e) => e.id));
-      return 0;
+      throw new Error(`Hourly digest send to Discord channel ${channelId} failed; claim released`);
     }
     await store.recordDiscordPost({
       delivery_id: `digest-${currentHourStart.toISOString()}-${Math.min(...claimed.map((e) => e.id))}`,

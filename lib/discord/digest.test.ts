@@ -145,6 +145,30 @@ describe("postHourlyDigest", () => {
     expect(store.events[0].posted_to_discord).toBe(true);
   });
 
+  it("sends nothing for a saved repo that is not included", async () => {
+    const store = await setup([event("Staxed/site")], [{ repo_full_name: "Staxed/site", display_name: "Site", included: false }]);
+    await postHourlyDigest(store, "chan", NOW);
+    expect(discordMessages).toEqual([]);
+    expect(store.events[0].posted_to_discord).toBe(true);
+  });
+
+  it("releases the claim when the send throws, and the next digest posts", async () => {
+    const store = await setup([event("Staxed/site")]);
+    const ok = globalThis.fetch;
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("network down"); }));
+    await expect(postHourlyDigest(store, "chan", NOW)).rejects.toThrow("network down");
+    expect(store.events[0].posted_to_discord).toBe(false);
+    vi.stubGlobal("fetch", ok);
+    await postHourlyDigest(store, "chan", new Date("2026-03-10T16:05:00Z"));
+    expect(descriptions()).toHaveLength(1);
+  });
+
+  it("counts an event stamped in the window's first second when stored with a +00:00 offset", async () => {
+    const store = await setup([event("Staxed/site", { occurred_at: "2026-03-09T15:00:00+00:00" })]);
+    await postHourlyDigest(store, "chan", NOW);
+    expect(descriptions()).toHaveLength(1);
+  });
+
   it("posts once when run twice", async () => {
     const store = await setup([event("Staxed/site")]);
     await postHourlyDigest(store, "chan", NOW);
@@ -155,7 +179,7 @@ describe("postHourlyDigest", () => {
   it("leaves events for the next digest when the send fails", async () => {
     const store = await setup([event("Staxed/site")]);
     discordStatus = 500;
-    await postHourlyDigest(store, "chan", NOW);
+    await expect(postHourlyDigest(store, "chan", NOW)).rejects.toThrow(/digest send/);
     expect(store.events[0].posted_to_discord).toBe(false);
     expect(store.discordPosts).toEqual([]);
 
@@ -178,7 +202,7 @@ describe("postHourlyDigest", () => {
     it("does not post when the send fails", async () => {
       const store = await setup([longCommit()]);
       discordStatus = 500;
-      await postHourlyDigest(store, "chan", NOW);
+      await expect(postHourlyDigest(store, "chan", NOW)).rejects.toThrow();
       expect(store.achievements).toEqual([]);
     });
   });
