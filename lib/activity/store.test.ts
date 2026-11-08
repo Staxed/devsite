@@ -79,9 +79,9 @@ describe("supabase store discord/line methods", () => {
     result = {};
     await createSupabaseStore().releaseEvents([]);
     expect(calls).toEqual([]);
-    await createSupabaseStore().releaseEvents(["a", "b"]);
+    await createSupabaseStore().releaseEvents([1, 2]);
     expect(calls).toContainEqual(["update", { posted_to_discord: false }]);
-    expect(calls).toContainEqual(["in", "id", ["a", "b"]]);
+    expect(calls).toContainEqual(["in", "id", [1, 2]]);
   });
 
   it("looks up stored keys in chunks of 100 and joins the results", async () => {
