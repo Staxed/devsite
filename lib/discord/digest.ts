@@ -41,9 +41,15 @@ export function formatRepoCounts(events: ActivityEvent[]): string {
   return parts.join(" · ");
 }
 
+/** The name a repo shows under in Discord: its display name, else the short name when all events are public, else "Private repo". */
+export function repoDisplayName(repo: string, displayName: string | null, events: ActivityEvent[]): string {
+  const allPublic = events.every((e) => e.repo_visibility === "public");
+  return displayName?.trim() || (allPublic ? repo.split("/")[1] : PRIVATE_REPO_NAME);
+}
+
 function repoLine(repo: string, displayName: string | null, events: ActivityEvent[]): string {
   const allPublic = events.every((e) => e.repo_visibility === "public");
-  const name = displayName?.trim() || (allPublic ? repo.split("/")[1] : PRIVATE_REPO_NAME);
+  const name = repoDisplayName(repo, displayName, events);
   const label = allPublic ? `[${name}](https://github.com/${repo})` : name;
   return `**${label}**: ${formatRepoCounts(events)}`;
 }
