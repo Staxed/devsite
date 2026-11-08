@@ -58,6 +58,16 @@ export function createMemoryStore(): ActivityStore & {
       }
     },
 
+    async listEventRepos() {
+      const repos = new Map<string, boolean>();
+      for (const e of events) {
+        const repo = e.metadata?.repo as string | undefined;
+        if (e.source !== "github" || !repo) continue;
+        repos.set(repo, (repos.get(repo) ?? false) || e.repo_visibility === "private");
+      }
+      return [...repos].map(([repo_full_name, has_private_event]) => ({ repo_full_name, has_private_event }));
+    },
+
     async listDiscordRepos() {
       return discordRepos.map((r) => ({ ...r }));
     },
