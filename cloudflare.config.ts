@@ -21,6 +21,9 @@ export default defineConfig(({ isPreview }) => ({
       { hostname: "www.staxed.dev", production: true, previews: false },
       { hostname: "test.staxed.dev", production: false, previews: true },
     ],
+    // Both are on for the Worker in the dashboard; the strict deploy aborts if these differ.
+    workersDev: true,
+    previewUrls: true,
     // Poll every 30 minutes; the scheduled handler decides what to run (lib/cron/tick.ts).
     // Previews reject the triggers field and never run cron, so a Preview build leaves it out.
     triggers: isPreview ? [] : [triggers.scheduled({ schedule: "*/30 * * * *" })],
