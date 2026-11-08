@@ -3,8 +3,6 @@ import { checkCronSecret } from "@/lib/cron/auth";
 import { createSupabaseStore } from "@/lib/activity/store";
 import { postHourlyDigest } from "@/lib/discord/digest";
 
-export const runtime = "edge";
-
 export async function POST(request: NextRequest) {
   const denied = checkCronSecret(request);
   if (denied) return denied;
