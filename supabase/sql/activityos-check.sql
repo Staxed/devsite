@@ -200,6 +200,22 @@ with checks as (
   union all
   select 'column', 'quotes.created_at', exists (select 1 from information_schema.columns where table_schema='public' and table_name='quotes' and column_name='created_at')
   union all
+  select 'table' as kind, 'discord_repos' as name, to_regclass('public.discord_repos') is not null as present
+  union all
+  select 'column', 'discord_repos.repo_full_name', exists (select 1 from information_schema.columns where table_schema='public' and table_name='discord_repos' and column_name='repo_full_name')
+  union all
+  select 'column', 'discord_repos.display_name', exists (select 1 from information_schema.columns where table_schema='public' and table_name='discord_repos' and column_name='display_name')
+  union all
+  select 'column', 'discord_repos.included', exists (select 1 from information_schema.columns where table_schema='public' and table_name='discord_repos' and column_name='included')
+  union all
+  select 'column', 'discord_repos.created_at', exists (select 1 from information_schema.columns where table_schema='public' and table_name='discord_repos' and column_name='created_at')
+  union all
+  select 'column', 'discord_repos.updated_at', exists (select 1 from information_schema.columns where table_schema='public' and table_name='discord_repos' and column_name='updated_at')
+  union all
+  select 'column', 'activity_events.lines_added', exists (select 1 from information_schema.columns where table_schema='public' and table_name='activity_events' and column_name='lines_added')
+  union all
+  select 'column', 'activity_events.lines_removed', exists (select 1 from information_schema.columns where table_schema='public' and table_name='activity_events' and column_name='lines_removed')
+  union all
   select 'index', 'idx_activity_events_occurred_on', to_regclass('public.idx_activity_events_occurred_on') is not null
   union all
   select 'index', 'idx_activity_events_kind', to_regclass('public.idx_activity_events_kind') is not null

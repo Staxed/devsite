@@ -1,4 +1,4 @@
-export type CronCall = "poll" | "summaries";
+export type CronCall = "poll" | "digest" | "summaries";
 
 const NEW_YORK_TIME = new Intl.DateTimeFormat("en-US", {
   timeZone: "America/New_York",
@@ -9,8 +9,9 @@ const NEW_YORK_TIME = new Intl.DateTimeFormat("en-US", {
 
 /**
  * Which endpoints a cron tick must call. Cron triggers are UTC-only, so the
- * 09:00 New York summary is the tick that lands in 09:00-09:29 local time,
- * which stays correct across daylight-saving changes.
+ * digest and the 09:00 New York summaries run on the ticks that land in the first half of
+ * the hour (and, for summaries, in 09:00-09:29 local time), which stays correct across
+ * daylight-saving changes. Each digest runs after the poll that stored what it posts.
  */
 export function decideTick(now: Date, cronEnabled: string | undefined): CronCall[] {
   if (cronEnabled !== "true") return [];
@@ -20,5 +21,6 @@ export function decideTick(now: Date, cronEnabled: string | undefined): CronCall
   if (Number.isNaN(hour) || Number.isNaN(minute)) {
     throw new Error(`Could not read New York time from ${now.toISOString()}`);
   }
-  return hour === 9 && minute < 30 ? ["poll", "summaries"] : ["poll"];
+  if (minute >= 30) return ["poll"];
+  return hour === 9 ? ["poll", "digest", "summaries"] : ["poll", "digest"];
 }

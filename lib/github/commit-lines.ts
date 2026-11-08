@@ -1,0 +1,53 @@
+/**
+ * Line counts for Staxed's own commits, read from GitHub's GET commit when the commit is first stored.
+ * Callers store the events first: a failed or slow lookup leaves lines_added and lines_removed empty
+ * and never loses the event.
+ */
+
+import { Octokit } from "octokit";
+import type { ActivityStore, NewEvent } from "@/lib/activity/store";
+
+const LOOKUP_TIMEOUT_MS = 10_000;
+
+type KeyedEvent = NewEvent & { dedupe_key: string };
+
+/** The commit_pushed events whose dedupe key is not stored yet; call before storing the batch. */
+export async function findNewCommits(store: ActivityStore, events: NewEvent[]): Promise<KeyedEvent[]> {
+  const commits = events.filter(
+    (event): event is KeyedEvent => event.kind === "commit_pushed" && event.dedupe_key !== null
+  );
+  const stored = new Set(await store.findStoredKeys(commits.map((event) => event.dedupe_key)));
+  return commits.filter((event) => !stored.has(event.dedupe_key));
+}
+
+/** Write lines_added and lines_removed for these stored commits; merge commits and failed lookups stay empty. */
+export async function recordCommitLines(store: ActivityStore, commits: KeyedEvent[]): Promise<void> {
+  if (commits.length === 0) return;
+  const token = process.env.GITHUB_EVENTS_TOKEN;
+  if (!token) throw new Error("GITHUB_EVENTS_TOKEN is not set; commit line counts are looked up with it");
+  // No retries: a failed lookup leaves the columns empty rather than holding the webhook or poll in backoff.
+  const octokit = new Octokit({ auth: token, retry: { enabled: false } });
+
+  await Promise.all(
+    commits.map(async (event) => {
+      const [owner, repo] = String(event.metadata.repo).split("/");
+      const sha = String(event.metadata.sha);
+      try {
+        const { data } = await octokit.rest.repos.getCommit({
+          owner,
+          repo,
+          ref: sha,
+          request: { signal: AbortSignal.timeout(LOOKUP_TIMEOUT_MS) },
+        });
+        if (data.parents.length >= 2) return;
+        const stats = data.stats;
+        if (stats?.additions === undefined || stats.deletions === undefined) {
+          throw new Error("response has no stats");
+        }
+        await store.setEventLines(event.dedupe_key, stats.additions, stats.deletions);
+      } catch (err) {
+        console.error(`Line count lookup failed for ${event.metadata.repo}@${sha}:`, err);
+      }
+    })
+  );
+}

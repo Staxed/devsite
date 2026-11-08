@@ -15,6 +15,7 @@ vi.mock("@/lib/supabase/server", () => {
   return { createAdminClient: () => chain };
 });
 
+import { recordCommitLines } from "@/lib/github/commit-lines";
 import { pollGitHubEvents } from "@/lib/github/poller";
 import { handleGitHubWebhook } from "@/lib/github/webhook";
 import { postSummaries } from "@/lib/discord/summaries";
@@ -33,6 +34,9 @@ let restCommits: Record<string, unknown[]>;
 let restResources: Record<string, unknown>;
 let githubUrls: string[];
 let restStatus: number | null;
+// GET commit answers by sha, for the line-count lookup; a missing entry falls back to restCommits
+let commitDetails: Record<string, unknown>;
+let commitDetailStatus: number | null = null;
 
 const restCommit = (sha: string, message: string, login = "Staxed", email = "staxed@users.noreply.github.com") => ({
   sha,
@@ -54,6 +58,8 @@ beforeEach(() => {
   discordMessages = [];
   githubUrls = [];
   restResources = {};
+  commitDetails = {};
+  commitDetailStatus = null;
   restStatus = null;
   githubEvents = [slimPush("1", "b0", SHA)];
   restCommits = { [SHA]: [restCommit(SHA, "Add feature")] };
@@ -76,6 +82,9 @@ beforeEach(() => {
         return found ? Response.json(found) : new Response("nope", { status: 404 });
       }
       if (/\/compare\/0{40}\.\.\./.test(url)) return new Response("no base", { status: 404 });
+      const detail = url.match(/\/repos\/[^/]+\/[^/]+\/commits\/(\w+)$/);
+      if (detail && commitDetailStatus) return new Response("boom", { status: commitDetailStatus });
+      if (detail && commitDetails[detail[1]]) return Response.json(commitDetails[detail[1]]);
       const rest = url.match(/\/repos\/[^/]+\/[^/]+\/(?:compare\/[^.]+\.\.\.|commits\/)(\w+)/);
       if (rest) {
         const found = restCommits[rest[1]];
@@ -108,41 +117,16 @@ async function deliverPush(store: ReturnType<typeof createMemoryStore>) {
   expect(response.status).toBe(200);
 }
 
-const commitEmbedMessages = () =>
-  discordMessages.filter((m) => JSON.stringify(m).includes("Add feature"));
-
-describe("posting once across webhook and poll", () => {
-  it("stores the same commit once and posts it once, webhook first", async () => {
+describe("ingest sends nothing to Discord", () => {
+  it("the webhook stores the commit and sends nothing", async () => {
     const store = createMemoryStore();
-    await deliverPush(store);
-    await pollGitHubEvents(store);
-
-    expect(store.events.filter((e) => e.kind === "commit_pushed")).toHaveLength(1);
-    expect(commitEmbedMessages()).toHaveLength(1);
-  });
-
-  it("stores the same commit once and posts it once, poll first", async () => {
-    const store = createMemoryStore();
-    await pollGitHubEvents(store);
     await deliverPush(store);
 
     expect(store.events.filter((e) => e.kind === "commit_pushed")).toHaveLength(1);
-    expect(commitEmbedMessages()).toHaveLength(1);
+    expect(discordMessages).toHaveLength(0);
   });
 
-  it("posts nothing on a second poll over the same window", async () => {
-    const store = createMemoryStore();
-    await pollGitHubEvents(store);
-    const sent = discordMessages.length;
-    expect(sent).toBeGreaterThan(0);
-
-    const second = await pollGitHubEvents(store);
-
-    expect(discordMessages).toHaveLength(sent);
-    expect(second.posted).toBe(false);
-  });
-
-  it("recovers an old unposted event once and never re-posts claimed events", async () => {
+  it("the poll stores the commit and sends nothing, even over an old unposted event", async () => {
     const store = createMemoryStore();
     await store.upsertEvents([
       {
@@ -152,23 +136,29 @@ describe("posting once across webhook and poll", () => {
         dedupe_key: "commit:Staxed/site:stranded",
       },
     ]);
-    githubEvents = [];
 
-    const first = await pollGitHubEvents(store);
-    const sent = discordMessages.length;
-    const second = await pollGitHubEvents(store);
+    await pollGitHubEvents(store);
 
-    expect(first.recovered).toBe(1);
-    expect(JSON.stringify(discordMessages)).toContain("Stranded commit");
-    expect(second.recovered).toBe(0);
-    expect(discordMessages).toHaveLength(sent);
+    expect(store.events.filter((e) => e.kind === "commit_pushed")).toHaveLength(2);
+    expect(store.events.every((e) => !e.posted_to_discord)).toBe(true);
+    expect(discordMessages).toHaveLength(0);
+  });
+
+  it("stores the same commit once whichever of webhook and poll comes first", async () => {
+    const store = createMemoryStore();
+    await deliverPush(store);
+    await pollGitHubEvents(store);
+    await deliverPush(store);
+
+    expect(store.events.filter((e) => e.kind === "commit_pushed")).toHaveLength(1);
+    expect(discordMessages).toHaveLength(0);
   });
 });
 
 describe("pushes through the Events API", () => {
   const commitRows = (store: ReturnType<typeof createMemoryStore>) => store.events.filter((e) => e.kind === "commit_pushed");
 
-  it("stores a commit row per compare commit and posts once", async () => {
+  it("stores a commit row per compare commit", async () => {
     const store = createMemoryStore();
     githubEvents = [slimPush("1", "b0", "h2")];
     restCommits = { h2: [restCommit("c1", "First"), restCommit("c2", "Second")] };
@@ -176,7 +166,6 @@ describe("pushes through the Events API", () => {
     await pollGitHubEvents(store);
 
     expect(commitRows(store).map((e) => e.dedupe_key).sort()).toEqual([`commit:${REPO}:c1`, `commit:${REPO}:c2`]);
-    expect(discordMessages).toHaveLength(1);
   });
 
   it("fetches the head commit when a new branch has an all-zero before", async () => {
@@ -274,6 +263,73 @@ describe("pushes through the Events API", () => {
   });
 });
 
+const commitLines = (store: ReturnType<typeof createMemoryStore>) =>
+  store.events.filter((e) => e.kind === "commit_pushed").map((e) => [e.lines_added ?? null, e.lines_removed ?? null]);
+const commitLookups = () => githubUrls.filter((u) => u.endsWith(`/commits/${SHA}`)).length;
+
+describe("line counts at ingest", () => {
+  const detail = (parents: number, additions = 12, deletions = 3) => ({
+    ...restCommit(SHA, "Add feature"),
+    parents: Array.from({ length: parents }, (_, i) => ({ sha: `p${i}` })),
+    stats: { additions, deletions, total: additions + deletions },
+  });
+
+  it("gives a new own commit both columns, from the webhook", async () => {
+    commitDetails = { [SHA]: detail(1) };
+    const store = createMemoryStore();
+    await deliverPush(store);
+    expect(commitLines(store)).toEqual([[12, 3]]);
+  });
+
+  it("gives a new own commit both columns, from the poll", async () => {
+    commitDetails = { [SHA]: detail(1) };
+    const store = createMemoryStore();
+    await pollGitHubEvents(store);
+    expect(commitLines(store)).toEqual([[12, 3]]);
+  });
+
+  it("leaves a merge commit empty and still stores it", async () => {
+    commitDetails = { [SHA]: detail(2) };
+    const store = createMemoryStore();
+    await deliverPush(store);
+    expect(commitLines(store)).toEqual([[null, null]]);
+  });
+
+  it("leaves the columns empty and still stores the commit when the lookup fails", async () => {
+    commitDetails = { [SHA]: { ...detail(1), stats: undefined } };
+    const store = createMemoryStore();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    await deliverPush(store);
+    expect(commitLines(store)).toEqual([[null, null]]);
+  });
+
+  it("leaves the columns empty, logs, and still stores the commit when GET commit returns 500", async () => {
+    commitDetails = { [SHA]: detail(1) };
+    commitDetailStatus = 500;
+    const store = createMemoryStore();
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    await deliverPush(store);
+    expect(commitLines(store)).toEqual([[null, null]]);
+    expect(logged).toHaveBeenCalledWith(expect.stringContaining("Line count lookup failed"), expect.anything());
+  });
+
+  it("stops with a named error when GITHUB_EVENTS_TOKEN is missing", async () => {
+    const store = createMemoryStore();
+    delete process.env.GITHUB_EVENTS_TOKEN;
+    const { event } = { event: { kind: "commit_pushed", dedupe_key: "k", metadata: { repo: REPO, sha: SHA } } };
+    await expect(recordCommitLines(store, [event as never])).rejects.toThrow(/GITHUB_EVENTS_TOKEN/);
+  });
+
+  it("does not look up a commit that is already stored", async () => {
+    commitDetails = { [SHA]: detail(1) };
+    const store = createMemoryStore();
+    await deliverPush(store);
+    await pollGitHubEvents(store);
+    await deliverPush(store);
+    expect(commitLookups()).toBe(1);
+  });
+});
+
 describe("summaries", () => {
   it("posts a daily summary once when the run is called twice", async () => {
     const store = createMemoryStore();
@@ -291,20 +347,6 @@ describe("summaries", () => {
 });
 
 describe("achievements", () => {
-  it("posts no achievement embed when the poll's achievements are already recorded", async () => {
-    const store = createMemoryStore();
-    await pollGitHubEvents(store);
-    const achievementEmbeds = () => discordMessages.filter((m) => JSON.stringify(m).includes("Achievement Unlocked"));
-    // Pre-record whatever the first poll earned, then post a fresh event through the same path
-    const before = achievementEmbeds().length;
-    githubEvents = [slimPush("2", SHA, "def456")];
-    restCommits = { def456: [restCommit("def456", "Second feature")] };
-    await pollGitHubEvents(store);
-
-    expect(JSON.stringify(discordMessages)).toContain("Second feature");
-    expect(achievementEmbeds()).toHaveLength(before);
-  });
-
   it("does not return an achievement that is already recorded", async () => {
     const store = createMemoryStore();
     await store.upsertEvents([
