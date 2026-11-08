@@ -80,3 +80,25 @@ describe("discord_repos", () => {
     ]);
   });
 });
+
+describe("listEventRepos", () => {
+  it("lists each GitHub repo once and flags those with a private event", async () => {
+    const store = createMemoryStore();
+    const e = (key: string, repo: string, repo_visibility: "public" | "private", source: "github" | "manual" = "github") => ({
+      ...event(key, "2026-03-10T10:00:00Z"),
+      source,
+      repo_visibility,
+      metadata: { repo },
+    });
+    await store.upsertEvents([
+      e("1", "o/a", "public"),
+      e("2", "o/a", "private"),
+      e("3", "o/b", "public"),
+      e("4", "o/manual", "public", "manual"),
+    ]);
+    expect(await store.listEventRepos()).toEqual([
+      { repo_full_name: "o/a", has_private_event: true },
+      { repo_full_name: "o/b", has_private_event: false },
+    ]);
+  });
+});
