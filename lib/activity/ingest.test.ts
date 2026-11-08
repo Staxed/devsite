@@ -117,41 +117,16 @@ async function deliverPush(store: ReturnType<typeof createMemoryStore>) {
   expect(response.status).toBe(200);
 }
 
-const commitEmbedMessages = () =>
-  discordMessages.filter((m) => JSON.stringify(m).includes("Add feature"));
-
-describe("posting once across webhook and poll", () => {
-  it("stores the same commit once and posts it once, webhook first", async () => {
+describe("ingest sends nothing to Discord", () => {
+  it("the webhook stores the commit and sends nothing", async () => {
     const store = createMemoryStore();
-    await deliverPush(store);
-    await pollGitHubEvents(store);
-
-    expect(store.events.filter((e) => e.kind === "commit_pushed")).toHaveLength(1);
-    expect(commitEmbedMessages()).toHaveLength(1);
-  });
-
-  it("stores the same commit once and posts it once, poll first", async () => {
-    const store = createMemoryStore();
-    await pollGitHubEvents(store);
     await deliverPush(store);
 
     expect(store.events.filter((e) => e.kind === "commit_pushed")).toHaveLength(1);
-    expect(commitEmbedMessages()).toHaveLength(1);
+    expect(discordMessages).toHaveLength(0);
   });
 
-  it("posts nothing on a second poll over the same window", async () => {
-    const store = createMemoryStore();
-    await pollGitHubEvents(store);
-    const sent = discordMessages.length;
-    expect(sent).toBeGreaterThan(0);
-
-    const second = await pollGitHubEvents(store);
-
-    expect(discordMessages).toHaveLength(sent);
-    expect(second.posted).toBe(false);
-  });
-
-  it("recovers an old unposted event once and never re-posts claimed events", async () => {
+  it("the poll stores the commit and sends nothing, even over an old unposted event", async () => {
     const store = createMemoryStore();
     await store.upsertEvents([
       {
@@ -161,23 +136,29 @@ describe("posting once across webhook and poll", () => {
         dedupe_key: "commit:Staxed/site:stranded",
       },
     ]);
-    githubEvents = [];
 
-    const first = await pollGitHubEvents(store);
-    const sent = discordMessages.length;
-    const second = await pollGitHubEvents(store);
+    await pollGitHubEvents(store);
 
-    expect(first.recovered).toBe(1);
-    expect(JSON.stringify(discordMessages)).toContain("Stranded commit");
-    expect(second.recovered).toBe(0);
-    expect(discordMessages).toHaveLength(sent);
+    expect(store.events.filter((e) => e.kind === "commit_pushed")).toHaveLength(2);
+    expect(store.events.every((e) => !e.posted_to_discord)).toBe(true);
+    expect(discordMessages).toHaveLength(0);
+  });
+
+  it("stores the same commit once whichever of webhook and poll comes first", async () => {
+    const store = createMemoryStore();
+    await deliverPush(store);
+    await pollGitHubEvents(store);
+    await deliverPush(store);
+
+    expect(store.events.filter((e) => e.kind === "commit_pushed")).toHaveLength(1);
+    expect(discordMessages).toHaveLength(0);
   });
 });
 
 describe("pushes through the Events API", () => {
   const commitRows = (store: ReturnType<typeof createMemoryStore>) => store.events.filter((e) => e.kind === "commit_pushed");
 
-  it("stores a commit row per compare commit and posts once", async () => {
+  it("stores a commit row per compare commit", async () => {
     const store = createMemoryStore();
     githubEvents = [slimPush("1", "b0", "h2")];
     restCommits = { h2: [restCommit("c1", "First"), restCommit("c2", "Second")] };
@@ -185,7 +166,6 @@ describe("pushes through the Events API", () => {
     await pollGitHubEvents(store);
 
     expect(commitRows(store).map((e) => e.dedupe_key).sort()).toEqual([`commit:${REPO}:c1`, `commit:${REPO}:c2`]);
-    expect(discordMessages).toHaveLength(1);
   });
 
   it("fetches the head commit when a new branch has an all-zero before", async () => {
@@ -367,20 +347,6 @@ describe("summaries", () => {
 });
 
 describe("achievements", () => {
-  it("posts no achievement embed when the poll's achievements are already recorded", async () => {
-    const store = createMemoryStore();
-    await pollGitHubEvents(store);
-    const achievementEmbeds = () => discordMessages.filter((m) => JSON.stringify(m).includes("Achievement Unlocked"));
-    // Pre-record whatever the first poll earned, then post a fresh event through the same path
-    const before = achievementEmbeds().length;
-    githubEvents = [slimPush("2", SHA, "def456")];
-    restCommits = { def456: [restCommit("def456", "Second feature")] };
-    await pollGitHubEvents(store);
-
-    expect(JSON.stringify(discordMessages)).toContain("Second feature");
-    expect(achievementEmbeds()).toHaveLength(before);
-  });
-
   it("does not return an achievement that is already recorded", async () => {
     const store = createMemoryStore();
     await store.upsertEvents([

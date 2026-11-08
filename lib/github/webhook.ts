@@ -2,7 +2,6 @@ import { type NextRequest, NextResponse } from "next/server";
 import { verifyGitHubWebhook } from "@/lib/github/verify";
 import { normalizeWebhookEvent } from "@/lib/github/normalize";
 import { createAdminClient } from "@/lib/supabase/server";
-import { claimAndPostEvents } from "@/lib/discord/notify";
 import { findNewCommits, recordCommitLines } from "@/lib/github/commit-lines";
 import { getSettings } from "@/lib/settings";
 import type { ActivityStore } from "@/lib/activity/store";
@@ -84,17 +83,6 @@ export async function handleGitHubWebhook(request: NextRequest, store: ActivityS
         processed_at: new Date().toISOString(),
       })
       .eq("delivery_id", deliveryId);
-
-    // Proactive Discord posting (best-effort)
-    const discordChannelId = process.env.DISCORD_CHANNEL_ID;
-    if (discordChannelId && events.length > 0) {
-      try {
-        await claimAndPostEvents(store, discordChannelId, events.map((e) => e.dedupe_key), deliveryId);
-      } catch (discordErr) {
-        console.error("Discord posting failed:", discordErr);
-        // Don't fail the webhook response
-      }
-    }
 
     return NextResponse.json({ ok: true, events_created: events.length });
   } catch (err) {

@@ -35,21 +35,6 @@ export function createMemoryStore(): ActivityStore & {
       }
     },
 
-    async claimEvents(dedupeKeys) {
-      const claimed = events.filter(
-        (e) => e.dedupe_key && dedupeKeys.includes(e.dedupe_key) && !e.posted_to_discord
-      );
-      for (const e of claimed) e.posted_to_discord = true;
-      return claimed.map((e) => ({ ...e })).sort((a, b) => a.occurred_at.localeCompare(b.occurred_at));
-    },
-
-    async findUnpostedEvents(from, to) {
-      return events
-        .filter((e) => !e.posted_to_discord && e.occurred_at >= from && e.occurred_at <= to)
-        .map((e) => ({ ...e }))
-        .sort((a, b) => a.occurred_at.localeCompare(b.occurred_at));
-    },
-
     async claimUnhandledEvents(from, to) {
       const claimed = events.filter((e) => !e.posted_to_discord && e.occurred_at >= from && e.occurred_at <= to);
       for (const e of claimed) e.posted_to_discord = true;

@@ -26,8 +26,6 @@ export interface DiscordPostRecord {
 export interface ActivityStore {
   /** Insert events; a dedupe_key that is already stored is left untouched. */
   upsertEvents(events: NewEvent[]): Promise<void>;
-  /** Flip posted_to_discord false to true for these dedupe keys; returns only the rows this call flipped. */
-  claimEvents(dedupeKeys: string[]): Promise<ActivityEvent[]>;
   /** Flip posted_to_discord false to true for every event that occurred within [from, to]; returns only the rows this call flipped. */
   claimUnhandledEvents(from: string, to: string): Promise<ActivityEvent[]>;
   /** Flip posted_to_discord back to false for these event ids, so a later claim picks them up again. */
@@ -40,8 +38,6 @@ export interface ActivityStore {
   listDiscordRepos(): Promise<DiscordRepo[]>;
   /** Insert or update discord_repos rows by repo_full_name. */
   saveDiscordRepos(repos: DiscordRepo[]): Promise<void>;
-  /** Events with posted_to_discord false that occurred within [from, to]. */
-  findUnpostedEvents(from: string, to: string): Promise<ActivityEvent[]>;
   /** Insert the (summary_type, period) row; false when it already exists. */
   claimSummary(claim: SummaryClaim): Promise<boolean>;
   setSummaryMessageId(summaryType: string, period: string, messageId: string): Promise<void>;
@@ -79,30 +75,6 @@ export function createSupabaseStore(): ActivityStore {
           .upsert(events.slice(i, i + 100), { onConflict: "dedupe_key", ignoreDuplicates: true });
         if (error) fail("upsert events", error);
       }
-    },
-
-    async claimEvents(dedupeKeys) {
-      if (dedupeKeys.length === 0) return [];
-      const { data, error } = await supabase
-        .from("activity_events")
-        .update({ posted_to_discord: true })
-        .in("dedupe_key", dedupeKeys)
-        .eq("posted_to_discord", false)
-        .select("*");
-      if (error) fail("claim events", error);
-      return (data as ActivityEvent[]).sort((a, b) => a.occurred_at.localeCompare(b.occurred_at));
-    },
-
-    async findUnpostedEvents(from, to) {
-      const { data, error } = await supabase
-        .from("activity_events")
-        .select("*")
-        .eq("posted_to_discord", false)
-        .gte("occurred_at", from)
-        .lte("occurred_at", to)
-        .order("occurred_at", { ascending: true });
-      if (error) fail("find unposted events", error);
-      return data as ActivityEvent[];
     },
 
     async claimUnhandledEvents(from, to) {
