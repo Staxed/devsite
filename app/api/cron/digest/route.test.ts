@@ -31,5 +31,15 @@ describe("digest cron endpoint", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true, lines: 2 });
     expect(postHourlyDigest).toHaveBeenCalledOnce();
+    const [store, channel, now] = postHourlyDigest.mock.calls[0] as unknown as [unknown, string, Date];
+    expect(store).toEqual({});
+    expect(channel).toBe("chan");
+    expect(now).toBeInstanceOf(Date);
+  });
+
+  it("returns 500 when DISCORD_CHANNEL_ID is unset", async () => {
+    delete process.env.DISCORD_CHANNEL_ID;
+    expect((await call("sek")).status).toBe(500);
+    expect(postHourlyDigest).not.toHaveBeenCalled();
   });
 });
