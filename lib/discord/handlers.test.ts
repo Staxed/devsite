@@ -13,7 +13,7 @@ vi.mock("@/lib/streaks/engine", () => ({
 }));
 vi.mock("./embeds", () => ({ buildStatsEmbed: vi.fn(), buildStreakEmbed: vi.fn(), EMBED_COLORS: { STATS: 1 }, KIND_EMOJI: {} }));
 
-import { handleActivityRepos } from "./handlers";
+import { handleActivityRepos, scaledBar } from "./handlers";
 
 function ev(repo: string, visibility: "public" | "private", id: number) {
   return { id, occurred_at: "2026-01-05T15:00:00Z", occurred_on: "2026-01-05", kind: "commit_pushed", title: "t", repo_visibility: visibility, url: null, metadata: { repo } } as unknown as ActivityEvent;
@@ -34,5 +34,14 @@ describe("handleActivityRepos", () => {
     expect(fields[0].value).toBe("2 events");
     const text = JSON.stringify(fields);
     for (const hidden of ["Acme/secret", "secret", "Acme/unnamed", "Acme/off", "Off", "Redacted", "Acme/other"]) expect(text).not.toContain(hidden);
+  });
+});
+
+describe("scaledBar", () => {
+  it("scales bars to the largest count, so bigger counts get longer bars", () => {
+    expect(scaledBar(178, 178)).toHaveLength(15);
+    expect(scaledBar(35, 178)).toHaveLength(3);
+    expect(scaledBar(14, 178)).toHaveLength(1);
+    expect(scaledBar(0, 178)).toBe("");
   });
 });

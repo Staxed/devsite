@@ -201,6 +201,13 @@ export async function handleActivityRepos(options: CommandOption[]) {
   return { embeds: [embed] };
 }
 
+/** A bar of up to BAR_WIDTH blocks, proportional to count / max; any count above zero gets at least one block. */
+const BAR_WIDTH = 15;
+export function scaledBar(count: number, max: number): string {
+  if (count <= 0 || max <= 0) return "";
+  return "\u2588".repeat(Math.max(1, Math.round((count / max) * BAR_WIDTH)));
+}
+
 export async function handleActivityInsights() {
   const { timezone } = await getSettings();
   const today = todayStr(timezone);
@@ -211,10 +218,12 @@ export async function handleActivityInsights() {
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const peakHour = Object.entries(hourly).sort((a, b) => b[1] - a[1])[0];
   const peakDay = Object.entries(daily).sort((a, b) => b[1] - a[1])[0];
+  const maxHour = Math.max(0, ...Object.values(hourly));
+  const maxDay = Math.max(0, ...Object.values(daily));
 
   const hourBars = Array.from({ length: 24 }, (_, h) => {
     const count = hourly[h] || 0;
-    const bar = "\u2588".repeat(Math.min(Math.ceil(count / 2), 15));
+    const bar = scaledBar(count, maxHour);
     return `\`${String(h).padStart(2, "0")}:00\` ${bar} ${count}`;
   })
     .filter((_, h) => (hourly[h] || 0) > 0)
@@ -223,7 +232,7 @@ export async function handleActivityInsights() {
   const dayBars = dayNames
     .map((name, i) => {
       const count = daily[i] || 0;
-      const bar = "\u2588".repeat(Math.min(Math.ceil(count / 2), 15));
+      const bar = scaledBar(count, maxDay);
       return `\`${name}\` ${bar} ${count}`;
     })
     .join("\n");
