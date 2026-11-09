@@ -75,8 +75,17 @@ for name in DISCORD_APP_ID DISCORD_PUBLIC_KEY DISCORD_BOT_TOKEN DISCORD_CHANNEL_
     put_secret "$name"
   fi
 done
-printf 'true' | npx wrangler secret put CRON_ENABLED --name "$WORKER_NAME"
-say "CRON_ENABLED=true set; cron triggers run only on the production deployment, never on test-branch Previews."
+say "CRON_ENABLED turns on the schedule: the hourly digest, achievements and the 09:00 daily, weekly and monthly summaries."
+say "Leave it off to set up and test first: nothing posts on its own, and you can still post one digest by hand with POST $SITE_URL/api/cron/digest and the x-cron-secret header."
+read -r -p "Turn on the schedule now? Type yes to turn it on, Enter to leave it off: " cron_on
+if [ "$cron_on" = "yes" ]; then
+  printf 'true' | npx wrangler secret put CRON_ENABLED --name "$WORKER_NAME"
+  say "CRON_ENABLED=true set; cron triggers run only on the production deployment, never on test-branch Previews."
+else
+  printf 'false' | npx wrangler secret put CRON_ENABLED --name "$WORKER_NAME"
+  say "CRON_ENABLED=false set: nothing posts on its own. Turn it on later with:"
+  say "  printf true | npx wrangler secret put CRON_ENABLED --name $WORKER_NAME"
+fi
 say "Redeploy the $WORKER_NAME Worker (Workers Builds: Retry the latest production-branch build, or npm run deploy:vinext) so the secrets and cron trigger are live before step 4."
 pause
 
@@ -122,4 +131,4 @@ say "It posts nothing to Discord."
 pause
 
 say ""
-say "Done. Demo: push a commit, see it on $SITE_URL/activity and in the activity channel, then run /stats."
+say "Done. Demo: tick a repo on $SITE_URL/activity/admin/settings, push a commit in it, see it on $SITE_URL/activity and in the next top-of-hour digest in the activity channel, then run /stats and /activity repos."
