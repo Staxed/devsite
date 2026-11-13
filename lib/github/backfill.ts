@@ -261,8 +261,13 @@ async function searchPullRequestsInWindow(
   ];
 }
 
-/** Store Staxed's PRs created since `since`, as already posted. */
-export async function backfillPRs(since: string, store: ActivityStore = createSupabaseStore()): Promise<number> {
+/** Store Staxed's PRs created since `since`, as already posted. With `onlyRepos`, PRs in other repos are skipped. */
+export async function backfillPRs(
+  since: string,
+  store: ActivityStore = createSupabaseStore(),
+  onlyRepos?: Set<string>
+): Promise<number> {
+  if (onlyRepos && onlyRepos.size === 0) return 0;
   const { github_username, timezone } = await getSettings();
   const octokit = createEventsOctokit();
 
@@ -284,6 +289,7 @@ export async function backfillPRs(since: string, store: ActivityStore = createSu
     const repoUrl = pr.repository_url || "";
     const repoParts = repoUrl.split("/");
     const repoFullName = `${repoParts[repoParts.length - 2]}/${repoParts[repoParts.length - 1]}`;
+    if (onlyRepos && !onlyRepos.has(repoFullName)) continue;
     const repoHash = await hashRepoName(repoFullName);
     const isPrivate = privateRepoNames.has(repoFullName);
 

@@ -9,6 +9,9 @@ interface Repo {
   owner: string;
   name: string;
   visibility: string;
+  included: boolean;
+  is_new: boolean;
+  backfilled_at: string | null;
 }
 
 interface RepoStatus {
@@ -22,6 +25,8 @@ export default function BackfillPanel() {
   const [repoStatus, setRepoStatus] = useState<RepoStatus>({});
   const [discovering, setDiscovering] = useState(false);
   const [message, setMessage] = useState("");
+  // Saved display names from Settings, sent back unchanged when toggling Include
+  const [displayNames, setDisplayNames] = useState<Record<string, string | null>>({});
 
   async function handleDiscover() {
     setDiscovering(true);
@@ -34,13 +39,26 @@ export default function BackfillPanel() {
       });
       const data = await res.json();
       setRun({ id: data.run.id, since: twoYearsBefore(new Date()) });
-      setRepos(data.repos || []);
+      const found: Repo[] = data.repos || [];
+      setRepos(found);
+      try {
+        const saved = await fetch("/api/admin/discord-repos");
+        const savedData = await saved.json();
+        const names: Record<string, string | null> = {};
+        for (const r of savedData.repos || []) names[r.repo_full_name] = r.display_name ?? null;
+        setDisplayNames(names);
+      } catch {
+        setDisplayNames({});
+      }
       const status: RepoStatus = {};
       for (const repo of data.repos || []) {
         status[repo.id] = "pending";
       }
       setRepoStatus(status);
-      setMessage(`Discovered ${data.repos?.length || 0} repos`);
+      const newCount = found.filter((r) => r.is_new).length;
+      const includedCount = found.filter((r) => r.included).length;
+      const toDo = found.filter((r) => r.included && !r.backfilled_at).length;
+      setMessage(`Discovered ${found.length} repos (${newCount} new), ${includedCount} included, ${toDo} still to backfill`);
     } catch {
       setMessage("Discovery failed");
     } finally {
@@ -58,19 +76,43 @@ export default function BackfillPanel() {
       });
       const data = await res.json();
       setRepoStatus((s) => ({ ...s, [repo.id]: "done" }));
+      setRepos((rs) => rs.map((r) => (r.id === repo.id ? { ...r, backfilled_at: new Date().toISOString() } : r)));
       setMessage(`${repo.full_name}: ${data.inserted} events imported`);
     } catch {
       setRepoStatus((s) => ({ ...s, [repo.id]: "error" }));
     }
   }
 
-  async function handleBackfillAll() {
-    for (const repo of repos) {
-      if (repoStatus[repo.id] !== "done") {
-        await handleBackfillRepo(repo);
-      }
+  const toBackfill = repos.filter((r) => r.included && !r.backfilled_at && repoStatus[r.id] !== "done");
+
+  async function handleBackfillIncluded() {
+    for (const repo of toBackfill) {
+      await handleBackfillRepo(repo);
     }
-    setMessage("Backfill complete for all repos");
+    setMessage("Backfill complete for included repos");
+  }
+
+  async function handleToggleInclude(repo: Repo, included: boolean) {
+    const setIncluded = (value: boolean) =>
+      setRepos((rs) => rs.map((r) => (r.id === repo.id ? { ...r, included: value } : r)));
+    setIncluded(included);
+    try {
+      const res = await fetch("/api/admin/discord-repos", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          repos: [{ repo_full_name: repo.full_name, included, display_name: displayNames[repo.full_name] ?? null }],
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setIncluded(!included);
+        setMessage(data.error || "Could not save the Include tick");
+      }
+    } catch {
+      setIncluded(!included);
+      setMessage("Could not save the Include tick");
+    }
   }
 
   async function handleBackfillPRs() {
@@ -105,8 +147,11 @@ export default function BackfillPanel() {
     }
   }
 
-  const doneCount = Object.values(repoStatus).filter((s) => s === "done").length;
-  const totalCount = repos.length;
+  const includedRepos = repos.filter((r) => r.included);
+  const doneCount = includedRepos.filter((r) => repoStatus[r.id] === "done" || r.backfilled_at).length;
+  const totalCount = includedRepos.length;
+  const rank = (r: Repo) => (r.included ? 0 : r.is_new ? 1 : 2);
+  const sortedRepos = [...repos].sort((a, b) => rank(a) - rank(b) || a.full_name.localeCompare(b.full_name));
   const progressPct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
 
   return (
@@ -121,11 +166,11 @@ export default function BackfillPanel() {
         </button>
         {repos.length > 0 && (
           <>
-            <button className="btn-admin btn-admin-primary" onClick={handleBackfillAll}>
-              Backfill All Commits
+            <button className="btn-admin btn-admin-primary" onClick={handleBackfillIncluded} disabled={toBackfill.length === 0}>
+              Backfill Included ({toBackfill.length})
             </button>
             <button className="btn-admin btn-admin-primary" onClick={handleBackfillPRs}>
-              Backfill PRs
+              Backfill PRs (included repos)
             </button>
             <button className="btn-admin btn-admin-primary" onClick={handleFinalize}>
               Finalize (award achievements)
@@ -142,18 +187,34 @@ export default function BackfillPanel() {
             <div className="backfill-progress-bar" style={{ width: `${progressPct}%` }} />
           </div>
           <p style={{ fontSize: "0.8rem", color: "var(--color-text-muted)" }}>
-            {doneCount}/{totalCount} repos processed
+            {doneCount}/{totalCount} included repos backfilled
           </p>
         </>
       )}
 
-      {repos.map((repo) => (
+      {sortedRepos.map((repo) => (
         <div key={repo.id} className="backfill-repo">
           <div>
+            <label style={{ marginRight: "0.5rem" }}>
+              <input
+                type="checkbox"
+                checked={repo.included}
+                onChange={(e) => handleToggleInclude(repo, e.target.checked)}
+              />{" "}
+              Include
+            </label>
             <span style={{ fontSize: "0.9rem" }}>{repo.full_name}</span>
             <span style={{ marginLeft: "0.5rem", fontSize: "0.75rem", color: "var(--color-text-muted)" }}>
               ({repo.visibility})
             </span>
+            {repo.is_new && (
+              <span style={{ marginLeft: "0.5rem", fontSize: "0.7rem", color: "var(--color-accent-sky)" }}>New</span>
+            )}
+            {repo.backfilled_at && (
+              <span style={{ marginLeft: "0.5rem", fontSize: "0.75rem", color: "var(--color-text-muted)" }}>
+                backfilled {new Date(repo.backfilled_at).toLocaleDateString()}
+              </span>
+            )}
           </div>
           <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
             <span style={{ fontSize: "0.75rem", color: "var(--color-text-muted)" }}>
