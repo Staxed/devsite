@@ -36,7 +36,19 @@ export async function POST(request: NextRequest) {
 
   switch (action) {
     case "discover": {
-      const repos = await discoverRepos();
+      const discovered = await discoverRepos();
+      const repos = discovered.filter((repo) => !repo.archived);
+
+      const [{ data: existing }, { data: syncRows }, discordRepos] = await Promise.all([
+        supabase.from("tracked_repos").select("provider_repo_id"),
+        supabase.from("sync_state").select("scope, last_synced_at").eq("sync_type", "backfill_commits"),
+        createSupabaseStore().listDiscordRepos(),
+      ]);
+      const knownIds = new Set((existing || []).map((r: { provider_repo_id: string }) => r.provider_repo_id));
+      const backfilledAt = new Map(
+        (syncRows || []).map((r: { scope: string; last_synced_at: string | null }) => [r.scope, r.last_synced_at])
+      );
+      const includedByName = new Map(discordRepos.map((r) => [r.repo_full_name, r.included]));
 
       // Upsert into tracked_repos
       for (const repo of repos) {
@@ -58,7 +70,14 @@ export async function POST(request: NextRequest) {
         .select()
         .single();
 
-      return NextResponse.json({ repos, run });
+      const annotated = repos.map((repo) => ({
+        ...repo,
+        included: includedByName.get(repo.full_name) ?? false,
+        is_new: !knownIds.has(String(repo.id)),
+        backfilled_at: backfilledAt.get(String(repo.id)) ?? null,
+      }));
+
+      return NextResponse.json({ repos: annotated, run });
     }
 
     case "backfill_repo": {
@@ -109,7 +128,10 @@ export async function POST(request: NextRequest) {
       const { since } = body;
       const sinceDate = since || twoYearsBefore(new Date());
 
-      const inserted = await backfillPRs(sinceDate);
+      const included = new Set(
+        (await createSupabaseStore().listDiscordRepos()).filter((r) => r.included).map((r) => r.repo_full_name)
+      );
+      const inserted = await backfillPRs(sinceDate, undefined, included);
 
       return NextResponse.json({ inserted });
     }
