@@ -336,7 +336,7 @@ Visit:
 
 ### Testing Without Wallet Auth
 
-The middleware redirects non-admin wallets to `/activity`. To test admin pages locally, you need:
+There is no middleware. Sign-in is refused for any wallet other than `ADMIN_WALLET_ADDRESS` (`lib/auth/config.ts`), `app/activity/admin/layout.tsx` hides admin pages until a session exists, and every `/api/admin/*` route checks `verifyAdmin()` itself. To test admin pages locally, you need:
 1. MetaMask or another wallet with the admin address (`0x189e...`)
 2. Connect via the wallet button in the admin nav
 

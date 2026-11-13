@@ -140,6 +140,19 @@ describe("backfill", () => {
       ["pr:Acme/hidden:2:pr_closed", true],
     ]);
     expect(discordMessages).toEqual([]);
+
+    // Same search again, limited to one repo: the other repo's PR is skipped (the clock is shared, so it stays in this test)
+    const limited = createMemoryStore();
+    expect(await backfillPRs("2024-03-10T15:00:00.000Z", limited, new Set(["Staxed/site"]))).toBe(1);
+    expect(limited.events.map((e) => e.dedupe_key)).toEqual(["pr:Staxed/site:1:pr_opened"]);
+  });
+});
+
+describe("backfillPRs onlyRepos", () => {
+  it("stores nothing for an empty set", async () => {
+    const store = createMemoryStore();
+    expect(await backfillPRs("2024-03-10T15:00:00.000Z", store, new Set())).toBe(0);
+    expect(store.events).toEqual([]);
   });
 });
 
