@@ -5,11 +5,11 @@ import { createScheduled } from "./scheduled";
 const inWindow = Date.UTC(2026, 6, 15, 13, 0);
 const outWindow = Date.UTC(2026, 6, 15, 14, 0);
 
-function setup(status = 200) {
+function setup(status = 200, body = "") {
   const calls: Request[] = [];
   const fetchFn = vi.fn(async (r: Request) => {
     calls.push(r);
-    return new Response("", { status });
+    return new Response(body, { status });
   });
   const waits: Promise<unknown>[] = [];
   const ctx = { waitUntil: (p: Promise<unknown>) => void waits.push(p) };
@@ -49,5 +49,14 @@ describe("scheduled", () => {
     const s = setup(500);
     await s.scheduled({ scheduledTime: outWindow }, { CRON_ENABLED: "true", CRON_SECRET: "sek" }, s.ctx);
     await expect(Promise.all(s.waits)).rejects.toThrow(/failed: 500/);
+  });
+
+  it("logs each step's response body", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const s = setup(200, '{"ok":true,"fetched":3,"newEvents":1}');
+    await s.scheduled({ scheduledTime: outWindow }, { CRON_ENABLED: "true", CRON_SECRET: "sek" }, s.ctx);
+    await Promise.all(s.waits);
+    expect(log).toHaveBeenCalledWith('Cron poll: {"ok":true,"fetched":3,"newEvents":1}');
+    log.mockRestore();
   });
 });
