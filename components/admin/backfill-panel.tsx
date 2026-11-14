@@ -57,8 +57,7 @@ export default function BackfillPanel() {
       setRepoStatus(status);
       const newCount = found.filter((r) => r.is_new).length;
       const includedCount = found.filter((r) => r.included).length;
-      const toDo = found.filter((r) => r.included && !r.backfilled_at).length;
-      setMessage(`Discovered ${found.length} repos (${newCount} new), ${includedCount} included, ${toDo} still to backfill`);
+      setMessage(`Discovered ${found.length} repos (${newCount} new), ${includedCount} included`);
     } catch {
       setMessage("Discovery failed");
     } finally {
@@ -91,7 +90,9 @@ export default function BackfillPanel() {
     }
   }
 
-  const toBackfill = repos.filter((r) => r.included && !r.backfilled_at && repoStatus[r.id] !== "done");
+  // Every included repo, backfilled before or not: the same work as each row's Backfill button.
+  // Re-running is safe; events are deduplicated, so only what is missing is added.
+  const toBackfill = repos.filter((r) => r.included);
 
   async function handleBackfillIncluded() {
     for (const repo of toBackfill) {
@@ -123,21 +124,6 @@ export default function BackfillPanel() {
     }
   }
 
-  async function handleBackfillPRs() {
-    setMessage("Backfilling PRs...");
-    try {
-      const res = await fetch("/api/admin/backfill", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "backfill_prs", since: run?.since }),
-      });
-      const data = await res.json();
-      setMessage(`PRs: ${data.inserted} events imported`);
-    } catch {
-      setMessage("PR backfill failed");
-    }
-  }
-
   async function handleFinalize() {
     if (!run) return;
     setMessage("Awarding achievements from the stored history...");
@@ -156,7 +142,7 @@ export default function BackfillPanel() {
   }
 
   const includedRepos = repos.filter((r) => r.included);
-  const doneCount = includedRepos.filter((r) => repoStatus[r.id] === "done" || r.backfilled_at).length;
+  const doneCount = includedRepos.filter((r) => repoStatus[r.id] === "done").length;
   const totalCount = includedRepos.length;
   const rank = (r: Repo) => (r.included ? 0 : r.is_new ? 1 : 2);
   const sortedRepos = [...repos].sort((a, b) => rank(a) - rank(b) || a.full_name.localeCompare(b.full_name));
@@ -177,9 +163,6 @@ export default function BackfillPanel() {
             <button className="btn-admin btn-admin-primary" onClick={handleBackfillIncluded} disabled={toBackfill.length === 0}>
               Backfill Included ({toBackfill.length})
             </button>
-            <button className="btn-admin btn-admin-primary" onClick={handleBackfillPRs}>
-              Backfill PRs (included repos)
-            </button>
             <button className="btn-admin btn-admin-primary" onClick={handleFinalize}>
               Finalize (award achievements)
             </button>
@@ -195,7 +178,7 @@ export default function BackfillPanel() {
             <div className="backfill-progress-bar" style={{ width: `${progressPct}%` }} />
           </div>
           <p style={{ fontSize: "0.8rem", color: "var(--color-text-muted)" }}>
-            {doneCount}/{totalCount} included repos backfilled
+            {doneCount}/{totalCount} included repos backfilled this run
           </p>
         </>
       )}
