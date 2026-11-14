@@ -384,10 +384,9 @@ DISCORD_APP_ID=your_id DISCORD_BOT_TOKEN=your_token npx tsx scripts/register-dis
 ### F. Backfill Historical Data
 1. Visit `https://staxed.dev/activity/admin/backfill`
 2. Click **Discover Repos** — every repo you own, collaborate on or reach through an organization appears (needs `GITHUB_EVENTS_TOKEN`)
-3. Click **Backfill Included** to import, for each included repo, the last two years of your commits on the default branch, PRs, issues, comments, reviews, releases, forks and stars, plus branch and tag events as far back as GitHub's repo events feed reaches (about 90 days)
-4. Click **Backfill PRs** to import your PRs, searched in date windows under GitHub's 1000-result cap
-5. Click **Finalize (award achievements)** to replay the stored history and record the achievements it earned, with their historical dates
-6. Visit `/activity` — the timeline and badges are populated. The backfill marks its rows as posted and sends nothing to Discord, and the next poll posts no achievements from the replay
+3. Click **Backfill Included** to import, for each included repo, the last two years of your commits on the default branch, PRs, issues, comments, reviews, releases, forks and stars, plus branch and tag events as far back as GitHub's repo events feed reaches (about 90 days). It runs every included repo, including ones backfilled before; each row's **Backfill** button does the same for one repo, and re-running only adds what is missing
+4. Click **Finalize (award achievements)** to replay the stored history and record the achievements it earned, with their historical dates
+5. Visit `/activity` — the timeline and badges are populated. The backfill marks its rows as posted and sends nothing to Discord, and the next poll posts no achievements from the replay
 
 ### G. Create Your First Habit
 1. Visit `https://staxed.dev/activity/admin/habits`
