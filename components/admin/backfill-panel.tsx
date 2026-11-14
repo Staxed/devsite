@@ -75,6 +75,14 @@ export default function BackfillPanel() {
         body: JSON.stringify({ action: "backfill_repo", repo_id: repo.id, since: run?.since }),
       });
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      const errors: string[] = data.errors || [];
+      if (errors.length > 0) {
+        // Some sections failed: the repo stays to backfill, and running it again adds only what is missing
+        setRepoStatus((s) => ({ ...s, [repo.id]: "error" }));
+        setMessage(`${repo.full_name}: ${data.inserted} events imported, but ${errors.join("; ")}`);
+        return;
+      }
       setRepoStatus((s) => ({ ...s, [repo.id]: "done" }));
       setRepos((rs) => rs.map((r) => (r.id === repo.id ? { ...r, backfilled_at: new Date().toISOString() } : r)));
       setMessage(`${repo.full_name}: ${data.inserted} events imported`);

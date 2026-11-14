@@ -53,8 +53,8 @@ export async function normalizeEventsApiResponse(
   }
 
   for (const event of events) {
-    // Only process events by the configured user
-    if (event.actor.login.toLowerCase() !== GITHUB_USERNAME.toLowerCase()) continue;
+    // Only process events by the configured user; the webhook records every release, so the poll does too
+    if (event.type !== "ReleaseEvent" && event.actor.login.toLowerCase() !== GITHUB_USERNAME.toLowerCase()) continue;
 
     const repoFullName = event.repo.name;
     const isPrivateRepo = !event.public;
@@ -110,15 +110,10 @@ export async function normalizeEventsApiResponse(
           if (commit.distinct === false) continue;
 
           const authorName = (commit.author as Record<string, unknown>)?.name as string || "";
-          const authorEmail = ((commit.author as Record<string, unknown>)?.email as string) || "";
           const authorLogin = ((commit.author as Record<string, unknown>)?.login as string) || "";
 
-          // Filter by author: match GitHub username in noreply email or author name
-          const lowerUser = GITHUB_USERNAME.toLowerCase();
-          const emailMatch = authorEmail.toLowerCase().includes(lowerUser);
-          const nameMatch = authorName.toLowerCase() === lowerUser;
-          const loginMatch = authorLogin.toLowerCase() === lowerUser;
-          if (!emailMatch && !nameMatch && !loginMatch) continue;
+          // Same rule as the webhook: the commit's GitHub account must be the configured user
+          if (authorLogin.toLowerCase() !== GITHUB_USERNAME.toLowerCase()) continue;
 
           const sha = commit.sha as string;
           const message = ((commit.message as string) || "").split("\n")[0];
@@ -147,6 +142,10 @@ export async function normalizeEventsApiResponse(
         else if (action === "closed") kind = "pr_closed";
         else break;
 
+        // Same rule as the webhook: only the configured user's own PRs
+        const prAuthor = ((pr.user as Record<string, unknown> | undefined)?.login as string) || "";
+        if (prAuthor.toLowerCase() !== GITHUB_USERNAME.toLowerCase()) break;
+
         const prNumber = payload.number as number || pr.number as number;
         const prTitle = pr.title as string;
         const prUrl = pr.html_url as string;
@@ -169,6 +168,10 @@ export async function normalizeEventsApiResponse(
 
         const issue = payload.issue as Record<string, unknown>;
         if (!issue) break;
+
+        // Same rule as the webhook: only the configured user's own issues
+        const issueAuthor = ((issue.user as Record<string, unknown> | undefined)?.login as string) || "";
+        if (issueAuthor.toLowerCase() !== GITHUB_USERNAME.toLowerCase()) break;
 
         const kind = action === "opened" ? "issue_opened" : "issue_closed";
         const issueNumber = issue.number as number;
@@ -313,6 +316,51 @@ export async function normalizeEventsApiResponse(
           commentUrl,
           `issue_comment:${repoFullName}:${commentId}`,
           { comment_id: commentId, issue_number: issueNumber }
+        ));
+        break;
+      }
+
+      case "PullRequestReviewCommentEvent": {
+        if ((payload.action as string) !== "created") break;
+
+        const comment = payload.comment as Record<string, unknown>;
+        const pr = payload.pull_request as Record<string, unknown>;
+        if (!comment || !pr) break;
+
+        const commentId = comment.id as number;
+        const commentUrl = comment.html_url as string;
+        const commentBody = ((comment.body as string) || "").split("\n")[0].slice(0, 80);
+        const prNumber = pr.number as number;
+
+        result.push(makeEvent(
+          "pr_comment_created",
+          `Review comment on PR #${prNumber}: ${commentBody}`,
+          `Commented on PR in ${repoFullName}`,
+          commentUrl,
+          `pr_comment:${repoFullName}:${commentId}`,
+          { comment_id: commentId, pr_number: prNumber }
+        ));
+        break;
+      }
+
+      case "DiscussionEvent": {
+        const action = payload.action as string;
+        if (action !== "created" && action !== "answered") break;
+
+        const discussion = payload.discussion as Record<string, unknown>;
+        if (!discussion) break;
+
+        const discussionNum = discussion.number as number;
+        const discussionTitle = discussion.title as string;
+        const label = action === "created" ? "Created" : "Answered";
+
+        result.push(makeEvent(
+          action === "created" ? "discussion_created" : "discussion_answered",
+          `${label} discussion #${discussionNum}: ${discussionTitle}`,
+          `${label} discussion in ${repoFullName}`,
+          discussion.html_url as string,
+          `discussion:${repoFullName}:${discussionNum}:${action}`,
+          { discussion_number: discussionNum }
         ));
         break;
       }
