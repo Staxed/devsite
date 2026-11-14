@@ -34,6 +34,8 @@ let restCommits: Record<string, unknown[]>;
 let restResources: Record<string, unknown>;
 let githubUrls: string[];
 let restStatus: number | null;
+// default-branch commits the poll lists for the repo
+let branchCommits: unknown[];
 // GET commit answers by sha, for the line-count lookup; a missing entry falls back to restCommits
 let commitDetails: Record<string, unknown>;
 let commitDetailStatus: number | null = null;
@@ -61,6 +63,7 @@ beforeEach(() => {
   commitDetails = {};
   commitDetailStatus = null;
   restStatus = null;
+  branchCommits = [];
   githubEvents = [slimPush("1", "b0", SHA)];
   restCommits = { [SHA]: [restCommit(SHA, "Add feature")] };
   vi.stubGlobal(
@@ -76,6 +79,10 @@ beforeEach(() => {
       }
       githubUrls.push(url);
       if (restStatus && !url.includes("/events")) return new Response("denied", { status: restStatus });
+      if (url.includes("api.github.com/user/repos")) {
+        return Response.json(url.includes("page=1") ? [{ id: 1, full_name: REPO, name: "site", private: false, owner: { login: "Staxed" } }] : []);
+      }
+      if (/\/repos\/[^/]+\/[^/]+\/commits\?/.test(url)) return Response.json(url.includes("page=1") || !url.includes("page=") ? branchCommits : []);
       const lookup = url.match(/\/repos\/[^/]+\/[^/]+\/(pulls|issues)\/(\d+)$/);
       if (lookup) {
         const found = restResources[`${lookup[1]}/${lookup[2]}`];
@@ -100,6 +107,12 @@ afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
+
+/** The poll reads included repos only: include the test repo, then poll. */
+async function poll(store: ReturnType<typeof createMemoryStore>) {
+  await store.saveDiscordRepos([{ repo_full_name: REPO, display_name: null, included: true }]);
+  return pollGitHubEvents(store);
+}
 
 async function deliverPush(store: ReturnType<typeof createMemoryStore>) {
   const body = JSON.stringify({
@@ -137,7 +150,7 @@ describe("ingest sends nothing to Discord", () => {
       },
     ]);
 
-    await pollGitHubEvents(store);
+    await poll(store);
 
     expect(store.events.filter((e) => e.kind === "commit_pushed")).toHaveLength(2);
     expect(store.events.every((e) => !e.posted_to_discord)).toBe(true);
@@ -147,7 +160,7 @@ describe("ingest sends nothing to Discord", () => {
   it("stores the same commit once whichever of webhook and poll comes first", async () => {
     const store = createMemoryStore();
     await deliverPush(store);
-    await pollGitHubEvents(store);
+    await poll(store);
     await deliverPush(store);
 
     expect(store.events.filter((e) => e.kind === "commit_pushed")).toHaveLength(1);
@@ -163,7 +176,7 @@ describe("pushes through the Events API", () => {
     githubEvents = [slimPush("1", "b0", "h2")];
     restCommits = { h2: [restCommit("c1", "First"), restCommit("c2", "Second")] };
 
-    await pollGitHubEvents(store);
+    await poll(store);
 
     expect(commitRows(store).map((e) => e.dedupe_key).sort()).toEqual([`commit:${REPO}:c1`, `commit:${REPO}:c2`]);
   });
@@ -173,7 +186,7 @@ describe("pushes through the Events API", () => {
     githubEvents = [slimPush("1", "0".repeat(40), "h3")];
     restCommits = { h3: [restCommit("h3", "Branch start")] };
 
-    await pollGitHubEvents(store);
+    await poll(store);
 
     expect(commitRows(store).map((e) => e.dedupe_key)).toEqual([`commit:${REPO}:h3`]);
     expect(githubUrls.some((u) => u.includes("/commits/h3"))).toBe(true);
@@ -184,7 +197,7 @@ describe("pushes through the Events API", () => {
     const store = createMemoryStore();
     githubEvents = [slimPush("1", "b0", "0".repeat(40))];
 
-    await pollGitHubEvents(store);
+    await poll(store);
 
     expect(commitRows(store)).toHaveLength(0);
     expect(githubUrls.some((u) => u.includes("/compare/") || u.includes("/commits/"))).toBe(false);
@@ -195,7 +208,7 @@ describe("pushes through the Events API", () => {
     githubEvents = [slimPush("1", "b0", "h5")];
     restCommits = { h5: [{ sha: "c9", commit: { message: "Login only", author: { name: "Someone", email: "x@example.com" } }, author: { login: "staxed" } }] };
 
-    await pollGitHubEvents(store);
+    await poll(store);
 
     expect(commitRows(store).map((e) => e.dedupe_key)).toEqual([`commit:${REPO}:c9`]);
   });
@@ -208,7 +221,7 @@ describe("pushes through the Events API", () => {
     }];
     restResources = { "pulls/7": { number: 7, title: "Fetched PR title", state: "open", merged: false, html_url: "https://github.com/Staxed/site/pull/7", user: { login: "Staxed" } } };
 
-    await pollGitHubEvents(store);
+    await poll(store);
 
     expect(JSON.stringify(store.events)).toContain("Fetched PR title");
     expect(githubUrls.some((u) => u.endsWith("/pulls/7"))).toBe(true);
@@ -222,7 +235,7 @@ describe("pushes through the Events API", () => {
     }];
     restResources = { "issues/3": { number: 3, title: "Fetched issue title", state: "open", html_url: "https://github.com/Staxed/site/issues/3", user: { login: "Staxed" } } };
 
-    await pollGitHubEvents(store);
+    await poll(store);
 
     expect(githubUrls.some((u) => u.endsWith("/issues/3"))).toBe(true);
     expect(JSON.stringify(store.events)).toContain("Fetched issue title");
@@ -232,13 +245,13 @@ describe("pushes through the Events API", () => {
     restStatus = 401;
     vi.spyOn(console, "error").mockImplementation(() => {});
 
-    await expect(pollGitHubEvents(createMemoryStore())).rejects.toThrow();
+    await expect(poll(createMemoryStore())).rejects.toThrow();
   });
 
   it("stops the poll with a named error when GITHUB_EVENTS_TOKEN is missing", async () => {
     delete process.env.GITHUB_EVENTS_TOKEN;
 
-    await expect(pollGitHubEvents(createMemoryStore())).rejects.toThrow(/GITHUB_EVENTS_TOKEN/);
+    await expect(poll(createMemoryStore())).rejects.toThrow(/GITHUB_EVENTS_TOKEN/);
   });
 
   it("drops commits not authored by Staxed", async () => {
@@ -246,7 +259,7 @@ describe("pushes through the Events API", () => {
     githubEvents = [slimPush("1", "b0", "h4")];
     restCommits = { h4: [restCommit("c1", "Mine"), restCommit("c2", "Theirs", "other", "other@example.com")] };
 
-    await pollGitHubEvents(store);
+    await poll(store);
 
     expect(commitRows(store).map((e) => e.dedupe_key)).toEqual([`commit:${REPO}:c1`]);
   });
@@ -257,7 +270,7 @@ describe("pushes through the Events API", () => {
     restCommits = { good: [restCommit("g1", "Good commit")] };
     vi.spyOn(console, "error").mockImplementation(() => {});
 
-    await pollGitHubEvents(store);
+    await poll(store);
 
     expect(commitRows(store).map((e) => e.dedupe_key)).toEqual([`commit:${REPO}:g1`]);
   });
@@ -284,7 +297,7 @@ describe("line counts at ingest", () => {
   it("gives a new own commit both columns, from the poll", async () => {
     commitDetails = { [SHA]: detail(1) };
     const store = createMemoryStore();
-    await pollGitHubEvents(store);
+    await poll(store);
     expect(commitLines(store)).toEqual([[12, 3]]);
   });
 
@@ -324,7 +337,7 @@ describe("line counts at ingest", () => {
     commitDetails = { [SHA]: detail(1) };
     const store = createMemoryStore();
     await deliverPush(store);
-    await pollGitHubEvents(store);
+    await poll(store);
     await deliverPush(store);
     expect(commitLookups()).toBe(1);
   });

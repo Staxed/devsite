@@ -244,7 +244,7 @@ Summaries send:
 - **Weekly summary** — every Monday (for the previous week)
 - **Monthly summary** — on the 1st of each month (for the previous month)
 
-The poll is a complement to webhooks — it catches events that webhooks may miss and enables:
+The poll is a safety net for the webhook: for each repo ticked Include, it reads the repo's events feed and its default-branch commits from the last 12 hours, and stores whatever the webhook missed. It uses the same dedupe keys as the webhook and the backfill, so nothing is stored twice:
 - **Storage only** — the poll and the webhook store events and send nothing to Discord; the hourly digest posts them
 
 ---
@@ -271,7 +271,7 @@ ADMIN_WALLET_ADDRESS=0x189e78Ed23EdBDDD2E2B302c1B9111465fB87795
 GITHUB_APP_ID=123456
 GITHUB_APP_PRIVATE_KEY=LS0tLS1CRUdJTi...  (base64-encoded PEM, no newlines)
 GITHUB_WEBHOOK_SECRET=your_webhook_secret
-GITHUB_EVENTS_TOKEN=ghp_...  (classic PAT with read:user and repo scopes; the poll reads your events with it, and the webhook and poll read each new own commit's line counts with it)
+GITHUB_EVENTS_TOKEN=ghp_...  (classic PAT with read:user and repo scopes; the poll and the backfill read your included repos with it, and the webhook and poll read each new own commit's line counts with it)
 
 # Discord
 DISCORD_APP_ID=your_discord_app_id
@@ -384,7 +384,7 @@ DISCORD_APP_ID=your_id DISCORD_BOT_TOKEN=your_token npx tsx scripts/register-dis
 ### F. Backfill Historical Data
 1. Visit `https://staxed.dev/activity/admin/backfill`
 2. Click **Discover Repos** — every repo you own, collaborate on or reach through an organization appears (needs `GITHUB_EVENTS_TOKEN`)
-3. Click **Backfill All Commits** to import the last two years of your commits on each default branch
+3. Click **Backfill Included** to import, for each included repo, the last two years of your commits on the default branch, PRs, issues, comments, reviews, releases, forks and stars, plus branch and tag events as far back as GitHub's repo events feed reaches (about 90 days)
 4. Click **Backfill PRs** to import your PRs, searched in date windows under GitHub's 1000-result cap
 5. Click **Finalize (award achievements)** to replay the stored history and record the achievements it earned, with their historical dates
 6. Visit `/activity` — the timeline and badges are populated. The backfill marks its rows as posted and sends nothing to Discord, and the next poll posts no achievements from the replay
