@@ -24,6 +24,9 @@ export default defineConfig(({ isPreview }) => ({
     // Both are on for the Worker in the dashboard; the strict deploy aborts if these differ.
     workersDev: true,
     previewUrls: true,
+    // Workers Logs, so cron runs and errors are visible in the dashboard. Must match the
+    // dashboard toggle: a deploy without it turns observability back off.
+    observability: { enabled: true },
     // Poll every 30 minutes; the scheduled handler decides what to run (lib/cron/tick.ts).
     // Previews reject the triggers field and never run cron, so a Preview build leaves it out.
     triggers: isPreview ? [] : [triggers.scheduled({ schedule: "*/30 * * * *" })],
