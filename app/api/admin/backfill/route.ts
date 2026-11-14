@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdmin } from "@/lib/auth/admin";
 import { createAdminClient } from "@/lib/supabase/server";
-import { discoverRepos, backfillRepoCommits, backfillPRs } from "@/lib/github/backfill";
+import { discoverRepos, backfillRepoCommits, backfillRepoPRs, backfillPRs } from "@/lib/github/backfill";
+import { backfillRepoActivity } from "@/lib/github/backfill-activity";
 import { createSupabaseStore } from "@/lib/activity/store";
 import { replayAchievements } from "@/lib/achievements/engine";
 import { getSettings } from "@/lib/settings";
@@ -99,29 +100,34 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Repo not found" }, { status: 404 });
       }
 
-      const inserted = await backfillRepoCommits(
-        {
-          id: Number(repo.provider_repo_id),
-          full_name: `${repo.owner}/${repo.name}`,
-          owner: repo.owner,
-          name: repo.name,
-          visibility: repo.visibility as "public" | "private",
-        },
-        sinceDate
-      );
+      const discovered = {
+        id: Number(repo.provider_repo_id),
+        full_name: `${repo.owner}/${repo.name}`,
+        owner: repo.owner,
+        name: repo.name,
+        visibility: repo.visibility as "public" | "private",
+      };
 
-      // Update sync state
-      await supabase.from("sync_state").upsert(
-        {
-          sync_type: "backfill_commits",
-          scope: repo.provider_repo_id,
-          cursor: { last_since: sinceDate },
-          last_synced_at: new Date().toISOString(),
-        },
-        { onConflict: "sync_type,scope" }
-      );
+      const commits = await backfillRepoCommits(discovered, sinceDate);
+      const prs = await backfillRepoPRs(discovered, sinceDate);
+      // Sections of this one fail on their own and come back in `errors`; commits and PRs above throw
+      const activity = await backfillRepoActivity(discovered, sinceDate);
+      const inserted = commits + prs + activity.inserted;
 
-      return NextResponse.json({ inserted, repo: `${repo.owner}/${repo.name}` });
+      // A repo with a failed section stays "to backfill" so it can be run again; stored events are never duplicated
+      if (activity.errors.length === 0) {
+        await supabase.from("sync_state").upsert(
+          {
+            sync_type: "backfill_commits",
+            scope: repo.provider_repo_id,
+            cursor: { last_since: sinceDate },
+            last_synced_at: new Date().toISOString(),
+          },
+          { onConflict: "sync_type,scope" }
+        );
+      }
+
+      return NextResponse.json({ inserted, repo: `${repo.owner}/${repo.name}`, found: activity.found, errors: activity.errors });
     }
 
     case "backfill_prs": {

@@ -133,7 +133,7 @@ export async function createAuthenticatedOctokit(): Promise<Octokit> {
 }
 
 /** The backfill reads Staxed's own activity, private repos included, with his personal token. */
-function createEventsOctokit(): Octokit {
+export function createEventsOctokit(): Octokit {
   const token = process.env.GITHUB_EVENTS_TOKEN;
   if (!token) throw new Error("GITHUB_EVENTS_TOKEN is not set; the backfill reads Staxed's repos with it");
   return new Octokit({ auth: token });
@@ -150,8 +150,7 @@ export interface DiscoveredRepo {
 }
 
 /** Every repo Staxed owns, collaborates on or reaches through an organization. */
-export async function discoverRepos(): Promise<DiscoveredRepo[]> {
-  const octokit = createEventsOctokit();
+export async function discoverRepos(octokit: Octokit = createEventsOctokit()): Promise<DiscoveredRepo[]> {
   const repos = await octokit.paginate(octokit.rest.repos.listForAuthenticatedUser, {
     affiliation: "owner,collaborator,organization_member",
     per_page: 100,
@@ -167,16 +166,16 @@ export async function discoverRepos(): Promise<DiscoveredRepo[]> {
 }
 
 /**
- * Store Staxed's commits on the repo's default branch since `since`.
- * Rows are written as already posted: a backfill never sends anything to Discord.
+ * Staxed's commits on the repo's default branch since `since`, as events.
+ * The backfill marks them already posted; the poll leaves them unposted so the hourly digest sends them.
  */
-export async function backfillRepoCommits(
+export async function fetchRepoCommitEvents(
+  octokit: Octokit,
   repo: DiscoveredRepo,
   since: string,
-  store: ActivityStore = createSupabaseStore()
-): Promise<number> {
+  markPosted: boolean
+): Promise<NewEvent[]> {
   const { github_username, timezone } = await getSettings();
-  const octokit = createEventsOctokit();
 
   const isPrivateRepo = repo.visibility === "private";
   const repoHash = await hashRepoName(repo.full_name);
@@ -190,7 +189,7 @@ export async function backfillRepoCommits(
     per_page: 100,
   });
 
-  const events: NewEvent[] = commits.map((commit) => {
+  return commits.map((commit): NewEvent => {
     const timestamp = commit.commit.author?.date || new Date().toISOString();
     const subject = (commit.commit.message || "").split("\n")[0];
 
@@ -206,7 +205,7 @@ export async function backfillRepoCommits(
       dedupe_key: `commit:${repo.full_name}:${commit.sha}`,
       repo_visibility: repo.visibility,
       repo_hash: repoHash,
-      posted_to_discord: true,
+      ...(markPosted ? { posted_to_discord: true } : {}),
     };
 
     if (isPrivateRepo) {
@@ -226,7 +225,18 @@ export async function backfillRepoCommits(
       visibility: "public" as const,
     };
   });
+}
 
+/**
+ * Store Staxed's commits on the repo's default branch since `since`.
+ * Rows are written as already posted: a backfill never sends anything to Discord.
+ */
+export async function backfillRepoCommits(
+  repo: DiscoveredRepo,
+  since: string,
+  store: ActivityStore = createSupabaseStore()
+): Promise<number> {
+  const events = await fetchRepoCommitEvents(createEventsOctokit(), repo, since, true);
   return insertNewEvents(store, events);
 }
 
@@ -242,9 +252,10 @@ async function searchPullRequestsInWindow(
   octokit: Octokit,
   username: string,
   fromDate: string,
-  toDate: string
+  toDate: string,
+  repoFullName?: string
 ): Promise<SearchedPullRequest[]> {
-  const q = `author:${username} type:pr created:${fromDate}..${toDate}`;
+  const q = `author:${username} type:pr${repoFullName ? ` repo:${repoFullName}` : ""} created:${fromDate}..${toDate}`;
   const { data } = await octokit.rest.search.issuesAndPullRequests({ q, per_page: 1 });
   if (data.total_count <= SEARCH_RESULT_CAP) {
     return octokit.paginate(octokit.rest.search.issuesAndPullRequests, { q, per_page: 100 });
@@ -256,34 +267,18 @@ async function searchPullRequestsInWindow(
   const midDate = new Date(fromMs + Math.floor((Date.parse(toDate) - fromMs) / DAY_MS / 2) * DAY_MS).toISOString().slice(0, 10);
   const nextDate = new Date(Date.parse(midDate) + DAY_MS).toISOString().slice(0, 10);
   return [
-    ...(await searchPullRequestsInWindow(octokit, username, fromDate, midDate)),
-    ...(await searchPullRequestsInWindow(octokit, username, nextDate, toDate)),
+    ...(await searchPullRequestsInWindow(octokit, username, fromDate, midDate, repoFullName)),
+    ...(await searchPullRequestsInWindow(octokit, username, nextDate, toDate, repoFullName)),
   ];
 }
 
-/** Store Staxed's PRs created since `since`, as already posted. With `onlyRepos`, PRs in other repos are skipped. */
-export async function backfillPRs(
-  since: string,
-  store: ActivityStore = createSupabaseStore(),
+/** The PR events for these search results, as already posted. With `onlyRepos`, PRs in other repos are skipped. */
+async function pullRequestEvents(
+  prs: SearchedPullRequest[],
+  timezone: string,
+  isPrivateRepo: (repoFullName: string) => boolean,
   onlyRepos?: Set<string>
-): Promise<number> {
-  if (onlyRepos && onlyRepos.size === 0) return 0;
-  const { github_username, timezone } = await getSettings();
-  const octokit = createEventsOctokit();
-
-  const prs = await searchPullRequestsInWindow(
-    octokit,
-    github_username,
-    since.split("T")[0],
-    todayInTimezone(timezone)
-  );
-
-  // Build a set of known private repo names from discovered repos
-  const discoveredRepos = await discoverRepos();
-  const privateRepoNames = new Set(
-    discoveredRepos.filter((r) => r.visibility === "private").map((r) => r.full_name)
-  );
-
+): Promise<NewEvent[]> {
   const events: NewEvent[] = [];
   for (const pr of prs) {
     const repoUrl = pr.repository_url || "";
@@ -291,7 +286,7 @@ export async function backfillPRs(
     const repoFullName = `${repoParts[repoParts.length - 2]}/${repoParts[repoParts.length - 1]}`;
     if (onlyRepos && !onlyRepos.has(repoFullName)) continue;
     const repoHash = await hashRepoName(repoFullName);
-    const isPrivate = privateRepoNames.has(repoFullName);
+    const isPrivate = isPrivateRepo(repoFullName);
 
     let kind: string;
     if (pr.state === "open") kind = "pr_opened";
@@ -319,6 +314,49 @@ export async function backfillPRs(
       posted_to_discord: true,
     });
   }
+  return events;
+}
 
+/** Store Staxed's PRs created since `since`, as already posted. With `onlyRepos`, PRs in other repos are skipped. */
+export async function backfillPRs(
+  since: string,
+  store: ActivityStore = createSupabaseStore(),
+  onlyRepos?: Set<string>
+): Promise<number> {
+  if (onlyRepos && onlyRepos.size === 0) return 0;
+  const { github_username, timezone } = await getSettings();
+  const octokit = createEventsOctokit();
+
+  const prs = await searchPullRequestsInWindow(
+    octokit,
+    github_username,
+    since.split("T")[0],
+    todayInTimezone(timezone)
+  );
+
+  // Build a set of known private repo names from discovered repos
+  const discoveredRepos = await discoverRepos();
+  const privateRepoNames = new Set(
+    discoveredRepos.filter((r) => r.visibility === "private").map((r) => r.full_name)
+  );
+
+  return insertNewEvents(store, await pullRequestEvents(prs, timezone, (name) => privateRepoNames.has(name), onlyRepos));
+}
+
+/** Store Staxed's PRs in one repo created since `since`, as already posted; the repo's visibility is already known. */
+export async function backfillRepoPRs(
+  repo: DiscoveredRepo,
+  since: string,
+  store: ActivityStore = createSupabaseStore()
+): Promise<number> {
+  const { github_username, timezone } = await getSettings();
+  const prs = await searchPullRequestsInWindow(
+    createEventsOctokit(),
+    github_username,
+    since.split("T")[0],
+    todayInTimezone(timezone),
+    repo.full_name
+  );
+  const events = await pullRequestEvents(prs, timezone, () => repo.visibility === "private", new Set([repo.full_name]));
   return insertNewEvents(store, events);
 }
