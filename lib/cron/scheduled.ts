@@ -32,7 +32,10 @@ export function createScheduled(workerFetch: WorkerFetch) {
           headers: { "x-cron-secret": secret },
         });
         const response = await workerFetch(request, env, ctx);
-        if (!response.ok) throw new Error(`Cron ${call} failed: ${response.status}`);
+        // One line per step in Workers Logs: the poll's fetched/newEvents, the digest's lines.
+        const body = await response.text();
+        if (!response.ok) throw new Error(`Cron ${call} failed: ${response.status} ${body}`);
+        console.log(`Cron ${call}: ${body}`);
       }
     };
     ctx.waitUntil(run());
